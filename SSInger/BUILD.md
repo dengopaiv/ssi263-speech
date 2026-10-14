@@ -221,6 +221,15 @@ screen-reader-friendly way to play SSInger, on every OS:
 | Carrier | Internal, External (sidechain) |
 | Volume | "-1.9 dB" (-inf to +3.5 dB) |
 
+"Pitch glide (R1)" only does something when "Phoneme DUR" is 3: DUR 3 puts
+the chips in the SSI-263's pitch-glide mode, where each new note glides to
+its pitch at the Glide rate instead of jumping (in the engine's chip model,
+Glide 0 to 2 are the slow ones and 3 to 7 about twice as fast), and every
+phoneme is one frame long, as DUR 3 is on the chip. The chip reads its mode
+only as it powers up, so moving DUR into or out of 3 power-cycles the chips
+and the held phoneme starts again; DUR 0 to 2 change only each phoneme's
+length, longest to shortest.
+
 The three "Chip N filter offset (tour rig)" parameters only do something
 when Voices is "Quad (tour rig)"; with one voice they are stored and have
 no effect. In the tour rig the mod wheel (CC1, with the default Clock bend

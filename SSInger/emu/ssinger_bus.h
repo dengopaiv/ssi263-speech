@@ -116,9 +116,50 @@ static void ssinger_bus_sc_write(int voice, int addr, int value, void *ctx)
         return;
     }
     b->regs_mirror[voice][a] = value;
-    if (a == 1)
+    /* Outside the pitch-glide mode each new pitch lands at once; in it the
+     * chip glides to it at R1's glide rate, so nothing snaps. */
+    if (a == 1 && ssi263_mode(b->chip[voice]) != 3)
         ssi263_set_snap_pitch(b->chip[voice], 1);
     ssi263_write(b->chip[voice], a, value);
+}
+
+/* The mode a chip powers up in for a DUR setting: 3 (pitch glides) for
+ * DUR 3, else 2 (phoneme timing, transitions immediate). Never 0 or 1:
+ * mode 0 asks for no next phoneme (nothing would sustain) and mode 1 makes
+ * every phoneme one frame, whatever its DUR bits. */
+static int ssinger_chip_mode(int dur)
+{
+    return (dur & 3) == 3 ? 3 : 2;
+}
+
+/* Phoneme DUR knob. The chip reads its mode from R0 bits 6-7 only on the
+ * CTL 1->0 edge (ssi263.c ssi263_write), so moving into or out of DUR 3
+ * power-cycles every chip the way a firmware would: CTL on, R0 with the new
+ * mode bits, CTL off. Each voice's pitch then goes out again in the new
+ * mode's R1 layout and its phoneme starts again. Within a mode only each
+ * phoneme's duration bits change, from the next phoneme on. */
+static void ssinger_bus_set_dur(ssinger_bus_t *b, int dur)
+{
+    int i, r0;
+    dur &= 3;
+    if (ssinger_chip_mode(dur) == ssinger_chip_mode(b->fw.cfg.dur)) {
+        b->fw.cfg.dur = dur;
+        return;
+    }
+    b->fw.cfg.dur = dur;
+    for (i = 0; i < b->nvoices; i++) {
+        if (!b->chip[i])
+            continue;
+        r0 = (ssinger_chip_mode(dur) << 6) | (b->fw.v[i].phoneme & 0x3F);
+        ssi263_write(b->chip[i], 3, b->regs_mirror[i][3] | 0x80);
+        ssi263_write(b->chip[i], 0, r0);
+        b->regs_mirror[i][0] = r0;
+        ssi263_set_snap_pitch(b->chip[i], 1);   /* the held pitch lands in the new mode at once */
+        ssi263_write(b->chip[i], 3, b->regs_mirror[i][3] & 0x7F);
+        ssinger_write_inflection(&b->fw, i, b->fw.v[i].inflection);
+        ssi263_set_snap_pitch(b->chip[i], 0);   /* and the next note glides */
+        ssinger_write_r0(&b->fw, i, b->fw.v[i].phoneme);
+    }
 }
 
 /* Walk each chip's R4 toward its target (called per render chunk). */
@@ -274,9 +315,9 @@ static int ssinger_bus_init(ssinger_bus_t *b, double sample_rate, int nvoices,
     for (i = 0; i < SG_NVOICES_MAX; i++)
         for (a = 0; a < 5; a++)
             b->regs_mirror[i][a] = 0;
-    /* Sane power-on register set: DUR from cfg, tone FF, mid rate/art. */
+    /* Sane power-on register set: the mode for cfg's DUR, tone FF, mid rate/art. */
     for (i = 0; i < nvoices; i++) {
-        b->regs_mirror[i][0] = (b->fw.cfg.dur & 3) << 6;
+        b->regs_mirror[i][0] = ssinger_chip_mode(b->fw.cfg.dur) << 6;
         b->regs_mirror[i][2] = (b->fw.cfg.rate & 15) << 4;
         b->regs_mirror[i][3] = (b->fw.cfg.articulation & 7) << 4;
         b->regs_mirror[i][4] = b->fw.v[i].filter_ff; /* FF + the chip's tour-rig offset */

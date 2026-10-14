@@ -1150,6 +1150,85 @@ static void test_tour_filter_offsets(void)
     }
 }
 
+/* ---- Phoneme DUR 3 = the pitch-glide mode (spacepup: Glide never glided) */
+
+/* The chip's pitch state: [0] where the I10..I3 part is now, [1] its target. */
+static void chip_pitch(ssinger_bus_t *b, double *now, double *target)
+{
+    double st[64];
+    ssi263_state(b->chip[0], st, 64);
+    *now = st[2];
+    *target = st[3];
+}
+
+static void test_dur_glide_mode(void)
+{
+    static double out[44100];
+    ssinger_bus_t b;
+    ssi263_params p;
+    double now, tgt, tgt60;
+    int r1;
+    ssi263_default_params(&p);
+    CHECK(ssinger_bus_init(&b, 44100.0, 1, &p, ssi263_default_rom()), "glide init");
+    CHECK(ssi263_mode(b.chip[0]) == 2, "powers up in mode 2 (got %d)", ssi263_mode(b.chip[0]));
+    bus_midi3(&b, 0x91, 60, 100);
+    bus_midi3(&b, 0x90, 48, 100);
+    ssinger_bus_run(&b, 441, out);
+
+    /* The knob to 3, the way the plug-in turns it: the chip re-latches. */
+    b.fw.cfg.glide = 2;
+    ssinger_bus_set_dur(&b, 3);
+    CHECK(ssi263_mode(b.chip[0]) == 3, "DUR 3 puts the chip in the pitch-glide mode (got mode %d)",
+          ssi263_mode(b.chip[0]));
+    r1 = b.regs_mirror[0][1];
+    CHECK((r1 & 7) == 2, "R1's low bits carry the glide rate (R1 %02X)", r1);
+    CHECK((b.regs_mirror[0][0] >> 6) == 3 && (b.regs_mirror[0][0] & 0x3F) == b.fw.v[0].phoneme,
+          "the held phoneme starts again (R0 %02X)", b.regs_mirror[0][0]);
+    chip_pitch(&b, &now, &tgt60);
+    CHECK(now == tgt60 && tgt60 == (double)(((b.fw.v[0].inflection >> 6) & 0x1F) * 64),   /* I11 is in R2 */
+          "the held note's pitch lands at once, at its coarse glide-mode value (%.0f, target %.0f)", now, tgt60);
+
+    /* Legato to the octave: the chip glides there, it doesn't jump. */
+    bus_midi3(&b, 0x91, 72, 100);
+    bus_midi3(&b, 0x81, 60, 0);
+    chip_pitch(&b, &now, &tgt);
+    CHECK(tgt > tgt60, "the octave's target is higher (%.0f vs %.0f)", tgt, tgt60);
+    ssinger_bus_run(&b, 441, out);   /* 10 ms */
+    chip_pitch(&b, &now, &tgt);
+    CHECK(now > tgt60 && now < tgt, "10 ms in, the pitch is on its way (%.0f, from %.0f to %.0f)",
+          now, tgt60, tgt);
+    ssinger_bus_run(&b, 44100, out);
+    chip_pitch(&b, &now, &tgt);
+    CHECK(now == tgt, "a second in, it has arrived (%.0f of %.0f)", now, tgt);
+
+    /* Back out of 3, even with the knob on 0: mode 2, never 0 (no sustain) or 1. */
+    ssinger_bus_set_dur(&b, 0);
+    CHECK(ssi263_mode(b.chip[0]) == 2, "DUR 0 after 3 is mode 2 again (got mode %d)", ssi263_mode(b.chip[0]));
+    r1 = b.regs_mirror[0][1];
+    CHECK(r1 == ((b.fw.v[0].inflection >> 3) & 0xFF), "R1 is all pitch again (R1 %02X)", r1);
+    bus_midi3(&b, 0x91, 60, 100);
+    bus_midi3(&b, 0x81, 72, 0);
+    chip_pitch(&b, &now, &tgt);
+    CHECK(now == tgt, "outside glide mode a new note lands at once (%.0f of %.0f)", now, tgt);
+    ssinger_bus_run(&b, 4410, out);
+    CHECK((b.regs_mirror[0][0] >> 6) == 0, "the held phoneme keeps sustaining with DUR 0's bits (R0 %02X)",
+          b.regs_mirror[0][0]);
+
+    /* DUR 0 to 2 stays in mode 2: only the next phoneme's duration bits change. */
+    ssinger_bus_set_dur(&b, 1);
+    CHECK(ssi263_mode(b.chip[0]) == 2, "DUR 1 keeps mode 2 (got mode %d)", ssi263_mode(b.chip[0]));
+    ssinger_bus_free(&b);
+
+    /* Control: 0.8.0 only stored the knob (cfg.dur = 3); the chip stayed in mode 2,
+     * which the mode check above rejects. */
+    CHECK(ssinger_bus_init(&b, 44100.0, 1, &p, ssi263_default_rom()), "glide control init");
+    b.fw.cfg.dur = 3;
+    bus_midi3(&b, 0x91, 60, 100);
+    CHECK(ssi263_mode(b.chip[0]) == 2, "control: storing DUR 3 alone leaves mode 2 (got %d)",
+          ssi263_mode(b.chip[0]));
+    ssinger_bus_free(&b);
+}
+
 /* ---- tour-rig loudness (spacepup: "much quieter than solo") ----------- */
 
 /* A sung line on the first `nsing` chips (channel pairs 1/2, 3/4, ...),
@@ -1243,6 +1322,7 @@ int main(void)
     test_tour_filter_wheel();
     test_tour_filter_offsets();
     test_tour_loudness();
+    test_dur_glide_mode();
     printf("%s: %d checks, %d failures\n",
            failures ? "FAIL" : "PASS", checks, failures);
     return failures ? 1 : 0;

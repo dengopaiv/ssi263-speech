@@ -200,7 +200,9 @@ void SSIngerProcessor::applyParams(ssinger_bus_t& bus)
     int newRate = (int)get(ids::rate);
     int newArt = (int)get(ids::artic);
     int newGlide = (int)get(ids::glide);
-    int newDur = (int)get(ids::dur);
+    /* First, so a Glide or Rate change below already writes R1 in the
+     * mode's layout; crossing DUR 3 re-latches the chips' mode. */
+    ssinger_bus_set_dur(&bus, (int)get(ids::dur));
     if (newRate != cfg.rate || newGlide != cfg.glide) {
         cfg.rate = newRate & 15;
         cfg.glide = newGlide & 7;
@@ -212,7 +214,6 @@ void SSIngerProcessor::applyParams(ssinger_bus_t& bus)
         for (int v = 0; v < bus.nvoices; v++)
             ssinger_write_r3(&bus.fw, v, bus.fw.v[v].amplitude);
     }
-    cfg.dur = newDur & 3;
     cfg.vel_curve = (int)get(ids::velCurve);
     cfg.bend_range_st = get(ids::bendRange);
 
