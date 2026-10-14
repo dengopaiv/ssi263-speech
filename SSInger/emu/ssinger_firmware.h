@@ -415,13 +415,36 @@ static void ssinger_write_r0(ssinger_state_t *s, int voice, int phon)
  * (I>>3)&7 differed from the glide setting (up to hundreds of cents).
  * In DUR=3 the engine reads (R1>>3)*64 and the low bits are glide speed,
  * so pitch there is inherently coarse and glide keeps the bits. */
+/* Glide mode reaches only I = I11*2048 + 64k + j (k 0-31 from R1, j 0-7 from
+ * R2): the nearest of those to I in pitch, i.e. in period (4096 - I). Cutting
+ * I5..I3 off instead put every note flat, up to 605 cents at A#5. */
+static int ssinger_glide_nearest(int infl)
+{
+    int best = infl & 0x807, hi, k, j, v, d, bd = 1 << 30;
+    for (hi = 0; hi <= 0x800; hi += 0x800)
+        for (k = 0; k < 32; k++) {
+            j = (infl & 0xFFF) - hi - 64 * k;
+            j = j < 0 ? 0 : j > 7 ? 7 : j;
+            v = hi + 64 * k + j;
+            d = v > infl ? v - infl : infl - v;
+            /* the same count error weighs more where the period is short */
+            d = (int)((double)d * 4096.0 / (double)(4096 - (v > infl ? v : infl)));
+            if (d < bd) {
+                bd = d;
+                best = v;
+            }
+        }
+    return best;
+}
+
 static void ssinger_write_inflection(ssinger_state_t *s, int voice, int infl)
 {
     int r1, r2lo;
     s->v[voice].inflection = infl & 0xFFF;
-    if ((s->cfg.dur & 3) == 3)
-        r1 = ((infl >> 3) & 0xF8) | (s->cfg.glide & 7);
-    else
+    if ((s->cfg.dur & 3) == 3) {
+        infl = ssinger_glide_nearest(infl & 0xFFF);
+        r1 = (((infl >> 6) & 0x1F) << 3) | (s->cfg.glide & 7);
+    } else
         r1 = (infl >> 3) & 0xFF;
     r2lo = (((infl >> 11) & 1) << 3) | (infl & 7);
     ssinger_emit(s, voice, SG_SC_R1, r1);

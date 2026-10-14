@@ -228,7 +228,12 @@ Glide 0 to 2 are the slow ones and 3 to 7 about twice as fast), and every
 phoneme is one frame long, as DUR 3 is on the chip. The chip reads its mode
 only as it powers up, so moving DUR into or out of 3 power-cycles the chips
 and the held phoneme starts again; DUR 0 to 2 change only each phoneme's
-length, longest to shortest.
+length, longest to shortest. Glide mode tunes coarsely, because the glide rate
+takes three of the pitch bits: the chip then has 32 coarse pitch steps (plus
+8 fine ones), and SSInger plays the nearest of them, which leaves notes about
+half a semitone off on average over C2-C6, at worst nearly three semitones in
+the top octave. DUR 0 to 2 are tuned to within about 10 cents. Glide 0 is not
+"off": it is one of the slow glide speeds, and only DUR 0 to 2 stop gliding.
 
 The three "Chip N filter offset (tour rig)" parameters only do something
 when Voices is "Quad (tour rig)"; with one voice they are stored and have

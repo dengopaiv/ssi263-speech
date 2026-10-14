@@ -505,6 +505,71 @@ static void test_inflection_exact(void)
     }
 }
 
+/* Glide mode (DUR 3) reaches only I = I11*2048 + 64k + j: every note must
+ * land on the nearest of those in pitch (spacepup: "it glides while doing the
+ * off tuneness"). Control: cutting I5..I3 off, as 3bc29e3 did, put every note
+ * flat -- 113 cents on average over C2-C6, 605 at A#5. */
+static double cents_between(int a, int b)
+{
+    return 1200.0 * log2((4096.0 - a) / (4096.0 - b));
+}
+
+static void test_glide_tuning(void)
+{
+    ssinger_state_t s;
+    sc_log_t l;
+    int note, n = 0;
+    double sum = 0, worst = 0, sum_cut = 0;
+    fw_init(&s, &l);
+    s.cfg.dur = 3;
+    s.cfg.glide = 2;
+    for (note = 36; note <= 84; note++) {
+        uint8_t on[] = { 0x91, (uint8_t)note, 100 };
+        uint8_t off[] = { 0x81, (uint8_t)note, 0 };
+        int i, r1 = -1, r2 = -1, want, got, hi, k, j, best = 0;
+        double bc = 1e9, c;
+        l.n = 0;
+        feed(&s, on, 3);
+        for (i = 0; i < l.n; i++) {
+            if (l.addr[i] == SG_SC_R1)
+                r1 = l.value[i];
+            if (l.addr[i] == SG_SC_R2)
+                r2 = l.value[i];
+        }
+        want = ssinger_freq_to_inflection(ssinger_note_freq(note), s.cfg.xck_hz, 64);
+        if (want < 2048) {                       /* below the chip's I11 range: not a glide-mode note */
+            l.n = 0;
+            feed(&s, off, 3);
+            continue;
+        }
+        /* Engine formula, glide mode (ssi263.c update_inflection, mode 3). */
+        got = (r1 >> 3) * 64 + ((r2 >> 3) & 1) * 2048 + (r2 & 7);
+        for (hi = 0; hi <= 2048; hi += 2048)
+            for (k = 0; k < 32; k++)
+                for (j = 0; j < 8; j++) {
+                    c = fabs(cents_between(want, hi + 64 * k + j));
+                    if (c < bc) {
+                        bc = c;
+                        best = hi + 64 * k + j;
+                    }
+                }
+        CHECK((r1 & 7) == 2, "note %d keeps the glide rate in R1 (R1 %02X)", note, r1);
+        CHECK(fabs(fabs(cents_between(want, got)) - bc) < 0.5, "note %d lands on the nearest glide-mode pitch "
+              "(I %d, %+.1f cents; the nearest is I %d, %.1f cents)", note, got, cents_between(want, got), best, bc);
+        sum += fabs(cents_between(want, got));
+        sum_cut += fabs(cents_between(want, (want & 0x807) + (((want >> 6) & 0x1F) * 64)));
+        if (fabs(cents_between(want, got)) > worst)
+            worst = fabs(cents_between(want, got));
+        n++;
+        l.n = 0;
+        feed(&s, off, 3);
+    }
+    printf("glide-mode tuning, %d notes: mean %.0f cents off (cutting the bits: %.0f), worst %.0f\n",
+           n, sum / n, sum_cut / n, worst);
+    CHECK(sum / n < 0.6 * (sum_cut / n), "nearest beats cutting the bits by far (%.0f vs %.0f cents)",
+          sum / n, sum_cut / n);
+}
+
 /* Full-keyboard frequency sweep (notes 36..96 through the bus path):
  * the emitted R1/R2, reassembled per the engine formula, must land within
  * 12 cents of 12TET at 1 MHz. Fails by hundreds of cents if R1's low bits
@@ -1185,7 +1250,7 @@ static void test_dur_glide_mode(void)
     CHECK((b.regs_mirror[0][0] >> 6) == 3 && (b.regs_mirror[0][0] & 0x3F) == b.fw.v[0].phoneme,
           "the held phoneme starts again (R0 %02X)", b.regs_mirror[0][0]);
     chip_pitch(&b, &now, &tgt60);
-    CHECK(now == tgt60 && tgt60 == (double)(((b.fw.v[0].inflection >> 6) & 0x1F) * 64),   /* I11 is in R2 */
+    CHECK(now == tgt60 && tgt60 == (double)(((ssinger_glide_nearest(b.fw.v[0].inflection) >> 6) & 0x1F) * 64),
           "the held note's pitch lands at once, at its coarse glide-mode value (%.0f, target %.0f)", now, tgt60);
 
     /* Legato to the octave: the chip glides there, it doesn't jump. */
@@ -1323,6 +1388,7 @@ int main(void)
     test_tour_filter_offsets();
     test_tour_loudness();
     test_dur_glide_mode();
+    test_glide_tuning();
     printf("%s: %d checks, %d failures\n",
            failures ? "FAIL" : "PASS", checks, failures);
     return failures ? 1 : 0;
