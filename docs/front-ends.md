@@ -5,6 +5,22 @@ here was rewritten: each is the device's own code, run on an emulated copy of th
 was written for, with the emulated chip in place of the real one. The chip's A/R request
 drives each program back, so each one paces itself exactly as it did on the hardware.
 
+**Which CPUs run them.** This page describes the first hosts: Unicorn for the Speak-Out and
+the Accent-mini, z180emu for the Braille Lite, and a plain-Python 8085 for the Accent SA.
+Since 0.7, every shipping front end runs instead on MAME's extracted CPU cores
+(BSD-3-Clause), in portable C, with no GPL runtime in any package:
+
+| Front end | CPU core (`src/csrc/cpu/`) | Board (`src/csrc/`) |
+|---|---|---|
+| Speak-Out | MAME's NEC V40 | `speakout/` |
+| Braille Lite 2000 and the other Blazie units | MAME's Z180 | `blazie/` |
+| Accent-mini | MAME's 8086, under a small PC (`pc86/`) | `accentmini/` |
+| Accent SA | MAME's 8085 | `accentsa/` |
+
+The earlier hosts remain only as development references and legacy checks. What each
+firmware does, and what the machine around it must provide, is unchanged, so the sections
+below still hold.
+
 All four write the same five registers:
 
 | Register | Bits | Meaning |
@@ -57,6 +73,10 @@ document labels.
 - **First ear check:** the rules have three malformed records that the emulator predicted
   never fire, so "correct" should come out as K OU ER R EH K T. On the real unit it does:
   "core-wrecked".
+- **Two speech-box modes:** all six dots without space enters word mode; space plus all six
+  dots, then L, gives line mode, which the add-on uses. In word mode almost every "?" rise and
+  "." fall is lost; in line mode they come through, and the add-on follows the unit (M03,
+  2026-09-28, in [history.md](history.md)).
 - **Protocol lessons from the real unit:** it holds each line and speaks it when the next
   transmission arrives, while ^E settings act at once (so every line was spoken with the
   next line's settings until the harness sent an empty flush line after each one). ^X cuts

@@ -1,7 +1,18 @@
 # Open questions
 
-What isn't known yet, as of 0.5.0. Each one says where it would be settled: the die, the
-recordings, or the ear.
+What isn't known yet. Written at 0.5.0 (engine v0.12) and brought up to date for 0.8 (engine
+v0.18). Where later work answered or narrowed a question, the item says so and points to
+[history.md](history.md). Each one says where it would be settled: the die, the recordings,
+or the ear.
+
+## Settled since 0.5.0
+
+- **The Braille Lite's "?"** (listed below under the front ends until 0.8). The unit has two
+  speech-box modes. Word mode (all six dots, no space) was how the MASTER recordings were made,
+  and it loses almost every "?" rise and "." fall. Line mode (space plus all six dots, then L)
+  is what the add-on uses: there every question rises and every statement falls, and the
+  add-on follows the unit (M03, 2026-09-28). "Questions never rise" was the mode, not the
+  chip, and not a reason for a different pitch mechanism.
 
 ## On the die
 
@@ -9,8 +20,10 @@ recordings, or the ear.
   not a traced fact. Column = 63 − code rests on Casso's reading of the decoder; neither
   later reader has traced the decoder independently.
 - **What each ROM row drives.** The interleaved field layout fits the data; none of it is
-  traced from row to latch to analog control. In particular: is PAR F1's lowest bit? Does
-  NAS drive F2Q? Where do the flags b00–b04 go: a closure gate, noise routing, or the
+  traced from row to latch to analog control. (Engine v0.16 fitted F1's code-to-frequency
+  rule and bandwidth from ROM vowel pairs that differ only in F1, played on the real chip:
+  acoustic evidence for the F1 rule, not a trace of what PAR drives.) In particular: is PAR
+  F1's lowest bit? Does NAS drive F2Q? Where do the flags b00–b04 go: a closure gate, noise routing, or the
   no-frication and no-voice gates an SC-01 patent shows? Is there a closure-delay counter?
 - **Where F4 comes from, and whether F5 is fixed.** No ROM field supplies F4, and the
   design paper's two figures disagree about F5. What are the clock-scaled features at about
@@ -38,7 +51,11 @@ recordings, or the ear.
   a CPU batch rather than scaling durations.
 - **Dark J and SH at 4–6 kHz,** and stop releases 11–41 dB short at 4–9 kHz. The noise enters
   at F2 and F5, and the two paths can cancel by phase, so more F5 weight isn't simply more
-  power. The SC-01's high-pass noise shaper is worth testing on the recordings.
+  power. The SC-01's high-pass noise shaper is worth testing on the recordings. Since v0.17
+  the noise runs through F2..F5 sections of its own, beside the voice's (the voice is v0.16's
+  sample for sample). The measured noise shapes came much closer, while some levels are still
+  off (F, TH and Z too quiet). That is a model construction, not an identified circuit:
+  separate voice and noise poles are not proven.
 - **The B release in "robotic":** the real Accent has about 30 ms of broadband noise there;
   ours has none.
 - **Voiced closures** on the unit show a voice bar at about −14 to −19 dB re the line; ours
@@ -82,7 +99,5 @@ recordings, or the ear.
 
 ## On the front ends
 
-- **The Braille Lite's "?"** never rises on the real unit, but the emulated firmware raises
-  it, and places its punctuation tokens differently.
 - **Volume above 7** compresses on the unit; where is unknown.
 - **The Accent SA's clock** (3.072 MHz is a guess) and its first-word delay.
