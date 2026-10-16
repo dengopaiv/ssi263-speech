@@ -8,6 +8,8 @@
  *                                       answered: "are you sure?"); its key latency and options menu from its
  *                                       factory setup (tns_setup.h)
  * (run_tests passes the source tree's firmware/blazie files)
+ * The English Braille Lite (BL2ENG.BNS) also has its double-speed switch keyed, with the upgrade and without
+ * (emu_set_double_speed; TEST_EMU_DOUBLE_BREAK=1 the must-fail control).
  */
 #include <math.h>
 #include <stdio.h>
@@ -131,6 +133,35 @@ static double key_latency(const char *fw, const char *st, int quick)
 
 /* the display after the boot (at[0]), then after advance at 5 s, advance at 7 s and `third` at 9 s (at[1..3]); the
    display's cells (0: none) and the unit's model */
+/* the English Braille Lite's own double-speed switch (the status menu, + (dots 3-4-6), y, then e-chord out of the
+   menu) with the upgrade installed or not: 1 if its CPU then runs doubled (emu_double_speed_now); *setting: what
+   emu_double_speed read back.  TEST_EMU_DOUBLE_BREAK=1 never installs it (the control: the check must fail) */
+static int double_run(const char *fw, const char *st, int upgrade, int *setting)
+{
+    char err[256];
+    emu_unit *u = make(fw, st, err, sizeof err);
+    int i, block = RATE / 50, now;
+    short buf[RATE / 50];
+    static const struct { double t; int chord; } keys[] = {{8.0, 0x4C}, {11.5, 0x2C}, {14.5, 0x3D}, {17.0, 0x51}};
+    if (!u) {
+        printf("FAIL create: %s\n", err);
+        exit(1);
+    }
+    if (upgrade && !getenv("TEST_EMU_DOUBLE_BREAK"))
+        emu_set_double_speed(u, 1);
+    *setting = emu_double_speed(u);
+    for (i = 0; i < 19 * 50; i++) {
+        int k;
+        for (k = 0; k < 4; k++)
+            if (i == (int)(keys[k].t * 50))
+                emu_key(u, keys[k].chord);
+        emu_render(u, buf, block);
+    }
+    now = emu_double_speed_now(u);
+    emu_destroy(u);
+    return now;
+}
+
 static int bars_run(const char *fw, const char *st, int third, unsigned char at[4][EMU_CELLS], int *model)
 {
     char err[256];
@@ -319,6 +350,19 @@ int main(int argc, char **argv)
                      memcmp(back[3], back[2], EMU_CELLS) ? "yes" : "no",
                      memcmp(back[3], fwd[3], EMU_CELLS) ? "yes" : "no");
             check("back bar", memcmp(back[3], back[2], EMU_CELLS) && memcmp(back[3], fwd[3], EMU_CELLS), d);
+        }
+    }
+    {   /* the double-speed upgrade (emu_set_double_speed): the English Braille Lite's menu keys switch it, so only its
+           firmware is keyed; with the upgrade its CPU doubles, without it (the control) the switch changes nothing */
+        const char *base = fw, *p;
+        for (p = fw; *p; p++)
+            if (*p == '/' || *p == '\\')
+                base = p + 1;
+        if (g_kind == EMU_BRAILLE_LITE && st && (!strcmp(base, "BL2ENG.BNS") || !strcmp(base, "bl2eng.bns"))) {
+            int set_on, set_off, on = double_run(fw, st, 1, &set_on), off = double_run(fw, st, 0, &set_off);
+            snprintf(d, sizeof d, "after the unit's own switch: doubled %d with the upgrade (setting %d), %d without "
+                     "(setting %d)", on, set_on, off, set_off);
+            check("double speed", on == 1 && set_on == 1 && off == 0 && set_off == 0, d);
         }
     }
     if (ready == ready_path)

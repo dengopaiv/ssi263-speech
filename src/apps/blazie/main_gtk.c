@@ -5,8 +5,9 @@
  * the Braille Lite's keys; the Slovak unit's file names go in and out in code page 852.
  *
  * The window (README-linux.md, "The desktop app"):
- *   the menu bar -- Firmware (the units, files in and out as a disk image, the factory state, Exit), Settings (the
- *   idle channel, keep open, pop and click, tick, quick key response, sample rate, sound buffer, serial port), Help
+ *   the menu bar -- Firmware (the units, files in and out as a disk image, a restart, the factory state, Exit),
+ *   Settings (the idle channel, keep open, pop and click, tick, quick key response, the double-speed upgrade, sample
+ *   rate, sound buffer, serial port), Help
  *   (Keys, About) --
  *   with mnemonics; F11 and Alt+Shift+F open it whichever unit runs, as on Windows;
  *   the keyboard area, the one place that takes the focus: its accessible name says the unit and how to reach the
@@ -128,7 +129,7 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;   /* the unit, its ke
 static emu_unit *g_unit;
 static int g_kind;
 static int g_rate = 44100, g_block_ms = BLOCK_MS_DEFAULT;
-static int g_whine = 3, g_keep_open = 1, g_popclick = 1, g_tick = 1, g_quick;
+static int g_whine = 3, g_keep_open = 1, g_popclick = 1, g_tick = 1, g_quick, g_double;
 static char g_cfg_dir[PATH_MAX], g_ini_path[PATH_MAX], g_fw_dir[PATH_MAX];
 static char g_serial_want[PATH_MAX], g_serial_shown[PATH_MAX + 64];
 static ini *g_ini;
@@ -158,7 +159,7 @@ static GtkApplication *g_app;
 static GtkWidget *g_win, *g_area, *g_status, *g_bar, *g_firmware_item;
 static GtkWidget *g_kind_items[EMC_MAX], *g_idle_items[4], *g_open_items[3], *g_rate_items[N_RATES];
 static GtkWidget *g_buffer_items[AP_N_MODES];
-static GtkWidget *g_popclick_item, *g_tick_item, *g_quick_item, *g_serial_menu;
+static GtkWidget *g_popclick_item, *g_tick_item, *g_quick_item, *g_double_item, *g_serial_menu;
 static GtkWidget *g_brl, *g_brl_box, *g_brl_item; /* the braille display field, its row (label and field), its item */
 static int g_braille;                           /* the field shown (Settings > Braille display): [braille] display */
 static int g_bars;                              /* the bars held from Alt+Shift+Right, Left (emu_braille_bars) */
@@ -482,6 +483,7 @@ static void load_settings(void)
         if (RATES[k] == r)
             g_rate = r;
     g_quick = ini_get_int(g_ini, "unit", "quick_keys", 0) != 0;
+    g_double = ini_get_int(g_ini, "unit", "double_speed", 0) != 0;
     g_braille = ini_get_int(g_ini, "braille", "display", 0) != 0;
     if ((k = ap_mode_of(ini_get(g_ini, "sound", "buffer", "auto"))) >= 0)
         g_buffer_mode = k;
@@ -493,6 +495,7 @@ static void save_settings(void)
     char v[16];
     ini_set(g_ini, "unit", "kind", g_units[g_kind].ini);
     ini_set(g_ini, "unit", "quick_keys", g_quick ? "1" : "0");
+    ini_set(g_ini, "unit", "double_speed", g_double ? "1" : "0");
     ini_set(g_ini, "sound", "idle", IDLE_NAMES[g_whine]);
     ini_set(g_ini, "sound", "keep_open", OPEN_NAMES[g_keep_open]);
     ini_set(g_ini, "sound", "pop_click", g_popclick ? "1" : "0");
@@ -697,6 +700,7 @@ static int start_unit(int kind)
         emu_serial_attach(u, 1);                /* the new unit takes the old one's place on the line */
     emu_set_idle(u, g_whine, g_keep_open, g_popclick, g_tick);
     emu_set_quick(u, g_quick);
+    emu_set_double_speed(u, g_double);
     pthread_mutex_lock(&g_lock);
     old = g_unit;
     g_unit = u;
@@ -1583,6 +1587,7 @@ static void sync_menu(void)
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_popclick_item), g_popclick);
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_tick_item), g_tick);
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_quick_item), g_quick);
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_double_item), g_double);
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_brl_item), g_braille);
     for (k = 0; k < N_RATES; k++)
         if (RATES[k] == g_rate)
@@ -1653,6 +1658,15 @@ static void do_factory(int unused)
         set_status(1, "The %s is as it left the factory.", g_units[g_kind].name);
 }
 
+/* saved, then started from what it saved: a power cycle, its files and settings kept */
+static void do_restart(int unused)
+{
+    (void)unused;
+    release_keys();
+    if (start_unit(g_kind))
+        set_status(1, "The %s was restarted.", g_units[g_kind].name);
+}
+
 static void do_export(int unused) { (void)unused; release_keys(); export_files(); }
 static void do_import(int unused) { (void)unused; release_keys(); import_files(); }
 static void do_addprog(int unused) { (void)unused; release_keys(); add_programs(); }
@@ -1699,6 +1713,7 @@ static void do_keys(int unused)
              "Press the keys of a chord together; it goes to the unit when you let go of them.\n"
              "Keys held while the unit starts are read as it starts: p-chord, l restarts it; hold i-chord at once "
              "for the cold reset.\n"
+             "If the unit stops answering, Firmware > Restart the unit starts it again, its files kept.\n"
              "The keys can be changed in %s, section [keys].\n"
              "Alt and a letter open this program's menus (Alt+F Firmware, Alt+E Settings, Alt+H Help); Ctrl+Q exits.\n\n"
              "Type 'n Speak: the whole keyboard is the unit's, Alt and the function keys included.\n\n"
@@ -1708,6 +1723,14 @@ static void do_keys(int unused)
              "With Orca, its own keys (the Orca key, Insert or Caps Lock, and the keys pressed with it) stay Orca's "
              "and do not reach the unit.\n\n%s", g_ini_path, TNS_FIRST_START);
     message(GTK_MESSAGE_INFO, "Keys", text);
+}
+
+static void do_double_note(int unused)
+{
+    (void)unused;
+    message(GTK_MESSAGE_INFO, "Double speed", "The double-speed upgrade is installed. To use it, switch it on in the "
+            "unit: the status menu, then + (dots 3-4-6), answered y.\n\n"
+            "Blazie's advice was to switch double speed off for programs that play sounds.");
 }
 
 static void do_about(int unused)
@@ -1765,6 +1788,17 @@ static void on_toggle_item(GtkWidget *item, gpointer which)
         g_tick = on;
         apply_idle();
         set_status(1, "The 10 Hz tick: %s.", on ? "on" : "off");
+        break;
+    case 4:
+        g_double = on;
+        pthread_mutex_lock(&g_lock);
+        if (g_unit)
+            emu_set_double_speed(g_unit, g_double);
+        pthread_mutex_unlock(&g_lock);
+        if (on)
+            defer(do_double_note, 0);           /* after the menu closes: how to switch it on in the unit */
+        else
+            set_status(1, "Double-speed upgrade off.");
         break;
     default:
         g_quick = on;
@@ -1921,6 +1955,7 @@ static GtkWidget *make_menu(GtkAccelGroup *accel)
     add_item(fw, "_Import files from disk image (.img)...", G_CALLBACK(on_plain_item), (gpointer)do_import);
     add_item(fw, "_Load programs and files into flash...", G_CALLBACK(on_plain_item), (gpointer)do_addprog);
     add_separator(fw);
+    add_item(fw, "_Restart the unit (keeps its files)", G_CALLBACK(on_plain_item), (gpointer)do_restart);
     add_item(fw, "Back to the _factory state (erases this unit's files)...", G_CALLBACK(on_plain_item),
              (gpointer)do_factory);
     item = add_item(fw, "E_xit", G_CALLBACK(on_exit_item), NULL);
@@ -1959,6 +1994,10 @@ static GtkWidget *make_menu(GtkAccelGroup *accel)
     g_quick_item = gtk_check_menu_item_new_with_mnemonic("_Quick key response (faster than the real unit)");
     g_signal_connect(g_quick_item, "toggled", G_CALLBACK(on_toggle_item), GINT_TO_POINTER(2));
     gtk_menu_shell_append(GTK_MENU_SHELL(settings), g_quick_item);
+    g_double_item = gtk_check_menu_item_new_with_mnemonic("Double-speed up_grade installed (Braille Lite: its status "
+                                                          "menu's switch then works)");
+    g_signal_connect(g_double_item, "toggled", G_CALLBACK(on_toggle_item), GINT_TO_POINTER(4));
+    gtk_menu_shell_append(GTK_MENU_SHELL(settings), g_double_item);
     g_brl_item = gtk_check_menu_item_new_with_mnemonic("Braille _display in the window (Alt+Shift+B)");
     g_signal_connect(g_brl_item, "toggled", G_CALLBACK(on_toggle_item), GINT_TO_POINTER(3));
     gtk_menu_shell_append(GTK_MENU_SHELL(settings), g_brl_item);

@@ -247,6 +247,11 @@ BNS="$DATA/bns2000/BS03ENG.BNS"
 control "emulator: advance bars CONTROL (port 40h bit 7, must fail)" "^ok +braille display" "^FAIL advance bar" \
     "^FAIL back bar" "^FAILED$" -- env TEST_EMU_BARS_BREAK=1 ./build/linux/test_emu_unit bl "$DATA/BL2ENG.BNS" \
     "$DATA/bl2_2003_warm.state"
+# the double-speed upgrade (emu_set_double_speed; the English unit's run above keys its switch): never installed, the
+# unit's own switch must change nothing, so the check must fail
+control "emulator: double-speed upgrade CONTROL (never installed, must fail)" "^ok +quick key response " \
+    "^FAIL double speed +after" "^FAILED$" -- env TEST_EMU_DOUBLE_BREAK=1 ./build/linux/test_emu_unit bl \
+    "$DATA/BL2ENG.BNS" "$DATA/bl2_2003_warm.state"
 # the BT Speak's and BT Braille's keyboard server (btkb_linux.c) against a server of the test's own, the menu gesture by
 # time, the panning keys from BRLTTY's tables, the display's layout (brl_linux.c); the program with it is
 # test_emu_linux.py's btspeak.  Its control: dots 7 and 8 never wait for a chord's other keys, so the gesture typed 7

@@ -85,7 +85,7 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static emu_unit *g_unit;
 static int g_kind;
 static int g_rate = 44100, g_block_ms = BLOCK_MS_DEFAULT;
-static int g_whine = 3, g_keep_open = 1, g_popclick = 1, g_tick = 1, g_quick;
+static int g_whine = 3, g_keep_open = 1, g_popclick = 1, g_tick = 1, g_quick, g_double;
 static char g_cfg_dir[PATH_MAX], g_ini_path[PATH_MAX], g_fw_dir[PATH_MAX], g_serial[PATH_MAX];
 static char g_serial_want[PATH_MAX], g_serial_shown[PATH_MAX + 32];   /* the port, as the menu says it */
        /* the setting: kept when the port is missing at the start */
@@ -379,6 +379,7 @@ static void load_settings(void)
         if (RATES[k] == r)
             g_rate = r;
     g_quick = ini_get_int(g_ini, "unit", "quick_keys", 0) != 0;
+    g_double = ini_get_int(g_ini, "unit", "double_speed", 0) != 0;
     if ((k = ap_mode_of(ini_get(g_ini, "sound", "buffer", "auto"))) >= 0)
         g_buffer_mode = k;
 }
@@ -390,6 +391,7 @@ static void save_settings(void)
         return;
     ini_set(g_ini, "unit", "kind", g_units[g_kind].ini);
     ini_set(g_ini, "unit", "quick_keys", g_quick ? "1" : "0");
+    ini_set(g_ini, "unit", "double_speed", g_double ? "1" : "0");
     ini_set(g_ini, "sound", "idle", IDLE_NAMES[g_whine]);
     ini_set(g_ini, "sound", "keep_open", OPEN_NAMES[g_keep_open]);
     ini_set(g_ini, "sound", "pop_click", g_popclick ? "1" : "0");
@@ -558,6 +560,7 @@ static int start_unit(int kind, const char *state_given)
         emu_serial_attach(u, 1);                /* the new unit takes the old one's place on the line */
     emu_set_idle(u, g_whine, g_keep_open, g_popclick, g_tick);
     emu_set_quick(u, g_quick);
+    emu_set_double_speed(u, g_double);
     release_keys();
     pthread_mutex_lock(&g_lock);
     old = g_unit;
@@ -939,6 +942,7 @@ static void keys_help(void)
     say("  The BTSpeak's keys for chords are mapped back: Up = dot-1 chord, Enter = e-chord, Esc = 2-6-chord ...");
     say("Hold (F12 or Ctrl+K): the next chord stays held down until you press it again -- the unit reads keys held");
     say("  while it starts: p-chord, hold, i-chord, l restarts it into the cold reset; then hold again.");
+    say("  If the unit stops answering, the menu's r restarts it, its files kept.");
     say("  With an input device (evdev; the input group) keys are seen going down and up: no hold key needed.");
     say("BT Speak and BT Braille: their own keys are the Braille Lite's -- dots 1-6 and the space bar; dot 7 is the");
     say("  back bar and dot 8 the advance bar (on a BT Braille L2 or R2 back, L3 or R3 advance); M-chord with dot 7");
@@ -1217,6 +1221,9 @@ static void menu(void)
             ? "letters (each character its braille cell)" : "keys (F D S J K L)");
         say("  14 Keys (help)");
         say("  p Load programs and files into flash: programs and games (.bns), BASIC, text, braille; several at once");
+        say("  r Restart the unit (keeps its files)");
+        say("  d Double-speed upgrade installed (Braille Lite: its status menu's switch then works): %s",
+            g_double ? "on" : "off");
         for (k = N_FIRST_KINDS; k < g_n_units; k++) /* in number order: 15, 16, the sound buffer's 17, 18 on */
             if (kind_offered(k) && kind_menu_number(k) < MENU_BUFFER)
                 say("  %d %s%s", kind_menu_number(k), g_units[k].name, k == g_kind ? " (on now)" : "");
@@ -1235,6 +1242,24 @@ static void menu(void)
 chosen:
         if ((line[0] == 'p' || line[0] == 'P') && !line[1]) {   /* a letter: the units' numbers grow past 19 */
             load_programs();
+            continue;
+        }
+        if ((line[0] == 'r' || line[0] == 'R') && !line[1]) {   /* saved, then started from it: a power cycle */
+            start_unit(g_kind, NULL);
+            say("The %s was restarted.", g_units[g_kind].name);
+            goto done;
+        }
+        if ((line[0] == 'd' || line[0] == 'D') && !line[1]) {
+            g_double = !g_double;
+            pthread_mutex_lock(&g_lock);
+            if (g_unit)
+                emu_set_double_speed(g_unit, g_double);
+            pthread_mutex_unlock(&g_lock);
+            say("%s", g_double ? "Double-speed upgrade on. Switch it on in the unit: the status menu, then + "
+                                 "(dots 3-4-6), answered y. Blazie's advice was to switch it off for programs that "
+                                 "play sounds."
+                               : "Double-speed upgrade off.");
+            save_settings();
             continue;
         }
         k = atoi(line);

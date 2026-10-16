@@ -355,9 +355,12 @@ def run_main(exe, fw, tmp, want):
             need = ["Braille Lite 2000, English", "Braille Lite 2000, Spanish", "Type 'n Speak, English",
                     "Type 'n Speak, Spanish", "Export files to disk image (.img)...",
                     "Import files from disk image (.img)...", "Load programs and files into flash...",
+                    "Restart the unit (keeps its files)",
                     "Back to the factory state (erases this unit's files)...", "Exit", "Sample rate", "Sound buffer",
                     "Serial port",
-                    "Quick key response (faster than the real unit)", "Keys", "About"]
+                    "Quick key response (faster than the real unit)",
+                    "Double-speed upgrade installed (Braille Lite: its status menu's switch then works)", "Keys",
+                    "About"]
             # the Braille 'n Speak 2000: listed when its firmware and factory states are there, absent when not
             bns = bns_present(fw)
             if bns:

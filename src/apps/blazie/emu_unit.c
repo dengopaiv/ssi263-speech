@@ -448,6 +448,22 @@ void emu_set_quick(emu_unit *u, int on)
     }
 }
 
+void emu_set_double_speed(emu_unit *u, int on)
+{
+    if (u->host)
+        bh_set_int(u->host, "double_speed", on != 0);
+}
+
+int emu_double_speed(const emu_unit *u)
+{
+    return u->host ? bh_get_int(u->host, "double_speed") : 0;
+}
+
+int emu_double_speed_now(const emu_unit *u)
+{
+    return u->host ? bh_get_int(u->host, "double_speed_now") : 0;
+}
+
 double emu_time(const emu_unit *u)
 {
     return ssi263_time(u->chip);

@@ -15,7 +15,9 @@
  * doesn't).  BLAZIE_EMU_AUDIO_LOG=file logs each wake of the sound thread (its renders, the queue, the gaps found);
  * BLAZIE_EMU_AUDIO_STALL=ms holds the thread up to that long before 5% of its blocks (a test of the queue).
  * Settings: blazie_emu.ini beside the program.  Settings > Serial port plugs the unit's serial port
- * into a COM port (serial_win.c), for WinDisk, PCDISK or a terminal on the other end.
+ * into a COM port (serial_win.c), for WinDisk, PCDISK or a terminal on the other end.  Settings > Double-speed upgrade
+ * ([unit] double_speed, off) lets the Braille Lite's own switch double its CPU (emu_set_double_speed).
+ * Firmware > Restart the unit saves it and starts it from what it saved: a power cycle, its files kept.
  *
  * Firmware: firmware\ beside the program (a release carries it), or firmware_dir= in the settings.  The Braille 'n
  * Speak 2000 (bns2000\, its factory states made by make_state.exe) is in the menu when its firmware is there, and
@@ -53,6 +55,7 @@ enum { ID_EN = 100, ID_ES, ID_TNS_EN, ID_TNS_ES, ID_BNS_EN, ID_BNS_SK, ID_DE, ID
        ID_OPEN_OFF = 210, ID_OPEN_UNTIL, ID_OPEN_ALWAYS, ID_POPCLICK = 215, ID_TICK, ID_QUICK = 218, ID_BRAILLE,
        ID_RATE = 220,
        ID_BUFFER = 230,                     /* ID_BUFFER + AP_AUTO .. AP_LONG: Sound buffer */
+       ID_DOUBLE = 240, ID_RESTART,
        ID_KEYS = 300, ID_ABOUT,
        ID_SERIAL_NONE = 400, ID_SERIAL_PORT };   /* ID_SERIAL_PORT + k: g_ports[k] */
 
@@ -113,6 +116,7 @@ static volatile LONG g_save_due;         /* the minute's save, waiting for the s
 static int g_rate = 44100;               /* the sound card's rate; the unit renders at it */
 static int g_block_ms = BLOCK_MS_DEFAULT;
 static int g_quick;                      /* quick key response (emu_set_quick): off, as the real unit */
+static int g_double;                     /* the double-speed upgrade (emu_set_double_speed): off, as most units */
 static const int RATES[] = {11025, 16000, 22050, 32000, 44100, 48000};
 #define N_RATES ((int)(sizeof RATES / sizeof RATES[0]))
 static HANDLE g_wave_event, g_thread;
@@ -314,6 +318,7 @@ static int start_unit(int kind)
         emu_serial_attach(u, 1);            /* the new unit takes the old one's place on the COM port */
     emu_set_idle(u, g_whine, g_keep_open, g_popclick, g_tick);
     emu_set_quick(u, g_quick);
+    emu_set_double_speed(u, g_double);
     EnterCriticalSection(&g_lock);
     emu_destroy(g_unit);
     g_unit = u;
@@ -1044,6 +1049,7 @@ static HMENU make_menu(void)
     AppendMenuA(unit, MF_STRING, ID_IMPORT, "&Import files from disk image (.img)...");
     AppendMenuA(unit, MF_STRING, ID_ADDPROG, "&Load programs and files into flash...");
     AppendMenuA(unit, MF_SEPARATOR, 0, NULL);
+    AppendMenuA(unit, MF_STRING, ID_RESTART, "&Restart the unit (keeps its files)");
     AppendMenuA(unit, MF_STRING, ID_FACTORY, "Back to the &factory state (erases this unit's files)...");
     AppendMenuA(unit, MF_STRING, ID_EXIT, "E&xit");
     AppendMenuA(sound, MF_STRING, ID_UNITSOUND, "Idle channel: as the &unit (hiss at even volumes, whine at odd)");
@@ -1059,6 +1065,8 @@ static HMENU make_menu(void)
     AppendMenuA(sound, MF_STRING, ID_TICK, "The 10 Hz &tick of the open channel");
     AppendMenuA(sound, MF_SEPARATOR, 0, NULL);
     AppendMenuA(sound, MF_STRING, ID_QUICK, "&Quick key response (faster than the real unit)");
+    AppendMenuA(sound, MF_STRING, ID_DOUBLE, "Double-speed up&grade installed (Braille Lite: its status menu's switch "
+                "then works)");
     AppendMenuA(sound, MF_STRING, ID_BRAILLE, "Braille &display in the window\tAlt+Shift+B");
     AppendMenuA(help, MF_STRING, ID_KEYS, "&Keys");
     AppendMenuA(help, MF_STRING, ID_ABOUT, "&About");
@@ -1299,6 +1307,24 @@ static LRESULT CALLBACK wndproc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
             CheckMenuItem(GetMenu(w), ID_QUICK, MF_BYCOMMAND | (g_quick ? MF_CHECKED : MF_UNCHECKED));
             WritePrivateProfileStringA("unit", "quick_keys", g_quick ? "1" : "0", g_ini);
             return 0;
+        case ID_DOUBLE:
+            g_double = !g_double;
+            EnterCriticalSection(&g_lock);
+            if (g_unit)
+                emu_set_double_speed(g_unit, g_double);
+            LeaveCriticalSection(&g_lock);
+            CheckMenuItem(GetMenu(w), ID_DOUBLE, MF_BYCOMMAND | (g_double ? MF_CHECKED : MF_UNCHECKED));
+            WritePrivateProfileStringA("unit", "double_speed", g_double ? "1" : "0", g_ini);
+            if (g_double)
+                MessageBoxA(w, "The double-speed upgrade is installed. To use it, switch it on in the unit: the "
+                            "status menu, then + (dots 3-4-6), answered y.\n\n"
+                            "Blazie's advice was to switch double speed off for programs that play sounds.",
+                            "Double speed", MB_OK | MB_ICONINFORMATION);
+            return 0;
+        case ID_RESTART:
+            tns_release_all();
+            start_unit(g_kind);             /* saved first, then started from it: a power cycle, files kept */
+            return 0;
         case ID_BRAILLE:
             if (!g_braille)
                 MessageBoxA(w, "The unit's braille display is shown in a field in this window, which your screen "
@@ -1343,6 +1369,7 @@ static LRESULT CALLBACK wndproc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
                         "Press the keys of a chord together; it goes to the unit when you let go of them.\n"
                         "Keys held while the unit starts are read as it starts: p-chord, l restarts it; "
                         "hold i-chord at once for the cold reset.\n"
+                        "If the unit stops answering, Firmware > Restart the unit starts it again, its files kept.\n"
                         "The keys can be changed in blazie_emu.ini, section [keys].\n"
                         "Alt opens this program's menu; Alt+F4 closes it.\n\n"
                         "Type 'n Speak: the whole keyboard is the unit's, Alt and the function keys included.\n"
@@ -1479,6 +1506,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
     }
     g_quick = GetPrivateProfileIntA("unit", "quick_keys", 0, g_ini) != 0;
     CheckMenuItem(GetMenu(g_wnd), ID_QUICK, MF_BYCOMMAND | (g_quick ? MF_CHECKED : MF_UNCHECKED));
+    g_double = GetPrivateProfileIntA("unit", "double_speed", 0, g_ini) != 0;
+    CheckMenuItem(GetMenu(g_wnd), ID_DOUBLE, MF_BYCOMMAND | (g_double ? MF_CHECKED : MF_UNCHECKED));
     {
         int k, r = GetPrivateProfileIntA("sound", "rate", 44100, g_ini);
         for (k = 0; k < N_RATES; k++)

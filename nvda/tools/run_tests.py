@@ -876,6 +876,12 @@ if os.path.isfile(os.path.join(EMU, "test_emu_unit.exe")):
                         [os.path.join(EMU, "test_emu_unit.exe"), "bl", os.path.join(ENG, "BL2ENG.BNS"),
                          os.path.join(ENG, "bl2_2003_warm.state")], env={"TEST_EMU_QUICK_BREAK": "1"}, expect_fail=True,
                         fail_marks=[r"^ok +key latency ", r"^FAIL quick key response +key to first sound", r"^FAILED$"]))
+    # the double-speed upgrade (emu_set_double_speed, the apps' setting): its control never installs it
+    CHECKS.append(check("Blazie emulator: double-speed upgrade CONTROL (never installed, must fail)",
+                        [os.path.join(EMU, "test_emu_unit.exe"), "bl", os.path.join(ENG, "BL2ENG.BNS"),
+                         os.path.join(ENG, "bl2_2003_warm.state")], env={"TEST_EMU_DOUBLE_BREAK": "1"},
+                        expect_fail=True, fail_marks=[r"^ok +quick key response ", r"^FAIL double speed +after",
+                                                      r"^FAILED$"]))
 CHECKS.append(check("open channel: new speech not queued behind it", [PY, "tail_latency.py"]))
 CHECKS.append(check("open channel CONTROL (0.6.0 pacing, must fail)", [PY, "tail_latency.py"],
                     env={"TAIL_LATENCY_BREAK": "1"}, expect_fail=True,

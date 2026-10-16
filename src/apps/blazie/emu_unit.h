@@ -121,6 +121,13 @@ void emu_set_quick(emu_unit *u, int on);
 /* Quick response also ends when the Braille Lite firmware restarts (p-chord l): its start reads the keys held at the
    unit's own pace.  emu_restart_break: the tests' control (an app never sets it), nonzero keeps the old rule. */
 extern int emu_restart_break;
+/* The double-speed upgrade (off by default: it was a $99 option, not in every unit; ../../csrc/blazie/bl_board.h
+   bl_set_double_speed).  On, the Braille Lite firmware's own switch (the status menu, then + (dots 3-4-6), answered
+   y) runs its CPU twice as fast; off, that switch changes nothing, as on a unit without the upgrade.  It can change
+   while the unit runs.  emu_double_speed_now: 1 while the CPU runs doubled.  No effect on the Type 'n Speak. */
+void emu_set_double_speed(emu_unit *u, int on);
+int emu_double_speed(const emu_unit *u);
+int emu_double_speed_now(const emu_unit *u);
 /* chip time in seconds (tests) */
 double emu_time(const emu_unit *u);
 /* The file flash (../../csrc/blazie/flash29.h): its erases and writes take a 29F016's typical time, on by default --

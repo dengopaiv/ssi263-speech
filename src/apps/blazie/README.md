@@ -22,7 +22,7 @@ including the channel left open (hiss or whine) until the firmware clicks it off
 | `tns_keymap_win.c`, `.h` | A Windows key to the Type 'n Speak's key code (measured on the running firmware). |
 | `build_app.py` | Builds `blazie_emu.exe` and the test programs into `nvda/dist/blazie-emu/` (w64devkit, x64, static), the boards on MAME's Z180 (`../../csrc/cpu/z180_mame.cpp`), with the licence files beside them. |
 | `test_chords.c` | The chord logic. |
-| `test_emu_unit.c` | The unit headless: the boot greeting is heard, a chord is answered (a no-chord run is the control), faster than real time, its key latency, a save under 50 ms. |
+| `test_emu_unit.c` | The unit headless: the boot greeting is heard, a chord is answered (a no-chord run is the control), faster than real time, its key latency, a save under 50 ms; the English Braille Lite's double-speed switch with the upgrade installed and without (`TEST_EMU_DOUBLE_BREAK` the control). |
 | `test_clock.c` | The clock controller alone, then the English Braille Lite and Type 'n Speak setting and reading the time and date with their own commands, the clock going on and kept over a switch-off; and i-chord held through p-chord l's restart. `TEST_CLOCK_BREAK` / `TEST_CLOCK_HOLD_BREAK` put one bug back for run_tests' must-fail controls. |
 | `test_flash.c` | The file flash: the Type 'n Speak's ID check passes and its flash is initialised, the erase takes ~46 s (32 s and the 14.4 s preprogramming) with the firmware's clicks, the flash kept across a save and restart; the Braille Lite's reset erases the same way, and a file moved to flash lands in the 2 MB and survives a restart. `test_flash_break.exe` (the old flash put back), `test_flash_old.exe` (the erase without its preprogramming) and `--break=instant|persist` must fail. |
 | `test_idle.c` | The idle channel against Tomi's unit (the noise's level at volumes 1, 6 and 15, keep open off/until/always, the pop, the click-off, the tick); `--break=...` puts one bug back for run_tests' must-fail controls. |
@@ -161,6 +161,18 @@ a chord in the English Braille Lite's main menu, 107 ms in the Spanish one, 243 
 test_emu_unit's "key latency"), the unit's own pace at its 6.144 MHz clock.  On, the CPU runs 8 times faster from a key
 until the first spoken phoneme loads: 56, 83 and 51 ms.  The phonemes and every register value are unchanged; only the
 wait before the first one is shorter than on the real unit.
+
+Settings > Double-speed upgrade installed (`[unit] double_speed=`, off by default): the Braille Lite's double-speed
+chip was a $99 upgrade, not in every unit.  With it installed, the unit's own switch -- the status menu, then +
+(dots 3-4-6), answered y -- runs its CPU at the crystal's 12.288 MHz, twice its usual clock
+(`../../csrc/blazie/bl_board.h` `bl_set_double_speed`): the firmware answers keys sooner, while the speech, the
+clock and the serial port keep their pace.  Without it the switch changes nothing, as on a unit without the chip.
+Blazie's advice was to switch double speed off for programs that play sounds.  test_emu_unit's "double speed" keys
+the English unit's switch with the upgrade and without (its control never installs it).
+
+Firmware > Restart the unit (keeps its files): what switching a real unit off and on does -- its memory saved, then
+started again from it, the CPU from the beginning.  For a unit that has stopped answering; Back to the factory state
+is the one that erases.
 
 Settings > Sound buffer (`[sound] buffer=` in `blazie_emu.ini`; `audio_pace.h`): how much sound is kept queued at the
 sound card, in blocks of 10 ms (`[sound] block_ms`, 5-20).  A key's speech plays behind it.
