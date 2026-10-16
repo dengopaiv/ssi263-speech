@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 from frontend import capture, deep_escape, host_menu, main, menu_session, show_intro
 from keymap import DEEP_ESCAPE, MENU
 from preferences import Preferences
+from profiles import Profile
 
 
 class Connection:
@@ -67,6 +68,16 @@ def chord_events(bits):
 
 
 class FrontendTests(unittest.TestCase):
+    def setUp(self):
+        def catalog(executable, root):
+            return {key: Profile(key, label, root / firmware, root / factory, saved)
+                    for key, label, firmware, factory, saved in (
+                        ("bl-en", "English", "BL2ENG.BNS", "bl2_2003_warm.state", "english.state"),
+                        ("bl-es", "Spanish", "BL2SPA.BNS", "bl2spa_fresh.state", "spanish.state"))}
+        self.catalog_patch = patch("frontend.discover", side_effect=catalog)
+        self.catalog_patch.start()
+        self.addCleanup(self.catalog_patch.stop)
+
     def test_intro_is_shown_once_across_launches_and_preserved_by_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "preferences.json"
@@ -410,6 +421,31 @@ class FrontendTests(unittest.TestCase):
             self.assertIn(("second", "DOUBLE 1"), events)               # the upgrade carried into the restarted unit
             self.assertIn(("second", "close"), events)
             self.assertIn("Unit restarted", said)
+
+    def test_restart_after_failed_switch_keeps_the_active_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("backend", "BL2ENG.BNS", "bl2_2003_warm.state", "BL2SPA.BNS", "bl2spa_fresh.state"):
+                (root / name).touch()
+            runtime = ModuleType("BTSpeak")
+            runtime.kb_client = SimpleNamespace(server_available=lambda: True)
+            runtime.brl = SimpleNamespace(has_display=lambda: False, write=Mock())
+            runtime.host = SimpleNamespace(push_self_voice=Mock(), pop_self_voice=Mock(), say=Mock())
+            runtime.dialogs = SimpleNamespace(activity=lambda *a, **k: contextlib.nullcontext(), show_message=Mock(),
+                                              curses_wrapper_low_level2=lambda fn: fn(object()))
+            runtime.script = SimpleNamespace(start_log=lambda: Mock())
+            def unit():
+                return SimpleNamespace(braille=bytes(18), request=Mock(), close=Mock(), abort=Mock())
+            with (patch.dict(sys.modules, {"BTSpeak": runtime}),
+                  patch("frontend.Worker", side_effect=[unit(), OSError("bad firmware"), unit()]) as start,
+                  patch("frontend.capture", return_value="menu"),
+                  patch("frontend.host_menu", side_effect=["unit:bl-es", "restart", "quit"]),
+                  patch.object(sys, "argv", ["blazie", "--backend", str(root / "backend"),
+                                            "--firmware", tmp, "--state-dir", tmp])):
+                self.assertEqual(main(), 0)
+            self.assertEqual([call.args[3].name for call in start.call_args_list],
+                             ["english.state", "spanish.state", "english.state"])
+            self.assertEqual(Preferences.load(root / "preferences.json").unit, "bl-en")
 
     def test_preference_save_failure_rolls_back_quick_response(self):
         prefs = Preferences(Path("unused"))

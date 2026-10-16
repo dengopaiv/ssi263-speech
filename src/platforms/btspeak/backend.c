@@ -17,18 +17,58 @@
 #include "audio_linux.h"
 #include "audio_pace.h"
 #include "emu_unit.h"
+#include "emu_catalog.h"
+#include "../../csrc/blazie/bl_firmware.h"
 #include "tns_term.h"
 
 static volatile sig_atomic_t stopping;
 static emu_unit *unit;
 static audio_out *audio;
 static const char *save_path, *device, *firmware;
-static int rate, paused = 1, failed;
+static int rate, paused = 1, failed, import_ready;
 static int buffer_mode = AP_AUTO, idle_sound = 3, keep_open = 1, pop_click = 1, tick = 1, quick_keys, double_speed;
 static double next_tick, next_save;
 static unsigned char bars_queue[64];
 static int bars_count, bars_last;
 static double bars_next;
+
+/* A machine-readable view of the shared catalog; JSON escapes paths as well as labels. */
+static void json_string(const char *s)
+{
+    const unsigned char *p = (const unsigned char *)s;
+    putchar('"');
+    for (; *p; p++) {
+        if (*p == '"' || *p == '\\') printf("\\%c", *p);
+        else if (*p < 32) printf("\\u%04x", *p);
+        else putchar(*p);
+    }
+    putchar('"');
+}
+
+static int catalog(const char *directory)
+{
+    emc_unit *units = calloc(EMC_MAX, sizeof *units);
+    int i, n;
+    if (!units) return 1;
+    n = emc_list(directory, units, EMC_MAX);
+    putchar('[');
+    for (i = 0; i < n; i++) {
+        emc_unit *u = &units[i];
+        const char *kind = u->kind == EMU_TYPE_N_SPEAK ? "tns" :
+            (!strncmp(u->key, "bns", 3) ? "bns" : "bl");
+        if (i) putchar(',');
+        fputs("{\"key\":", stdout); json_string(u->key);
+        fputs(",\"label\":", stdout); json_string(u->name);
+        fputs(",\"firmware\":", stdout); json_string(u->firmware);
+        fputs(",\"factory\":", stdout); json_string(u->factory);
+        fputs(",\"saved\":", stdout); json_string(u->saved);
+        fputs(",\"kind\":", stdout); json_string(kind);
+        printf(",\"codepage\":%d}", u->codepage);
+    }
+    puts("]");
+    free(units);
+    return 0;
+}
 
 static double now(void)
 {
@@ -83,6 +123,58 @@ static int save(void)
         puts("SAVED");
     }
     return ok;
+}
+
+/* The frontend edits a staged snapshot with blazie_files while this paused worker keeps its lock.
+   Validate the replacement before backing up or replacing the live unit. No disk edit can be overwritten by
+   an autosave or by another BT worker, including while the user is answering a replacement question. */
+static int copy_backup(const char *source, const char *target)
+{
+    char tmp[PATH_MAX], data[8192];
+    FILE *in, *out;
+    size_t n;
+    int ok;
+    if (snprintf(tmp, sizeof tmp, "%s.new", target) >= (int)sizeof tmp) return 0;
+    in = fopen(source, "rb");
+    if (!in) return 0;
+    out = fopen(tmp, "wb");
+    if (!out) { fclose(in); return 0; }
+    ok = 1;
+    while ((n = fread(data, 1, sizeof data, in)) > 0)
+        if (fwrite(data, 1, n, out) != n) { ok = 0; break; }
+    if (ferror(in) || fflush(out) || fsync(fileno(out))) ok = 0;
+    fclose(in);
+    if (fclose(out)) ok = 0;
+    if (ok) ok = rename(tmp, target) == 0;
+    if (!ok) unlink(tmp);
+    return ok;
+}
+
+static void import_commit(void)
+{
+    char stage[PATH_MAX], backup[PATH_MAX], err[300];
+    emu_unit *replacement, *old;
+    if (!paused || !import_ready) { puts("ERROR Prepare the paused unit before importing."); return; }
+    import_ready = 0;
+    if (snprintf(stage, sizeof stage, "%s.import", save_path) >= (int)sizeof stage ||
+        snprintf(backup, sizeof backup, "%s.before-import", save_path) >= (int)sizeof backup) {
+        puts("ERROR The memory path is too long."); return;
+    }
+    replacement = emu_create(emu_kind(unit), firmware, stage, rate, 0, err, sizeof err);
+    if (!replacement) { printf("ERROR %s\n", err); return; }
+    if (!copy_backup(save_path, backup)) {
+        emu_destroy(replacement);
+        puts("ERROR Could not back up the unit; nothing imported."); return;
+    }
+    emu_set_quick(replacement, quick_keys);
+    emu_set_double_speed(replacement, double_speed);
+    emu_set_idle(replacement, idle_sound, keep_open, pop_click, tick);
+    old = unit;
+    unit = replacement;
+    if (!save()) { unit = old; emu_destroy(replacement); return; }
+    emu_destroy(old);
+    bars_next = emu_time(unit) + 0.12;
+    puts("IMPORTED");
 }
 
 static void pause_unit(void)
@@ -152,6 +244,7 @@ static void command(const char *line)
         pause_unit();
         puts("PAUSED");
     } else if (!strcmp(line, "RESUME")) {
+        import_ready = 0;
         if (paused && strcmp(device, "-")) {
             audio = audio_open(device, rate, 10, buffer_mode, err, sizeof err);
             if (!audio) {
@@ -162,6 +255,13 @@ static void command(const char *line)
         paused = 0;
         next_tick = now();
         puts("RUNNING");
+    } else if (!strcmp(line, "IMPORT_CHECK")) {
+        import_ready = 0;
+        if (!paused || emu_flash(unit, NULL))
+            puts("ERROR The unit is writing flash memory. Resume it and try importing when it has finished.");
+        else if (save()) import_ready = 1;
+    } else if (!strcmp(line, "IMPORT_COMMIT")) {
+        import_commit();
     } else if (!strcmp(line, "SAVE")) {
         save();
     } else if (!strcmp(line, "AUDIO")) {
@@ -223,11 +323,12 @@ static void command(const char *line)
 
 int main(int argc, char **argv)
 {
-    char err[300], lock_path[PATH_MAX], line[128], bytes[256], *end;
+    char err[300], lock_path[PATH_MAX], factory_path[PATH_MAX], line[128], bytes[256], *end;
     const char *state;
     short pcm[480];
     int lock_fd, used = 0, flags, kind = EMU_BRAILLE_LITE;
     struct sigaction sa = {0};
+    if (argc == 3 && !strcmp(argv[1], "--catalog")) return catalog(argv[2]);
     if (argc != 6 && argc != 7) {
         fprintf(stderr, "usage: blazie_bt FIRMWARE FACTORY_STATE|- SAVED_STATE AUDIO_DEVICE RATE [bl|tns]\n");
         return 2;
@@ -256,6 +357,25 @@ int main(int argc, char **argv)
     signal(SIGPIPE, SIG_IGN);
     state = access(save_path, F_OK) == 0 || errno != ENOENT ? save_path : argv[2];
     if (kind == EMU_TYPE_N_SPEAK && !strcmp(state, "-")) state = NULL;
+    else if (!strcmp(state, "-")) {
+        emc_unit release = {0};
+        release.release = blv_release_of(firmware);
+        release.name = release.release >= 0 ? blv_release_name(release.release) : "unknown firmware";
+        snprintf(release.firmware, sizeof release.firmware, "%s", firmware);
+        if (release.release < 0 || strlen(firmware) >= sizeof release.firmware ||
+            snprintf(factory_path, sizeof factory_path, "%s.new", save_path) >= (int)sizeof factory_path) {
+            puts("ERROR This firmware needs a supported factory-state recipe."); close(lock_fd); return 1;
+        }
+        if (!emc_make_factory(&release, factory_path, NULL, NULL, err, sizeof err)) {
+            printf("ERROR %s\n", err); close(lock_fd); return 1;
+        }
+        if (rename(factory_path, save_path)) {
+            unlink(factory_path);
+            puts("ERROR Could not save the initial memory."); close(lock_fd); return 1;
+        }
+        sync_folder(save_path);
+        state = save_path;
+    }
     unit = emu_create(kind, argv[1], state, rate, 0, err, sizeof err);
     if (!unit) {
         printf("ERROR %s\n", err);

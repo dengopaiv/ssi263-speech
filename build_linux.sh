@@ -149,7 +149,7 @@ if [ -n "$AUDIO_LIBS" ]; then
     # Native worker for the BT Speak / BT Braille Python frontend. Shares the same board and audio code.
     $CC $APPF $AUDIO_DEF -c -o "$OUT/obj_emu/bt_backend.o" "$ROOT/src/platforms/btspeak/backend.c"
     $CXX $SHARED_CXX -o "$OUT/blazie_bt" "$OUT/obj_emu/bt_backend.o" "$OUT/obj_emu/audio_linux.o" \
-        "$OUT/obj_emu/audio_pace.o" "$OUT/obj_emu/keys.o" "$OUT/obj_emu/tns_term.o" $EMU_OBJS $AUDIO_LIBS -lm
+        "$OUT/obj_emu/audio_pace.o" "$OUT/obj_emu/keys.o" "$OUT/obj_emu/tns_term.o" $CATALOG_OBJS $EMU_OBJS $AUDIO_LIBS -lm
     echo "built $OUT/blazie_bt (BT Speak / BT Braille worker)"
     python3 "$ROOT/tools/build_bt_frontend.py" "$OUT/blazie_emu_bt"
     echo "built $OUT/blazie_emu_bt (BT Speak / BT Braille frontend, Python 3.11+)"

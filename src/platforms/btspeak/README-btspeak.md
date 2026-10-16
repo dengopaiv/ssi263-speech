@@ -122,7 +122,8 @@ a program with the unit's own command: o-chord x, its name, e-chord; open a docu
 e-chord (the Type 'n Speak: F9 x or F1 o, its name, Enter).
 
 The desktop and terminal emulators have the same as a menu item (Firmware > Load programs and files into flash; the terminal
-menu's `p`). #4's front end's menu does not have it yet.
+menu's `p`). The native BT dialog frontend also has **Import programs and files**, with a file browser and batch selection
+([README.md](README.md#import-programs-and-files)); typing paths is only needed for this command-line example.
 
 ## The braille display
 

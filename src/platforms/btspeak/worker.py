@@ -24,12 +24,14 @@ log = logging.getLogger(__name__)
 class Worker:
     def __init__(self, executable: Path, firmware: Path, factory: Path | None, saved: Path,
                  device: str = "default", rate: int = 22050, kind: str = "bl") -> None:
+        self.saved = saved
         self.buffer = bytearray()
         self.braille: bytes | None = None
         self.errors = tempfile.TemporaryFile()
         try:
             self.process = subprocess.Popen(
-                [str(executable), str(firmware), str(factory) if factory else "-", str(saved), device, str(rate), kind],
+                [str(executable), str(firmware), str(factory) if factory else "-", str(saved), device, str(rate),
+                 "tns" if kind == "tns" else "bl"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors, bufsize=0,
                 start_new_session=True,  # The frontend owns Ctrl+C and requests a checked final save.
             )
@@ -41,7 +43,7 @@ class Worker:
         self.output = self.process.stdout
         os.set_blocking(self.input.fileno(), False)
         try:
-            self.wait_for("READY", timeout=30)
+            self.wait_for("READY", timeout=180 if factory is None and kind != "tns" else 30)
         except BaseException:
             self.abort()
             raise

@@ -15,7 +15,8 @@ from types import ModuleType
 from keymap import SPACE, ChordKeyboard
 from display import BrailleOutput
 from preferences import Preferences
-from profiles import BY_KEY, PROFILES
+from profiles import Profile, discover
+from file_import import import_files
 from worker import Worker, WorkerError
 from tns_keyboard import key_name as tns_key_name
 from audio_menu import audio_menu
@@ -76,9 +77,11 @@ def capture(worker: Worker, kb_client: ModuleType, display: BrailleOutput | None
 
 
 def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
-              units: dict[str, str] | None = None, *, stdscr: curses.window | None = None) -> str:
+              units: dict[str, str] | None = None, *, stdscr: curses.window | None = None,
+              profile: Profile | None = None, files_tool: Path | None = None) -> str:
     """The worker is paused and the keyboard is back with BRLTTY."""
     selected_key = "r"
+    kind = profile.kind if profile else "bl"
     while True:
         choices = {
             "r": _("Resume emulator"),
@@ -91,9 +94,11 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
             "h": _("Keyboard help"),
             "q": _("Save and exit"),
         }
+        if profile is not None and files_tool is not None:
+            choices["p"] = _("Import programs and files")
         if units:
             choices["f"] = _("Firmware: {name}").format(name=units[preferences.unit])
-        if BY_KEY[preferences.unit].kind == "tns":
+        if kind == "tns":
             choices["t"] = _("Send Type 'n Speak key")
         choice = dialogs.request_choice(choices, prompt=_("Blazie emulator"), default=selected_key, stdscr=stdscr)
         if choice is None or choice.key == "r":
@@ -102,7 +107,10 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
         if choice.key == "q":
             return "quit"
         if choice.key == "o":
-            audio_menu(worker, dialogs, preferences, stdscr=stdscr)
+            audio_menu(worker, dialogs, preferences, stdscr=stdscr, kind=kind)
+            continue
+        if choice.key == "p" and profile is not None and files_tool is not None:
+            import_files(worker, dialogs, profile, files_tool, stdscr=stdscr)
             continue
         if choice.key == "t":
             name = dialogs.request_input(_("Key name, for example ctrl-o, alt-x, or f1"), stdscr=stdscr)
@@ -154,7 +162,7 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
                 worker.request("SAVE", "SAVED")
             dialogs.show_message(_("Memory saved."), wait=False, wait_for_speech=True, stdscr=stdscr)
         elif choice.key == "h":
-            if BY_KEY[preferences.unit].kind == "tns":
+            if kind == "tns":
                 dialogs.show_message(_(
                     "Type 'n Speak has a QWERTY keyboard and no braille display.\n"
                     "Use six-dot computer braille to type. E-chord is Enter, B-chord is Backspace,\n"
@@ -165,7 +173,7 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
                 ), stdscr=stdscr)
                 continue
             display_help = (_("On BT Braille, L3 or R3 advances braille; L2 or R2 moves it back. Routing keys are unused.\n")
-                            if preferences.unit.startswith("bl-") else
+                            if kind == "bl" else
                             _("Braille 'n Speak has no braille display or advance bars.\n"))
             dialogs.show_message(_(
                 "The original firmware handles dots 1 through 6 and Space.\n"
@@ -183,7 +191,8 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
             ).format(display_help=display_help), stdscr=stdscr)
 
 
-def menu_session(worker: Worker, dialogs: ModuleType, preferences: Preferences, units: dict[str, str]) -> str:
+def menu_session(worker: Worker, dialogs: ModuleType, preferences: Preferences, units: dict[str, str], *,
+                 profile: Profile | None = None, files_tool: Path | None = None) -> str:
     """Keep one terminal screen across host menus; return it before capturing firmware keys."""
     result = "resume"
     error: Exception | None = None
@@ -191,7 +200,7 @@ def menu_session(worker: Worker, dialogs: ModuleType, preferences: Preferences, 
     def run(window: curses.window) -> None:
         nonlocal result, error
         try:
-            result = host_menu(worker, dialogs, preferences, units, stdscr=window)
+            result = host_menu(worker, dialogs, preferences, units, stdscr=window, profile=profile, files_tool=files_tool)
         except Exception as exc:
             # The platform wrapper reports and swallows exceptions. Let main report worker/save
             # failures after the wrapper has restored the terminal instead.
@@ -230,7 +239,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=_("Original Blazie firmware in Blazie Mode."))
     parser.add_argument("--firmware", type=Path, default=firmware_path,
                         help=_("Folder containing firmware and factory states"))
-    parser.add_argument("--unit", choices=BY_KEY, help=_("Firmware to run; defaults to the last selected unit"))
+    parser.add_argument("--unit", help=_("Firmware to run; defaults to the last selected unit"))
     parser.add_argument("--state-dir", type=Path, help=_("Separate folder for the emulated unit's memory"))
     parser.add_argument("--backend", type=Path, default=backend_path)
     parser.add_argument("--device", default="default", help=_("ALSA output device"))
@@ -260,13 +269,16 @@ def main() -> int:
         preferences = Preferences.load(state_dir / "preferences.json")
         if args.rate is not None:
             preferences.audio = replace(preferences.audio, rate=args.rate)
+        with dialogs.activity(_("Finding installed firmware")):
+            profiles = discover(args.backend, args.firmware)
         selected = args.unit or preferences.unit
-        units = {profile.key: profile.label for profile in PROFILES if profile.available(args.firmware, state_dir)}
+        units = {profile.key: profile.label for profile in profiles.values() if profile.available(args.firmware, state_dir)}
         if selected not in units:
-            raise WorkerError(_("Firmware or factory state is missing for {name}.").format(name=BY_KEY[selected].label))
+            name = profiles[selected].label if selected in profiles else selected
+            raise WorkerError(_("Firmware or factory state is missing for {name}.").format(name=name))
 
         def start_unit(key: str) -> Worker:
-            profile = BY_KEY[key]
+            profile = profiles[key]
             paths = profile.paths(args.firmware, state_dir)
             candidate = Worker(args.backend.resolve(), *paths, args.device, preferences.audio.rate, kind=profile.kind)
             try:
@@ -279,7 +291,7 @@ def main() -> int:
             return candidate
 
         def first_start_notice(key: str) -> None:
-            profile = BY_KEY[key]
+            profile = profiles[key]
             if profile.kind == "tns" and not (state_dir / profile.saved).exists():
                 dialogs.show_message(_(
                     "New Type 'n Speak. Answer y to each setup question, or s for Spanish, seven times in all.\n"
@@ -288,6 +300,9 @@ def main() -> int:
                     "35 seconds of silence. Wait for each question. This initializes this new unit's memory."
                 ))
 
+        initial_profile = profiles[selected]
+        if initial_profile.factory is None and initial_profile.kind != "tns" and not (state_dir / initial_profile.saved).exists():
+            dialogs.show_message(_("Setting up this firmware for its first start. This may take a little while."), wait=False)
         with dialogs.activity(_("Starting Blazie emulator")):
             worker = start_unit(selected)
             preferences.store(preferences.quick_keys, unit=selected)
@@ -299,14 +314,15 @@ def main() -> int:
             worker.request("BRAILLE", "BRAILLE")
             display.show(worker.braille, force=True)
             try:
-                action = capture(worker, kb_client, display, tns=BY_KEY[preferences.unit].kind == "tns")
+                action = capture(worker, kb_client, display, tns=profiles[preferences.unit].kind == "tns")
             finally:
                 # capture has already closed its exclusive connection; dialogs may now acquire it.
                 worker.request("PAUSE", "PAUSED")
             if action == "deep_escape":
                 exit_to_editor = True
                 break
-            action = menu_session(worker, dialogs, preferences, units)
+            action = menu_session(worker, dialogs, preferences, units, profile=profiles[preferences.unit],
+                                  files_tool=args.backend.resolve().with_name("blazie_files"))
             if action == "resume":
                 host.say(_("Menu closed"), immediate=True, wait=True, as_ui=True)
             if action == "quit":
@@ -317,14 +333,14 @@ def main() -> int:
                 with dialogs.activity(_("Restarting the unit")):
                     worker.close()
                     worker = None
-                    worker = start_unit(selected)
+                    worker = start_unit(preferences.unit)
                 host.say(_("Unit restarted"), immediate=True, wait=True, as_ui=True)
                 continue
             if action.startswith("unit:"):
-                selected = action[5:]
+                requested = action[5:]
                 try:
-                    with dialogs.activity(_("Switching to {name}").format(name=BY_KEY[selected].label)):
-                        candidate = start_unit(selected)
+                    with dialogs.activity(_("Switching to {name}").format(name=profiles[requested].label)):
+                        candidate = start_unit(requested)
                 except (OSError, WorkerError) as exc:
                     dialogs.show_message(_("Could not switch firmware: {error}").format(error=exc))
                     continue  # The previous unit is still paused, with its memory intact.
@@ -334,6 +350,7 @@ def main() -> int:
                     candidate.abort()
                     raise
                 worker = candidate
+                selected = requested
                 preferences.store(preferences.quick_keys, unit=selected)
                 first_start_notice(selected)
     except KeyboardInterrupt:

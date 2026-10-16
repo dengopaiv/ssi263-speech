@@ -7,7 +7,6 @@ from dataclasses import asdict, dataclass, field
 from gettext import gettext as _
 from pathlib import Path
 
-from profiles import BY_KEY
 from audio_options import AudioOptions
 
 
@@ -31,7 +30,9 @@ class Preferences:
         if not isinstance(data.get("intro_shown", False), bool) or not isinstance(data.get("double_speed", False), bool):
             raise ValueError(_("Invalid emulator preferences."))
         unit = data.get("unit", "bl-en")
-        if not isinstance(unit, str) or unit not in BY_KEY:
+        if not isinstance(unit, str) or not unit or len(unit) > 80 or any(
+            not (char.isascii() and (char.isalnum() or char in "_-")) for char in unit
+        ):
             raise ValueError(_("Invalid emulator firmware preference."))
         return cls(path, data.get("quick_keys", False), unit, AudioOptions.load(data.get("audio", {})),
                    data.get("intro_shown", False), data.get("double_speed", False))
