@@ -91,10 +91,11 @@ int blc_year5(int year);
    alarm moves with it (no alarm, any year, any month or day kept as they are).  1 when it was moved. */
 int blc_migrate(blc_clock *c, const blc_time *host);
 
-/* Called at every CPU step boundary: time passes up to the CPU's cycle count, a byte the firmware is sending
+/* Called at every CPU step boundary: time passes up to `now` (the board's time in T-states of the clock blc_init
+   was given: the CPU's cycle count, halved while the CPU runs at double speed), a byte the firmware is sending
    (`selected`: the 8255's port C bit 4) is taken, and the next byte the controller has is clocked in when the
    firmware has the CSI/O armed to receive. */
-void blc_step(blc_clock *c, z180 *cpu, int selected);
+void blc_step(blc_clock *c, z180 *cpu, unsigned long long now, int selected);
 /* The time the unit was switched off: the clock goes on (no alarm goes off); at most a year is counted. */
 void blc_advance_off(blc_clock *c, double seconds);
 /* The byte level, without a CPU (blc_step uses these; tests too): a byte from the Z180; the controller's next byte

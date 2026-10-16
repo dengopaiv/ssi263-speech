@@ -399,6 +399,7 @@ int z180_csio_clock(z180 *c, uint8_t in, uint8_t *sent) { return c->dev->m_csio_
 uint8_t z180_csio_cntr(const z180 *c) { return c->dev->m_csio_0.cntr_r(); }
 
 uint64_t z180_cycles(const z180 *c) { return c->cycles; }
+uint8_t z180_ccr(const z180 *c) { return c->dev->m_ccr; }
 uint64_t z180_steps(const z180 *c) { return c->steps; }
 uint32_t z180_pc(const z180 *c) { return c->pc; }
 

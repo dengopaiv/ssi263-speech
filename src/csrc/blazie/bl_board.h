@@ -70,6 +70,15 @@ int  bl_port_a0(const bl_unit *u);
 /* a braille key chord pressed live (port 40h: dot 1 = bit 0 .. dot 6 = bit 5, space = bit 6, bit 7 = an advance
    key): latched with /INT2 at the next boundary after the last chord was read; 0 if 16 are already waiting */
 int  bl_key(bl_unit *u, int chord);
+/* The Z8S180's clock control register as the firmware last wrote it (bit 7: double speed, PHI = the crystal) */
+int  bl_ccr(const bl_unit *u);
+/* Double speed, off by default (the units before the upgrade): on, the firmware's own switch (status menu, then
+   + (dots 3-4-6), answered y) runs the CPU at the crystal's full 12.288 MHz, twice the base PHI, while the board's
+   time -- the chip, flash, clock controller and host -- keeps its pace; off, the switch changes nothing in the
+   emulator's speed, as before.  bl_double_speed_now: 1 while the CPU runs at the doubled clock. */
+void bl_set_double_speed(bl_unit *u, int on);
+int  bl_get_double_speed(const bl_unit *u);
+int  bl_double_speed_now(const bl_unit *u);
 /* the battery gauge's reading (0-255, the converter's raw value); -1 (the default) leaves ports B0h/81h as they
    were: the status menu's % then waits forever */
 void bl_battery(bl_unit *u, int level);

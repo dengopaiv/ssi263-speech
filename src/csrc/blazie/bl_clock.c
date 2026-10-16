@@ -254,9 +254,8 @@ void blc_put(blc_clock *c, int b)
     }
 }
 
-void blc_step(blc_clock *c, z180 *cpu, int selected)
+void blc_step(blc_clock *c, z180 *cpu, unsigned long long now, int selected)
 {
-    unsigned long long now = z180_cycles(cpu);
     uint8_t cntr;
     if (now - c->last >= GRAIN) {
         advance(c, now - c->last, 1);

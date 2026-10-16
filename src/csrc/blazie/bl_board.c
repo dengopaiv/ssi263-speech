@@ -96,7 +96,36 @@ struct bl_unit {
     int model;                               /* bl_model */
     bld_display display;                    /* Latched dots, independent of RAM/text translation. */
     int braille_bars;                        /* Forward/back contacts on PPI B6/B7, active low. */
+    /* Double speed (bl_set_double_speed, off by default): with it on, the firmware's own switch (CCR bit 7, PHI =
+       the crystal instead of half of it) runs the CPU twice as fast against the board.  The board's time stays in
+       T-states of the 6.144 MHz PHI (clock_hz), so everything timed in it -- the chip, the flash, the clock
+       controller, the host -- keeps its pace; the core's own timers and ASCI count real PHI cycles, as on the chip.
+       Never saved: derived from the core at every step, so a state's bytes do not change. */
+    int x1_ok, x1;
+    unsigned long long t_base, c_base;       /* board time and core cycles at the last switch */
 };
+
+/* the board's time: T-states at the base PHI (clock_hz), whatever the CPU's clock */
+static unsigned long long now_t(const bl_unit *u)
+{
+    unsigned long long raw = z180_cycles(u->cpu);
+    return u->t_base + (u->x1 ? (raw - u->c_base) / 2 : raw - u->c_base);
+}
+
+static void clock_mode(bl_unit *u)           /* follows CCR bit 7 when double speed is allowed */
+{
+    int want = u->x1_ok && (z180_ccr(u->cpu) & 0x80) != 0;
+    if (want != u->x1) {
+        u->t_base = now_t(u);
+        u->c_base = z180_cycles(u->cpu);
+        u->x1 = want;
+    }
+}
+
+static double phi_hz(const bl_unit *u)      /* the CPU's PHI now: what the ASCI's divisors divide */
+{
+    return u->x1 ? 2.0 * u->clock_hz : u->clock_hz;
+}
 
 static void event(bl_unit *u, unsigned char type, unsigned char a, unsigned char b)
 {
@@ -144,7 +173,7 @@ static unsigned long pf_bank(const bl_unit *u)   /* the program flash's bank the
 
 static uint8_t pf_read(bl_unit *u, uint32_t A)
 {
-    unsigned long long now = z180_cycles(u->cpu);
+    unsigned long long now = now_t(u);
     if (u->pf.state == 0 && !u->pf.autoselect && !flash29_busy(&u->pf, now))
         u->pf_live = 0;                      /* idle again: plain reads */
     else
@@ -158,7 +187,7 @@ static uint8_t mem_read(void *ctx, uint32_t A)
     bl_unit *u = (bl_unit *)ctx;
     A &= 0xFFFFF;
     if (A < ROM_SIZE) return u->pf_live ? pf_read(u, A) : u->flash[pf_bank(u) + A];
-    if (A >= FLASH_BASE && flash_window(u)) return flash29_read(&u->ff, flash_off(u, A), z180_cycles(u->cpu));
+    if (A >= FLASH_BASE && flash_window(u)) return flash29_read(&u->ff, flash_off(u, A), now_t(u));
     return u->ram[A];
 }
 
@@ -168,13 +197,13 @@ static void mem_write(void *ctx, uint32_t A, uint8_t V)
     A &= 0xFFFFF;
     if (A < ROM_SIZE) {                      /* the program flash: only the firmware update writes it */
 #ifndef BLAZIE_PROGRAM_FLASH_BREAK           /* the tests' must-fail control: dropped, as before 0.8 */
-        flash29_write(&u->pf, pf_bank(u) + A, V, z180_cycles(u->cpu));
+        flash29_write(&u->pf, pf_bank(u) + A, V, now_t(u));
         u->pf_live = 1;
 #endif
         return;
     }
     if (A >= FLASH_BASE && flash_window(u)) {
-        flash29_write(&u->ff, flash_off(u, A), V, z180_cycles(u->cpu));
+        flash29_write(&u->ff, flash_off(u, A), V, now_t(u));
         return;
     }
 #ifdef BH_TRACE
@@ -182,7 +211,7 @@ static void mem_write(void *ctx, uint32_t A, uint8_t V)
         int i;
         for (i = 0; i < bh_n_watch; i++)
             if (A >= bh_watch_lo[i] && A <= bh_watch_hi[i])
-                TR("MW %llu pc=%04X %05X %02X->%02X\n", (unsigned long long)z180_cycles(u->cpu), u->instr_pc,
+                TR("MW %llu pc=%04X %05X %02X->%02X\n", (unsigned long long)now_t(u), u->instr_pc,
                    (unsigned)A, u->ram[A], V);
     }
 #endif
@@ -262,7 +291,7 @@ static void io_write(void *ctx, uint16_t Port, uint8_t V)
                                                 channel's power (bl_port_a0) */
     if (p >= 0xC0 && p <= 0xC4) {
         int reg = p - 0xC0;
-        unsigned long long cyc = z180_cycles(u->cpu);
+        unsigned long long cyc = now_t(u);
         u->ssi[reg] = V;
         TR("IO %llu pc=%04X r%d=%02X\n", cyc, u->instr_pc, reg, V);
         if (reg == 3)
@@ -303,12 +332,12 @@ static int asci_rx(void *ctx, int channel)
         if (channel == 0 && u->urgent >= 0) {
             b = u->urgent;
             u->urgent = -1;
-            TR("RX %llu urgent %02X\n", (unsigned long long)z180_cycles(u->cpu), b);
+            TR("RX %llu urgent %02X\n", (unsigned long long)now_t(u), b);
             return b;
         }
         if (channel != 0 || u->lhead == u->ltail || u->host_xoff)
             return -1;
-        TR("RX %llu %02X left=%u\n", (unsigned long long)z180_cycles(u->cpu), u->lfifo[u->ltail & (FIFO - 1)],
+        TR("RX %llu %02X left=%u\n", (unsigned long long)now_t(u), u->lfifo[u->ltail & (FIFO - 1)],
            u->lhead - u->ltail - 1);
         return u->lfifo[u->ltail++ & (FIFO - 1)];
     }
@@ -320,7 +349,7 @@ static void serial_note(bl_unit *u)          /* the line status now, in order wi
     z180_asci_regs r;
     bl_serial_status s;
     z180_asci_get(u->cpu, 0, &r);
-    bl_serial_decode(&r, u->clock_hz, u->port_a0 & 1, &s);
+    bl_serial_decode(&r, phi_hz(u), u->port_a0 & 1, &s);
     bl_serial_note(u->line, &s);
 }
 
@@ -335,7 +364,7 @@ static void asci_tx(void *ctx, int channel, uint8_t data)
         return;
     }
     event(u, 'T', data, 0);
-    TR("TX %llu %02X\n", (unsigned long long)z180_cycles(u->cpu), data);
+    TR("TX %llu %02X\n", (unsigned long long)now_t(u), data);
     if (data == 0x13)
         u->host_xoff = 1;
     else if (data == 0x11)
@@ -352,14 +381,16 @@ static int serial_pin(void *ctx, int pin)
 static void boundary(void *ctx, uint32_t pc)
 {
     bl_unit *u = (bl_unit *)ctx;
+    if (u->x1_ok || u->x1)
+        clock_mode(u);                       /* the firmware's double speed switch (CCR), when allowed */
     u->instr_pc = pc & 0xFFFF;               /* read by the key-release check (port reads) */
     if (!u->instr_pc) {
         u->boot_phase = 1;                   /* the reset vector: power-on, or the firmware restarting itself */
         u->starts++;
     }
     if (u->clk)
-        blc_step(u->clk, u->cpu, (u->ppi_c & 0x10) != 0);
-    if (!u->live_on && !u->ssi_ar && z180_cycles(u->cpu) >= u->ssi_ready_at) {
+        blc_step(u->clk, u->cpu, now_t(u), (u->ppi_c & 0x10) != 0);
+    if (!u->live_on && !u->ssi_ar && now_t(u) >= u->ssi_ready_at) {
         u->ssi_ar = 1;
         ar_line(u);
     }
@@ -532,12 +563,38 @@ void bl_destroy(bl_unit *u)
 #else
 #define BL_RUN_SLICE z180_run_legacy
 #endif
-static void run_cycles(bl_unit *u, unsigned long long n)
+static void run_cycles(bl_unit *u, unsigned long long n)   /* n: board time (base-PHI T-states) */
 {
-    while (n > 0) {
-        unsigned long long done = BL_RUN_SLICE(u->cpu, n > SLICE_DEFAULT ? SLICE_DEFAULT : n);
-        n = done >= n ? 0 : n - done;
+    if (!u->x1_ok && !u->x1) {               /* the CPU at the base clock: board time is its cycles, as always */
+        while (n > 0) {
+            unsigned long long done = BL_RUN_SLICE(u->cpu, n > SLICE_DEFAULT ? SLICE_DEFAULT : n);
+            n = done >= n ? 0 : n - done;
+        }
+        return;
     }
+    {
+        unsigned long long target = now_t(u) + n, t;
+        while ((t = now_t(u)) < target) {
+            unsigned long long left = (target - t) * (u->x1 ? 2 : 1);   /* in the CPU's own cycles now */
+            BL_RUN_SLICE(u->cpu, left > SLICE_DEFAULT ? SLICE_DEFAULT : left);
+        }
+    }
+}
+
+void bl_set_double_speed(bl_unit *u, int on)
+{
+    u->x1_ok = on != 0;
+    clock_mode(u);
+}
+
+int bl_get_double_speed(const bl_unit *u)
+{
+    return u->x1_ok;
+}
+
+int bl_double_speed_now(const bl_unit *u)
+{
+    return u->x1;
 }
 
 void bl_boot(bl_unit *u, unsigned long long target_instr)
@@ -561,7 +618,7 @@ void bl_run(bl_unit *u, unsigned long long cycles)
 
 void bl_set_ar(bl_unit *u, int requesting)
 {
-    TR("AR %llu %d\n", (unsigned long long)z180_cycles(u->cpu), requesting ? 1 : 0);
+    TR("AR %llu %d\n", (unsigned long long)now_t(u), requesting ? 1 : 0);
     u->ssi_ar = requesting ? 1 : 0;
     ar_line(u);
 }
@@ -569,21 +626,21 @@ void bl_set_ar(bl_unit *u, int requesting)
 void bl_queue(bl_unit *u, const unsigned char *bytes, int n)
 {
     int i;
-    TR("Q %llu n=%d\n", (unsigned long long)z180_cycles(u->cpu), n);
+    TR("Q %llu n=%d\n", (unsigned long long)now_t(u), n);
     for (i = 0; i < n; i++)
         u->lfifo[u->lhead++ & (FIFO - 1)] = bytes[i];
 }
 
 void bl_urgent(bl_unit *u, int byte)
 {
-    TR("URG %llu %02X (pending %d)\n", (unsigned long long)z180_cycles(u->cpu), byte & 0xFF, u->urgent);
+    TR("URG %llu %02X (pending %d)\n", (unsigned long long)now_t(u), byte & 0xFF, u->urgent);
     u->urgent = byte & 0xFF;
 }
 
 int bl_drop(bl_unit *u)
 {
     int n6 = 0;
-    TR("DROP %llu n=%u\n", (unsigned long long)z180_cycles(u->cpu), u->lhead - u->ltail);
+    TR("DROP %llu n=%u\n", (unsigned long long)now_t(u), u->lhead - u->ltail);
     while (u->ltail != u->lhead) {
         if (u->lfifo[u->ltail & (FIFO - 1)] == 0x06)
             n6++;
@@ -626,7 +683,7 @@ int bl_flash_busy(const bl_unit *u, unsigned long *chip_erases, unsigned long *s
 {
     if (chip_erases) *chip_erases = u->ff.n_chip_erase;
     if (sector_erases) *sector_erases = u->ff.n_sector_erase;
-    return flash29_busy(&u->ff, z180_cycles(u->cpu));
+    return flash29_busy(&u->ff, now_t(u));
 }
 
 void bl_battery(bl_unit *u, int level)
@@ -634,6 +691,11 @@ void bl_battery(bl_unit *u, int level)
     u->batt_level = level;
     u->batt_bit = 7;
     u->batt_fresh = 0;
+}
+
+int bl_ccr(const bl_unit *u)
+{
+    return z180_ccr(u->cpu);
 }
 
 int bl_key(bl_unit *u, int chord)
@@ -681,7 +743,7 @@ int bl_clock_on(bl_unit *u, const blc_time *now, long long unix_now)
     u->clk = (blc_clock *)malloc(sizeof(blc_clock));
     if (!u->clk)
         return 0;
-    blc_init(u->clk, u->clock_hz, z180_cycles(u->cpu));
+    blc_init(u->clk, u->clock_hz, now_t(u));
     if (u->has_clk_tail && blc_load(u->clk, u->clk_tail, &saved_at)) {
         if (saved_at >= 0 && unix_now >= 0)
             blc_advance_off(u->clk, (double)(unix_now - saved_at));   /* it kept time while the unit was off */
@@ -707,7 +769,7 @@ void bl_clock_wall(bl_unit *u, long long unix_now)
 
 unsigned long long bl_cycles(const bl_unit *u)
 {
-    return z180_cycles(u->cpu);
+    return now_t(u);
 }
 
 int bl_serial_attach(bl_unit *u, int on)
@@ -740,7 +802,7 @@ int bl_serial_read(bl_unit *u, unsigned char *out, int cap, bl_serial_status *st
         z180_asci_regs r;
         z180_asci_get(u->cpu, 0, &r);
         if (status)
-            bl_serial_decode(&r, u->clock_hz, u->port_a0 & 1, status);
+            bl_serial_decode(&r, phi_hz(u), u->port_a0 & 1, status);
         return 0;
     }
     serial_note(u);
@@ -760,7 +822,7 @@ void bl_probe_get(const bl_unit *u, bl_probe *p)
     memset(p, 0, sizeof *p);
     z180_regs_get(u->cpu, &r);
     z180_asci_get(u->cpu, 0, &a);
-    p->cycles = z180_cycles(u->cpu);
+    p->cycles = now_t(u);
     p->pc = r.pc;
     p->sp = r.sp;
     p->iff1 = r.iff1;

@@ -179,7 +179,7 @@ static void boundary(void *ctx, uint32_t pc)
     tns_unit *u = (tns_unit *)ctx;
     (void)pc;
     if (u->clk)
-        blc_step(u->clk, u->cpu, (u->ppi_c & 0x10) != 0);
+        blc_step(u->clk, u->cpu, z180_cycles(u->cpu), (u->ppi_c & 0x10) != 0);
     if (u->n_keyq && !u->key_ready) {
         u->key_latch = u->keyq[0];
         memmove(u->keyq, u->keyq + 1, (size_t)--u->n_keyq);

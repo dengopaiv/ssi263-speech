@@ -1653,6 +1653,13 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                                                       r"^FAIL letter +bl2_fr_fre_1999_07 U\+00C0: S PA AH1 PA S PA",
                                                       r"^FAIL letter +bl2_it_2000_09 U\+00C8: S PA AH1 PA S PA AH1 PA \(",
                                                       r"^unit letters: \d+ FAILED$"]))
+    # double speed (issue #15): the firmware's own switch runs the CPU at twice the base PHI when the emulator allows
+    # it; letters answered faster, speech at its pace; the control never allows it (the switch changes nothing)
+    CHECKS.append(check("double speed: the firmware's switch runs the CPU twice as fast",
+                        [PY, os.path.join(BL_SRC, "test_double_speed.py")]))
+    CHECKS.append(check("double speed CONTROL (never allowed, must fail)",
+                        [PY, os.path.join(BL_SRC, "test_double_speed.py")], env={"SSI263_DOUBLE_SPEED_BREAK": "1"},
+                        expect_fail=True, fail_marks=[r"^FAIL faster ", r"^double speed: \d+ FAILED$"]))
     CHECKS.append(check("releases CONTROL (a release with no voice handed out as English, must fail)",
                         [PY, os.path.join(BL_SRC, "test_releases.py")], env={"SSI263_RELEASES_TEST_BREAK": "voice"},
                         expect_fail=True, fail_marks=[r"^FAIL no voice offered", r"^releases: 1 FAILED$"]))

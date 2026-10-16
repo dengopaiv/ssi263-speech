@@ -84,6 +84,11 @@ control "release voices CONTROL (the echo ignored, must fail)" "^FAIL bl2_hu_199
     -- env SSI263_RELEASE_VOICES_BREAK=echo python3 src/csrc/blazie/test_release_voices.py --lib "$LIB" --firmware "$DATA"
 control "releases CONTROL (a release with no voice handed out as English, must fail)" "^releases: 1 FAILED$" \
     -- env SSI263_RELEASES_TEST_BREAK=voice python3 src/csrc/blazie/test_releases.py --lib "$LIB" --firmware "$DATA"
+# double speed (issue #15): the firmware's own switch runs the CPU twice as fast when allowed; the control never allows it
+check "double speed: the firmware's switch runs the CPU twice as fast" python3 src/csrc/blazie/test_double_speed.py \
+    --lib "$LIB" --firmware "$DATA"
+control "double speed CONTROL (never allowed, must fail)" "^FAIL faster " "^double speed: [0-9]+ FAILED$" \
+    -- env SSI263_DOUBLE_SPEED_BREAK=1 python3 src/csrc/blazie/test_double_speed.py --lib "$LIB" --firmware "$DATA"
 # the units' own accented letters (bl_voice.c's pages and folds: Hungarian, Slovak, Czech, Polish, Croatian, French,
 # Danish, Norwegian, Swedish): each one's byte and the unit's phonemes for it; the control sends what the voices did
 # before

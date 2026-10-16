@@ -74,6 +74,8 @@ uint64_t z180_run(z180 *c, uint64_t budget);       /* whole steps until >= budge
 uint64_t z180_run_legacy(z180 *c, uint64_t budget);
 void z180_set_irq(z180 *c, int line, int asserted);
 uint64_t z180_cycles(const z180 *c);               /* T-states since reset (CONTRACT.md 5) */
+uint8_t z180_ccr(const z180 *c);                   /* the Z8S180's CCR as written (bit 7: PHI = XTAL, not XTAL/2);
+                                                      0 on a core without one (the legacy path) */
 uint64_t z180_steps(const z180 *c);                /* steps since reset, HALT and SLP slots included */
 uint32_t z180_pc(const z180 *c);                   /* the SAVED instruction-start PC (regs_get: architectural) */
 void z180_regs_get(const z180 *c, z180_regs *out);

@@ -911,6 +911,9 @@ BL_API int bh_get_int(const bl_host *h, const char *name)
     if (!strcmp(name, "log_ar")) return h->log_ar;
     if (!strcmp(name, "port_a0")) return bl_port_a0(h->unit);
     if (!strcmp(name, "model")) return bl_model(h->unit);
+    if (!strcmp(name, "ccr")) return bl_ccr(h->unit);
+    if (!strcmp(name, "double_speed")) return bl_get_double_speed(h->unit);
+    if (!strcmp(name, "double_speed_now")) return bl_double_speed_now(h->unit);
     if (!strcmp(name, "flash_busy")) return bl_flash_busy(h->unit, NULL, NULL);
     if (!strcmp(name, "flash_chip_erases")) {
         unsigned long n;
@@ -941,6 +944,7 @@ BL_API void bh_set_int(bl_host *h, const char *name, int v)
     else if (!strcmp(name, "writes_lost")) h->wl_lost = v;
     else if (!strcmp(name, "cancel_settle")) h->cancel_settle = v & 3;   /* tests can restore the old race */
     else if (!strcmp(name, "flash_timed")) bl_flash_timed(h->unit, v);   /* the emulator: bl_board.h */
+    else if (!strcmp(name, "double_speed")) bl_set_double_speed(h->unit, v);   /* off by default: bl_board.h */
     /* tests only (run_ahead_fault.py): one allocation or store made to fail, as memory running out would */
     else if (!strcmp(name, "fail_alloc_size")) h->fail_size = v > 0 ? (size_t)v : 0;
     else if (!strcmp(name, "fail_event")) bl_fail_event(h->unit, v);

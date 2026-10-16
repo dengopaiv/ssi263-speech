@@ -217,6 +217,12 @@ void z180_set_irq(z180 *c, int line, int asserted)
     z180_set_irq_line((device_t *)c->dev, line == Z180_NMI ? INPUT_LINE_NMI : Z180_IRQ0 + line, asserted ? 1 : 0);
 }
 
+uint8_t z180_ccr(const z180 *c)
+{
+    (void)c;
+    return 0;                             /* z180emu has no Z8S180 clock control */
+}
+
 uint64_t z180_cycles(const z180 *c)
 {
     return c->cyc_base + (unsigned long long)(c->cur_slice - cpu_icount_z180((device_t *)c->dev));
