@@ -84,6 +84,9 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
             "r": _("Resume emulator"),
             "s": _("Save memory"),
             "k": _("Quick key response: {state}").format(state=_("on") if preferences.quick_keys else _("off")),
+            "d": _("Double-speed upgrade installed: {state}").format(
+                state=_("on") if preferences.double_speed else _("off")),
+            "e": _("Restart the unit (keeps its files)"),
             "o": _("Audio settings"),
             "h": _("Keyboard help"),
             "q": _("Save and exit"),
@@ -127,6 +130,25 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
                 worker.request("QUICK {value}".format(value=int(preferences.quick_keys)), "OK")
                 raise
             continue
+        if choice.key == "d":
+            doubled = not preferences.double_speed
+            worker.request("DOUBLE {value}".format(value=int(doubled)), "OK")
+            try:
+                preferences.store(preferences.quick_keys, double_speed=doubled)
+            except OSError:
+                worker.request("DOUBLE {value}".format(value=int(preferences.double_speed)), "OK")
+                raise
+            if doubled:
+                dialogs.show_message(_(
+                    "The double-speed upgrade is installed. To use it, switch it on in the unit: the status menu,\n"
+                    "then + (dots 3-4-6), answered y.\n"
+                    "As on a real unit, programs that play sounds can misbehave with it on: their tones can come out\n"
+                    "as a low rumble, and a game can stop the unit. Blazie's advice was to switch double speed off\n"
+                    "for them. Restart the unit, in this menu, starts a stopped unit again."
+                ), stdscr=stdscr)
+            continue
+        if choice.key == "e":
+            return "restart"
         if choice.key == "s":
             with dialogs.activity(_("Saving memory"), stdscr=stdscr):
                 worker.request("SAVE", "SAVED")
@@ -155,6 +177,7 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
                 "Memory is saved every minute and on exit.\n"
                 "Quick key response reduces the delay before speech by speeding up firmware processing.\n"
                 "It is optional, remembered between runs, and off by default for original timing.\n"
+                "Restart the unit switches it off and on, its files kept, for a unit that has stopped answering.\n"
                 "Choose Firmware to switch units; each keeps its own saved memory.\n"
                 "Braille follows the selected firmware; unused cells are blank."
             ).format(display_help=display_help), stdscr=stdscr)
@@ -248,6 +271,7 @@ def main() -> int:
             candidate = Worker(args.backend.resolve(), *paths, args.device, preferences.audio.rate, kind=profile.kind)
             try:
                 candidate.request("QUICK {value}".format(value=int(preferences.quick_keys)), "OK")
+                candidate.request("DOUBLE {value}".format(value=int(preferences.double_speed)), "OK")
                 candidate.request(preferences.audio.command(), "OK")
             except BaseException:
                 candidate.abort()
@@ -287,6 +311,15 @@ def main() -> int:
                 host.say(_("Menu closed"), immediate=True, wait=True, as_ui=True)
             if action == "quit":
                 break
+            if action == "restart":
+                # As switching the unit off and on: the worker saves its memory as it closes (the emulated unit may
+                # have stopped answering, the worker never does), and a new one starts from what it saved.
+                with dialogs.activity(_("Restarting the unit")):
+                    worker.close()
+                    worker = None
+                    worker = start_unit(selected)
+                host.say(_("Unit restarted"), immediate=True, wait=True, as_ui=True)
+                continue
             if action.startswith("unit:"):
                 selected = action[5:]
                 try:

@@ -160,6 +160,19 @@ class WorkerTests(unittest.TestCase):
             worker.request("QUICK 2", "OK")
         worker.close()
 
+    def test_double_speed_can_be_changed_while_paused_or_running_and_kept_by_a_reload(self):
+        worker = self.start()
+        worker.request("DOUBLE 1", "OK")
+        worker.request("RESUME", "RUNNING")
+        worker.send("KEY 0 1")
+        worker.request("DOUBLE 0", "OK")
+        worker.request("DOUBLE 1", "OK")
+        worker.request("PAUSE", "PAUSED")
+        worker.request("AUDIO 16000 auto 3 1 1 1", "OK")    # a new rate: the unit restarted from its memory
+        with self.assertRaisesRegex(WorkerError, "Invalid"):
+            worker.request("DOUBLE 2", "OK")
+        worker.close()
+
     def test_audio_controls_all_rates_and_buffers_keep_memory(self):
         from audio_options import AudioOptions, RATES
         from dataclasses import replace

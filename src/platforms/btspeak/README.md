@@ -84,7 +84,8 @@ first start; Type 'n Speak uses its own cold setup. An existing saved state take
 | L2 or R2 on BT Braille | Original Braille Lite back bar |
 | Other panel keys and all routing keys | Unassigned |
 
-The host menu offers Resume, Save memory, Quick key response, Audio settings, Firmware, Keyboard help, and Save and exit.
+The host menu offers Resume, Save memory, Quick key response, Double-speed upgrade installed, Restart the unit,
+Audio settings, Firmware, Keyboard help, and Save and exit.
 The normal BT dialog controls apply while in the host menu. Menus and submenus share one terminal screen,
 and returning from a submenu keeps the previously selected row. Audio settings opens on Sound buffer.
 Leaving the host menu with Z-chord (Escape) or Resume announces "Menu closed" before the firmware resumes.
@@ -110,6 +111,18 @@ runs the firmware CPU at eight times its usual speed until the first spoken phon
 Speech synthesis retains its normal timing. Quick response ends during firmware restart so held-key reset
 gestures still work. The separate experimental `run_ahead` machinery is for speech rendering and is not enabled
 by this menu item. The audio buffer still contributes to the delay heard at the speaker.
+
+## Double speed and Restart the unit
+
+**Double-speed upgrade installed: off** (in the host menu) installs the Braille Lite's double-speed chip, a $99
+upgrade on the real units, so it is off by default. With it on, the firmware's own switch (the status menu, then
++ (dots 3-4-6), answered y) runs the CPU twice as fast (`emu_set_double_speed`, as on the desktop emulators). As on a
+real unit, BASIC programs' tones then come out as a low rumble and a game can stop the unit; Blazie advised switching
+double speed off for programs that play sounds. The choice is kept in `preferences.json`.
+
+**Restart the unit (keeps its files)** does what switching a unit off and on does: the worker saves its memory as it
+closes -- it answers even when the emulated unit has stopped -- and a new one starts from what it saved. It announces
+"Unit restarted".
 
 Six-dot keyboard chords accumulate until the last key is released. Keys physically held are also passed to the firmware,
 so restart gestures such as holding I-chord after P-chord, L work. Automatic key-repeat does not produce
@@ -197,9 +210,10 @@ driver is terminated with a bounded timeout; this exceptional case cannot guaran
 
 The native worker starts paused and uses a small private stdin/stdout protocol. Commands are `RESUME`,
 `PAUSE`, `KEY held chord` (decimal firmware bitmasks), `BARS down` (1 forward, 2 back, 3 both, 0 released),
-`BRAILLE`, `TNS key-name`, `QUICK 0` / `QUICK 1`, `AUDIO`,
+`BRAILLE`, `TNS key-name`, `QUICK 0` / `QUICK 1`, `DOUBLE 0` / `DOUBLE 1`, `AUDIO`,
 `AUDIO rate buffer idle keep-open pop-click tick`, `SAVE`, and `QUIT`.
-Responses are `READY`, `RUNNING`, `PAUSED`, `OK` (for `QUICK`, `TNS`, and audio changes), `SAVED`, `BYE`, or `ERROR reason`.
+Responses are `READY`, `RUNNING`, `PAUSED`, `OK` (for `QUICK`, `DOUBLE`, `TNS`, and audio changes), `SAVED`, `BYE`, or
+`ERROR reason`.
 `KEY` and `BARS` have no success response. A zero chord updates only held keys. Their "Keyboard queue full" and
 "Braille bar queue full" errors (keys typed faster than the unit reads them) are logged and the session continues;
 every other `ERROR` ends it.

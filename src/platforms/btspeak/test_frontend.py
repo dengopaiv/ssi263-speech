@@ -331,6 +331,86 @@ class FrontendTests(unittest.TestCase):
             worker.request.assert_called_with("QUICK 0", "OK")
             self.assertFalse(Preferences.load(prefs.path).quick_keys)
 
+    def test_double_speed_menu_toggles_and_remembers_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefs = Preferences.load(Path(tmp) / "preferences.json")
+            worker = Mock()
+            labels = []
+            def choice(choices, **kwargs):
+                labels.append(choices["d"])
+                return SimpleNamespace(key="d" if len(labels) == 1 else "r")
+            told = Mock()
+            dialogs = SimpleNamespace(request_choice=choice, show_message=told)
+            self.assertEqual(host_menu(worker, dialogs, prefs), "resume")
+            worker.request.assert_called_once_with("DOUBLE 1", "OK")
+            loaded = Preferences.load(prefs.path)
+            self.assertTrue(loaded.double_speed)
+            self.assertFalse(loaded.quick_keys)
+            self.assertEqual(labels, ["Double-speed upgrade installed: off", "Double-speed upgrade installed: on"])
+            self.assertIn("status menu", told.call_args.args[0])       # how to switch it on in the unit
+            labels.clear()
+            told.reset_mock()
+            host_menu(worker, dialogs, prefs)
+            worker.request.assert_called_with("DOUBLE 0", "OK")
+            self.assertFalse(Preferences.load(prefs.path).double_speed)
+            told.assert_not_called()
+
+    def test_double_speed_preference_round_trips_and_old_files_load_off(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "preferences.json"
+            path.write_text('{"quick_keys": true, "unit": "bl-es"}')
+            old = Preferences.load(path)
+            self.assertFalse(old.double_speed)
+            old.store(old.quick_keys, double_speed=True)
+            again = Preferences.load(path)
+            self.assertTrue(again.double_speed and again.quick_keys)
+            self.assertEqual(again.unit, "bl-es")
+            again.store(again.quick_keys, unit="bl-en")                 # other changes keep it
+            self.assertTrue(Preferences.load(path).double_speed)
+            path.write_text('{"double_speed": "yes"}')
+            with self.assertRaises(ValueError):
+                Preferences.load(path)
+
+    def test_restart_saves_the_unit_and_starts_it_again_from_its_memory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("backend", "BL2ENG.BNS", "bl2_2003_warm.state"):
+                (root / name).touch()
+            events = []
+
+            def unit(name):
+                return SimpleNamespace(braille=bytes(18),
+                    request=lambda cmd, reply: events.append((name, cmd)),
+                    close=lambda: events.append((name, "close")),
+                    abort=lambda: events.append((name, "abort")))
+
+            first, second = unit("first"), unit("second")
+            said = []
+            runtime = ModuleType("BTSpeak")
+            runtime.kb_client = SimpleNamespace(server_available=lambda: True)
+            runtime.brl = SimpleNamespace(has_display=lambda: False, write=lambda text: None)
+            runtime.host = SimpleNamespace(push_self_voice=lambda value: None, pop_self_voice=lambda: None,
+                                           say=lambda text, **kwargs: said.append(text))
+            runtime.dialogs = SimpleNamespace(activity=lambda text, **kwargs: contextlib.nullcontext(), show_message=Mock(),
+                                              curses_wrapper_low_level2=lambda fn: fn(object()))
+            runtime.script = SimpleNamespace(start_log=lambda: Mock())
+            Preferences(root / "preferences.json").store(False, double_speed=True)
+            with (patch.dict(sys.modules, {"BTSpeak": runtime}),
+                  patch("frontend.Worker", side_effect=[first, second]) as start,
+                  patch("frontend.capture", return_value="menu"),
+                  patch("frontend.host_menu", side_effect=["restart", "quit"]),
+                  patch.object(sys, "argv", ["blazie", "--backend", str(root / "backend"),
+                                            "--firmware", tmp, "--state-dir", tmp])):
+                self.assertEqual(main(), 0)
+            # the same unit's memory both times: the first closed (saved) before the second runs
+            self.assertEqual(start.call_args_list[0].args[3], root / "english.state")
+            self.assertEqual(start.call_args_list[1].args[3], root / "english.state")
+            self.assertLess(events.index(("first", "close")), events.index(("second", "RESUME")))
+            self.assertIn(("first", "DOUBLE 1"), events)
+            self.assertIn(("second", "DOUBLE 1"), events)               # the upgrade carried into the restarted unit
+            self.assertIn(("second", "close"), events)
+            self.assertIn("Unit restarted", said)
+
     def test_preference_save_failure_rolls_back_quick_response(self):
         prefs = Preferences(Path("unused"))
         worker = Mock()

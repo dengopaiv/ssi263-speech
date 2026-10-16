@@ -24,7 +24,7 @@ static emu_unit *unit;
 static audio_out *audio;
 static const char *save_path, *device, *firmware;
 static int rate, paused = 1, failed;
-static int buffer_mode = AP_AUTO, idle_sound = 3, keep_open = 1, pop_click = 1, tick = 1, quick_keys;
+static int buffer_mode = AP_AUTO, idle_sound = 3, keep_open = 1, pop_click = 1, tick = 1, quick_keys, double_speed;
 static double next_tick, next_save;
 static unsigned char bars_queue[64];
 static int bars_count, bars_last;
@@ -122,6 +122,7 @@ static void configure_audio(int new_rate, const char *buffer, int sound, int kee
         replacement = emu_create(emu_kind(unit), firmware, save_path, new_rate, 0, err, sizeof err);
         if (!replacement) { printf("ERROR %s\n", err); return; }
         emu_set_quick(replacement, quick_keys);
+        emu_set_double_speed(replacement, double_speed);
     }
     if (!emu_set_idle(replacement ? replacement : unit, sound, keep, pop, ticks)) {
         if (replacement) emu_destroy(replacement);
@@ -145,7 +146,7 @@ static void configure_audio(int new_rate, const char *buffer, int sound, int kee
 
 static void command(const char *line)
 {
-    int held, chord, quick, bars, new_rate, sound, keep, pop, ticks;
+    int held, chord, quick, dbl, bars, new_rate, sound, keep, pop, ticks;
     char extra, err[300], buffer[16];
     if (!strcmp(line, "PAUSE")) {
         pause_unit();
@@ -187,6 +188,10 @@ static void command(const char *line)
     } else if (sscanf(line, "QUICK %d %c", &quick, &extra) == 1 && (quick == 0 || quick == 1)) {
         emu_set_quick(unit, quick);
         quick_keys = quick;
+        puts("OK");
+    } else if (sscanf(line, "DOUBLE %d %c", &dbl, &extra) == 1 && (dbl == 0 || dbl == 1)) {
+        emu_set_double_speed(unit, dbl);  /* the upgrade installed; the firmware's own switch does the rest */
+        double_speed = dbl;
         puts("OK");
     } else if (!strncmp(line, "TNS ", 4) && emu_kind(unit) == EMU_TYPE_N_SPEAK) {
         key_event e = {0};
