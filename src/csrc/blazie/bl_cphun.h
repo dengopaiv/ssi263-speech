@@ -7,7 +7,7 @@
  * every other byte there says nothing.  They are the CWI-2 code page's letters, with two differences in what the
  * rules accept:
  *   - o double acute: only its capital's byte (A7h) is spoken.  The lower case one's (93h), which the unit's own text
- *     uses, says nothing, so the voice sends both cases as A7h (bl_hun_fold).
+ *     uses, says nothing, so the voice sends both cases as A7h (bl_voice.c fold_hun).
  *   - I acute is 8Ch.
  * A long vowel comes out as its phoneme three times (a acute AE1 AE1 AE1); that is the unit's rule, not ours.
  */
@@ -33,11 +33,5 @@ static const unsigned short bl_cphun_high[128] = {
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 };
-
-/* o double acute is sent as its capital (the unit speaks no other byte for it) */
-static unsigned bl_hun_fold(unsigned c)
-{
-    return c == 0x0151 ? 0x0150 : c;
-}
 
 #endif

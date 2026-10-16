@@ -99,7 +99,7 @@ VOICES = {"blazie": ("Braille Lite 2000 (June 2003)", "en", FIRMWARE, STATE, "la
           "blazie_es": ("Braille Lite 2000 (espa\u00f1ol)", "es", FIRMWARE_ES, STATE_ES, "cp850"),
           "blazie_de": ("Braille Lite 2000 (Deutsch)", "de", FIRMWARE_DE, STATE_DE, "cp850"),
           "blazie_it": ("Braille Lite 2000 (italiano)", "it", FIRMWARE_IT, STATE_IT, "cp850"),
-          "blazie_sk": ("Braille 'n Speak 2000 (sloven\u010dina)", "sk", FIRMWARE_SK, STATE_SK, "cp852")}
+          "blazie_sk": ("Braille 'n Speak 2000 (sloven\u010dina)", "sk", FIRMWARE_SK, STATE_SK, "blazie_text_7")}
 # "Custom number processing" exists for these languages only; the other units read their numbers themselves
 # (voices.c bl_has_numbers)
 NUMBER_LANGS = ("en", "es")
@@ -111,53 +111,55 @@ NO_ECHO = ("blazie_it", "blazie_sk")
 # never enters speech-box mode), its echo and its DOS code page.  voice id: (name, language, firmware, snapshot,
 # encoding); and per voice (slow boot, echoes ^F).
 RELEASE_DIR = os.path.join(_ENGINE_DIR, "bl2000")
-RELEASE_CODECS = {0: "latin-1", 1: "cp850", 2: "cp852", 3: "cp857", 4: "cp860", 5: "cp866",   # bl_voice.h BLV_*
-                  6: "blazie_hun"}
+# bl_voice.h BLV_*: 6 on are the units' own spoken letters (the Hungarian one's, 852 with folds ...), no Python codec
+RELEASE_CODECS = {0: "latin-1", 1: "cp850", 2: "cp852", 3: "cp857", 4: "cp860", 5: "cp866",
+                  6: "blazie_text_6", 7: "blazie_text_7"}
 SLOW_KEYS = (8000000, 10000000)          # bl_voice.c KEY_START_SLOW, KEY_GAP_SLOW
 _release_voices = None
-# The Hungarian unit's letters (bl_voice.h BLV_CPHUN, bl_cphun.h) are no Python codec: "blazie_hun" encodes with the
-# library's own table (blv_text_byte), so the driver and the C voices send the same bytes.
-HUN_CODEC, HUN_TEXT = "blazie_hun", 6
-_hun_byte = None
+# "blazie_text_N" encodes with the library's own table for BLV_* N (blv_text_byte: its page and its folds, a letter
+# sent as the one whose byte the unit speaks), so the driver and the C voices send the same bytes.
+TEXT_CODEC = "blazie_text_"
+_text_byte = None
 
 
-def _hun_codec(name):
-    if name != HUN_CODEC:
+def _text_codec(name):
+    if not name.startswith(TEXT_CODEC) or not name[len(TEXT_CODEC):].isdigit():
         return None
     import codecs
+    text_id = int(name[len(TEXT_CODEC):])
 
     def encode(text, errors="strict"):
-        global _hun_byte
-        if _hun_byte is None:
+        global _text_byte
+        if _text_byte is None:
             import ctypes
-            _hun_byte = ctypes.CDLL(DLL).blv_text_byte
-            _hun_byte.argtypes = [ctypes.c_int, ctypes.c_uint]
-            _hun_byte.restype = ctypes.c_int
+            _text_byte = ctypes.CDLL(DLL).blv_text_byte
+            _text_byte.argtypes = [ctypes.c_int, ctypes.c_uint]
+            _text_byte.restype = ctypes.c_int
         out = bytearray()
         for i, ch in enumerate(text):
-            b = _hun_byte(HUN_TEXT, ord(ch))
+            b = _text_byte(text_id, ord(ch))
             if b < 0:
                 if errors == "replace":
                     b = 0x3F
                 elif errors == "ignore":
                     continue
                 else:
-                    raise UnicodeEncodeError(HUN_CODEC, text, i, i + 1, "a letter the Hungarian unit has no byte for")
+                    raise UnicodeEncodeError(name, text, i, i + 1, "a letter the unit has no byte for")
             out.append(b)
         return bytes(out), len(text)
 
     def decode(data, errors="strict"):
-        raise UnicodeDecodeError(HUN_CODEC, bytes(data), 0, len(data), "the driver only sends this encoding")
+        raise UnicodeDecodeError(name, bytes(data), 0, len(data), "the driver only sends this encoding")
 
-    return codecs.CodecInfo(encode, decode, name=HUN_CODEC)
+    return codecs.CodecInfo(encode, decode, name=name)
 
 
-def _register_hun():
+def _register_text_codecs():
     import codecs
-    codecs.register(_hun_codec)
+    codecs.register(_text_codec)
 
 
-_register_hun()
+_register_text_codecs()
 
 
 def _release_table():
@@ -251,8 +253,9 @@ def _translit(text, encoding="latin-1"):
         return text
     ctypes, fn = _translit_fn
     raw = text.encode("utf-8", "surrogatepass")
-    charset = {"cp850": 1, "cp852": 2, "cp857": 3, "cp860": 4, "cp866": 5,                   # voices.h SSV_CP*
-               HUN_CODEC: 6}.get(encoding, 0)
+    charset = {"cp850": 1, "cp852": 2, "cp857": 3, "cp860": 4, "cp866": 5}.get(encoding, 0)   # voices.h SSV_CP*
+    if encoding.startswith(TEXT_CODEC):
+        charset = int(encoding[len(TEXT_CODEC):])
     n = fn(raw, len(raw), charset, None, 0)
     if n < 0:
         return text

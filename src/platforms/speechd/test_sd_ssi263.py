@@ -100,7 +100,7 @@ lib.bh_clear_writes.argtypes = [ctypes.c_void_p]
 # echo ^F (voices.c bl_no_echo)
 UNITS = {"de": ("Lite2000_de.BNS", "lite2000_de_fresh.state", 1, False),
          "it": ("Lite2000_it.BNS", "lite2000_it_fresh.state", 1, True),
-         "sk": ("BS2SLL.BNS", "bs2sll_fresh.state", 2, True)}
+         "sk": ("BS2SLL.BNS", "bs2sll_fresh.state", 7, True)}
 
 
 class Ref:

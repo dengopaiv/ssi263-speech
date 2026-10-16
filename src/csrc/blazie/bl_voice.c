@@ -211,33 +211,70 @@ static int py_isspace(unsigned c)
         || (c >= 0x2000 && c <= 0x200A) || c == 0x2028 || c == 0x2029 || c == 0x202F || c == 0x205F || c == 0x3000;
 }
 
-/* the code page's upper half (bytes 80h-FFh), or NULL for the English unit's 7-bit text */
-static const unsigned short *page_high(int encoding)
+/* Letters a unit speaks only from another letter's byte, so the voice sends that byte (read from each unit: every
+   byte 80h-FFh sent in speech-box mode and the phonemes logged, 2026-10-15/16).  The lower case letter's own byte
+   (93h in both) says nothing; its capital's is spoken. */
+static const unsigned short fold_hun[][2] = {{0x0151, 0x0150}};      /* o double acute -> O double acute (A7h) */
+static const unsigned short fold_852sk[][2] = {{0x00F4, 0x00D4}};    /* o circumflex -> O circumflex (E2h) */
+
+typedef struct {
+    int encoding;
+    const unsigned short *high;        /* the upper half (bytes 80h-FFh); 0 where the unit has no letter */
+    const unsigned short (*fold)[2];   /* letter -> the letter whose byte is sent */
+    int n_fold;
+} text_page;
+
+static const text_page PAGES[] = {
+    {BLV_CP850, bl_cp850_high, NULL, 0}, {BLV_CP852, bl_cp852_high, NULL, 0}, {BLV_CP857, bl_cp857_high, NULL, 0},
+    {BLV_CP860, bl_cp860_high, NULL, 0}, {BLV_CP866, bl_cp866_high, NULL, 0},
+    {BLV_CPHUN, bl_cphun_high, fold_hun, 1},
+    {BLV_CP852SK, bl_cp852_high, fold_852sk, 1},
+};
+
+static const text_page *page_of(int encoding)
 {
-    return encoding == BLV_CP850 ? bl_cp850_high : encoding == BLV_CP852 ? bl_cp852_high
-         : encoding == BLV_CP857 ? bl_cp857_high : encoding == BLV_CP860 ? bl_cp860_high
-         : encoding == BLV_CP866 ? bl_cp866_high : encoding == BLV_CPHUN ? bl_cphun_high : NULL;
+    size_t i;
+    for (i = 0; i < sizeof PAGES / sizeof PAGES[0]; i++)
+        if (PAGES[i].encoding == encoding) return &PAGES[i];
+    return NULL;                       /* the English unit's 7-bit text */
 }
 
-/* the unit's byte for c in its DOS code page (BLV_CP850 ... BLV_CPHUN); -1 if the page has no such character */
+/* the unit's byte for c in its text encoding (BLV_CP850 ... BLV_CP852SK); -1 if the unit has no such letter */
 static int cp_byte(int encoding, unsigned c)
 {
-    const unsigned short *high = page_high(encoding);
+    const text_page *p = page_of(encoding);
     int i;
     if (c < 0x80) return (int)c;
-    if (!high) return -1;
-    if (encoding == BLV_CPHUN) c = bl_hun_fold(c);
+    if (!p) return -1;
+    for (i = 0; i < p->n_fold; i++)
+        if (p->fold[i][0] == c) { c = p->fold[i][1]; break; }
     for (i = 0; i < 128; i++)
-        if (high[i] == c) return 0x80 + i;
+        if (p->high[i] == c) return 0x80 + i;
     return -1;
 }
 
 static int known_cp850(unsigned c) { return cp_byte(BLV_CP850, c) >= 0; }   /* those units' alphabet (translit.h) */
-static int known_cp852(unsigned c) { return cp_byte(BLV_CP852, c) >= 0; }   /* the Slovak unit's */
+static int known_cp852(unsigned c) { return cp_byte(BLV_CP852, c) >= 0; }   /* the Polish and Croatian units' */
 static int known_cp857(unsigned c) { return cp_byte(BLV_CP857, c) >= 0; }   /* the Turkish unit's */
 static int known_cp860(unsigned c) { return cp_byte(BLV_CP860, c) >= 0; }   /* the Portuguese units' */
 static int known_cp866(unsigned c) { return cp_byte(BLV_CP866, c) >= 0; }   /* the Russian unit's */
 static int known_cphun(unsigned c) { return cp_byte(BLV_CPHUN, c) >= 0; }   /* the Hungarian unit's */
+static int known_852sk(unsigned c) { return cp_byte(BLV_CP852SK, c) >= 0; }   /* the Slovak and Czech units' */
+
+/* translit.h's alphabet for an encoding: what tl_apply keeps as it is */
+static int (*known_of(int encoding))(unsigned)
+{
+    switch (encoding) {
+    case BLV_CP850: return known_cp850;
+    case BLV_CP852: return known_cp852;
+    case BLV_CP857: return known_cp857;
+    case BLV_CP860: return known_cp860;
+    case BLV_CP866: return known_cp866;
+    case BLV_CPHUN: return known_cphun;
+    case BLV_CP852SK: return known_852sk;
+    default: return tl_known_ascii;
+    }
+}
 
 /* ---- ssi263_numwords.currencies (English only): "£2.63" -> "2 pounds 63 pence" -------------------------------------
    The regex, tried as Python's re does: at each position the three alternatives in order, each amount in the
@@ -528,10 +565,7 @@ static int say_bytes(const char *utf8, int encoding, int pack, blv_numbers_fn fn
     /* translit.h first: the letters this unit's alphabet lacks, as base letters (or a lone one's words) */
     cur = (unsigned *)malloc(sizeof(unsigned) * (size_t)tl_room(m));
     if (!cur) { free(cps); return 0; }
-    m = tl_apply(cps, m, encoding == BLV_CP850 ? known_cp850 : encoding == BLV_CP852 ? known_cp852
-                         : encoding == BLV_CP857 ? known_cp857 : encoding == BLV_CP860 ? known_cp860
-                         : encoding == BLV_CP866 ? known_cp866 : encoding == BLV_CPHUN ? known_cphun
-                         : tl_known_ascii, cur);
+    m = tl_apply(cps, m, known_of(encoding), cur);
     free(cps);
     cps = cur;
     /* sizes: currencies() writes at most 8 code points per one it reads ("£.5" -> "50 pence"), _clean 3 ("...") */

@@ -22,11 +22,12 @@ typedef struct bl_voice bl_voice;
 
 #define BLV_LATIN1 0               /* the English unit (BL2ENG.BNS): 7-bit text */
 #define BLV_CP850 1                /* the Spanish, German and Italian units: DOS code page 850 */
-#define BLV_CP852 2                /* the Slovak Braille 'n Speak 2000 (BS2SLL.BNS): DOS code page 852 */
+#define BLV_CP852 2                /* DOS code page 852: the Polish and Croatian Braille Lite 2000 */
 #define BLV_CP857 3                /* DOS code page 857: the Turkish Braille Lite 2000 (bl_languages.txt) */
 #define BLV_CP860 4                /* DOS code page 860: the Portuguese and Brazilian Portuguese ones */
 #define BLV_CP866 5                /* DOS code page 866: the Russian one */
 #define BLV_CPHUN 6                /* the Hungarian one's letters as its speech rules take them (bl_cphun.h) */
+#define BLV_CP852SK 7              /* 852 with o circumflex sent as its capital: the Slovak and Czech units (bl_voice.c) */
 
 /* Boots the unit as the driver does (punctuation none, full numbers, inflection on or off, volume 6).
    whine: 0 off, 1 hiss, 2 whine.  NULL on failure, the reason in err. */

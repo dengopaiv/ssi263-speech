@@ -11,7 +11,6 @@
 #include "blazie/bl_cp857.h"
 #include "blazie/bl_cp860.h"
 #include "blazie/bl_cp866.h"
-#include "blazie/bl_cphun.h"
 #include "blazie/bl_voice.h"
 #include "blazie/bl_firmware.h"            /* blv_release_of, blv_release_text: a release's own encoding */
 #include "voices_blazie.h"
@@ -119,10 +118,11 @@ typedef struct {
 /* the Braille Lite: blazie.py (rate, pitch, volume, tone, short pauses, number words, run ahead, line-start lift;
    inflection and whine are the unit's boot) */
 /* each Blazie unit's text: the English unit's 7-bit, the Spanish, German and Italian units' DOS code page 850, the
-   Slovak unit's 852 (read from what each says for the accented letters of its language) */
+   Slovak unit's 852 with o circumflex as its capital (read from what each says for the accented letters of its
+   language) */
 static int bl_encoding(const char *lang)
 {
-    if (!strcmp(lang, "sk")) return BLV_CP852;
+    if (!strcmp(lang, "sk")) return BLV_CP852SK;
     if (!strcmp(lang, "es") || !strcmp(lang, "de") || !strcmp(lang, "it")) return BLV_CP850;
     return BLV_LATIN1;
 }
@@ -482,7 +482,8 @@ static int known_cp852(unsigned c) { return known_in(bl_cp852_high, c); }
 static int known_cp857(unsigned c) { return known_in(bl_cp857_high, c); }
 static int known_cp860(unsigned c) { return known_in(bl_cp860_high, c); }
 static int known_cp866(unsigned c) { return known_in(bl_cp866_high, c); }
-static int known_cphun(unsigned c) { return known_in(bl_cphun_high, bl_hun_fold(c)); }
+static int known_cphun(unsigned c) { return blv_text_byte(BLV_CPHUN, c) >= 0; }     /* with their folds (bl_voice.c) */
+static int known_852sk(unsigned c) { return blv_text_byte(BLV_CP852SK, c) >= 0; }
 
 SSV_API int ssv_translit(const char *utf8, int n, int charset, char *out, int cap)
 {
@@ -498,7 +499,7 @@ SSV_API int ssv_translit(const char *utf8, int n, int charset, char *out, int ca
     m = tl_apply(in, k, charset == SSV_CP850 ? known_cp850 : charset == SSV_CP852 ? known_cp852
                       : charset == SSV_CP857 ? known_cp857 : charset == SSV_CP860 ? known_cp860
                       : charset == SSV_CP866 ? known_cp866 : charset == SSV_CPHUN ? known_cphun
-                      : tl_known_ascii, t);
+                      : charset == SSV_CP852SK ? known_852sk : tl_known_ascii, t);
     free(in);
     u = (unsigned char *)malloc((size_t)m * 4 + 1);
     if (!u) { free(t); return -1; }

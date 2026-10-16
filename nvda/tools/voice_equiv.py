@@ -62,7 +62,7 @@ CASES_MORE = [
     ("blazie_it", "FIRMWARE_IT", "STATE_IT", 1,
      [("Buongiorno, come stai? La città è bella, perché sì.", 50, 50, 7, 100, True),
       ("Più tardi, così è.", 70, 30, 12, 60, True)]),
-    ("blazie_sk", "FIRMWARE_SK", "STATE_SK", 2,
+    ("blazie_sk", "FIRMWARE_SK", "STATE_SK", 7,
      [("Dobrý deň, ako sa máš? Toto je slovenský hlas, čaj a šach.", 50, 50, 7, 100, True),
       ("Žltý kôň úpel ďábelské ódy.", 50, 50, 7, 100, False)]),
 ]

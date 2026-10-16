@@ -1640,15 +1640,16 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                         env={"SSI263_RELEASE_VOICES_BREAK": "echo"}, expect_fail=True,
                         fail_marks=[r"^FAIL bl2_hu_1999_07: speaks: .* done at [4-9]", r"^ok +bl2_da_1999_11: speaks",
                                     r"^release voices: \d+ FAILED$"]))
-    # the Hungarian voice's accented letters (bl_cphun.h): each one's byte, and the phoneme the emulated unit says for
-    # it; the control sends plain letters as before (every vowel its base letter's sound)
-    CHECKS.append(check("hungarian letters: the unit says its accented vowels",
-                        [PY, os.path.join(BL_SRC, "test_hun_letters.py")]))
-    CHECKS.append(check("hungarian letters CONTROL (plain letters, must fail)",
-                        [PY, os.path.join(BL_SRC, "test_hun_letters.py")], env={"SSI263_HUN_BREAK": "1"},
-                        expect_fail=True, fail_marks=[r"^FAIL bytes +U\+0151 -> b'bot'",
-                                                      r"^FAIL vowel +U\+0151 in b_t: B PA O PA",
-                                                      r"^hungarian letters: \d+ FAILED$"]))
+    # the units' own accented letters (bl_voice.c's pages and folds): the Hungarian, Slovak and Czech letters, each its
+    # byte and exactly the unit's phonemes for it; the control sends what the voices did before (plain letters, plain
+    # 852: Hungarian o double acute an o, the Slovak o circumflex silent)
+    CHECKS.append(check("unit letters: each unit says its accented letters",
+                        [PY, os.path.join(BL_SRC, "test_unit_letters.py")]))
+    CHECKS.append(check("unit letters CONTROL (the encodings before, must fail)",
+                        [PY, os.path.join(BL_SRC, "test_unit_letters.py")], env={"SSI263_LETTERS_BREAK": "1"},
+                        expect_fail=True, fail_marks=[r"^FAIL letter +bl2_hu_1999_07 U\+0151: B PA O PA T PA",
+                                                      r"^FAIL letter +bns2_sk U\+00F4: S PA UH3 PA S PA UH3 PA \(",
+                                                      r"^unit letters: \d+ FAILED$"]))
     CHECKS.append(check("releases CONTROL (a release with no voice handed out as English, must fail)",
                         [PY, os.path.join(BL_SRC, "test_releases.py")], env={"SSI263_RELEASES_TEST_BREAK": "voice"},
                         expect_fail=True, fail_marks=[r"^FAIL no voice offered", r"^releases: 1 FAILED$"]))

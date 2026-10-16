@@ -41,7 +41,7 @@ PROGRESS = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_double)
 VOICE = {"english": 0, "spanish": 1, "german": 2, "italian": 3, "slovak": 4, "-": -1}
 MODEL = {"bl": 0, "bns": 1}
 SHAPE = {"english": 0, "slow": 1}
-TEXT_ID = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "-": 0}   # bl_voice.h BLV_*
+TEXT_ID = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "852sk": 7, "-": 0}   # bl_voice.h BLV_*
 N_CHORD = 0x1D                                   # n in computer braille
 NO_VOICE = -8                                    # bl_firmware.h BLV_FW_NO_VOICE
 

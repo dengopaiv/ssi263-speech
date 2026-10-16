@@ -20,7 +20,7 @@ FILES = {"en": ("BL2ENG.BNS", "bl2_2003_warm.state", 0, False),
          "es": ("BL2SPA.BNS", "bl2spa_fresh.state", 1, False),
          "de": ("Lite2000_de.BNS", "lite2000_de_fresh.state", 1, False),
          "it": ("Lite2000_it.BNS", "lite2000_it_fresh.state", 1, True),
-         "sk": ("BS2SLL.BNS", "bs2sll_fresh.state", 2, True)}
+         "sk": ("BS2SLL.BNS", "bs2sll_fresh.state", 7, True)}      # 852, o circumflex as its capital
 
 
 def _release_files(language):

@@ -25,6 +25,7 @@ SHAPES = {"english": "BLV_SHAPE_ENGLISH", "slow": "BLV_SHAPE_SLOW"}
 CODE_PAGES = {"850": "850", "852": "852", "-": "0"}
 TEXTS = {"7bit": "BLV_LATIN1", "850": "BLV_CP850", "852": "BLV_CP852", "857": "BLV_CP857", "860": "BLV_CP860",
          "866": "BLV_CP866", "hun": "BLV_CPHUN",       # hun: the Hungarian unit's spoken letters (bl_cphun.h)
+         "852sk": "BLV_CP852SK",                       # 852sk: 852, o circumflex sent as its capital
          "-": "BLV_LATIN1"}                             # not yet read: plain letters, as the English unit's
 BOOTS = {"fast": "0", "slow": "1"}
 YES_NO = {"yes": "1", "no": "0"}
