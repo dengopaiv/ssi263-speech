@@ -19,8 +19,9 @@
 #   yes     the letter that answers the setup's questions, as the unit asks for it (a-z, computer braille)
 #   cp      the unit's DOS code page for its text and file names (850, 852), as read from what it says for its own
 #           accented letters; - when not yet read
-#   text    the voice's text encoding (bl_voice.h BLV_*): 7bit, 850, 852, 857, 860, 866; - not yet read (the
-#           voice then sends plain letters, an accented one as its base letter or ?)
+#   text    the voice's text encoding (bl_voice.h BLV_*): 7bit, 850, 852, 857, 860, 866; hun (the Hungarian
+#           unit's letters as its speech rules take them, bl_cphun.h); - not yet read (the voice then sends plain
+#           letters, an accented one as its base letter or ?)
 #   boot    when the voice presses its boot keys (the speech menu, speech-box mode): fast (from 3M
 #           instructions, 1.5M apart: the shipped voices), slow (from 8M, 10M apart: a firmware that boots
 #           slower drops early keys and never enters speech-box mode)
@@ -72,7 +73,7 @@ bl2_fr_fc2_1999_06 | bl  | fr    | -       | english | o | -   | -    | slow | n
 bl2_de_1999_11     | bl  | de    | -       | english | j | 850 | 850  | slow | yes | yes | 261969 | 0564b7f887f485d5cca554062972ef4f49274203f835f3bcaf08351e9173fef5 | a3234a5cda6b499618ddbb632232ee5897d9073c4c22c11d2b7937660db49cd1 | Braille Lite 2000 (German, November 1999 beta) | - | BL2GER.BNS | Braille Lite German (BL2GER.BNS): the November 1, 1999 beta revision
 bl2_el_1999_07     | bl  | el    | blazie_el    | english | y | -   | -    | slow | no  | yes | 262010 | 61e277911d2b7030c7f91c47112c2965033d0f2a119ba9125e45cd8b2951b790 | 751abf7c80e2ad39bb1160a9152821d4e236d60e220ab481a6869c7c8a970c28 | Braille Lite 2000 (Greek) | Braille Lite 2000 (Greek) | BL2GRK.BNS | Braille Lite Greek (BL2GRK.BNS): the July 1, 1999 beta c revision
 bl2_he_1999_07     | bl  | he    | blazie_he    | english | y | -   | -    | slow | no  | yes | 262010 | 93502d81cbe4750c398dcf7862bcc53c9acf376ec4ed6505c9974499a5ecee75 | a36f233c1f5710f4133a67a6fed94d02638867769c2256820f23a1a761b2ec4c | Braille Lite 2000 (Hebrew) | Braille Lite 2000 (Hebrew) | BL2HEB.BNS | Braille Lite Hebrew (BL2HEB.BNS): the July 1, 1999 revision
-bl2_hu_1999_07     | bl  | hu    | blazie_hu    | english | y | -   | -    | slow | no  | yes | 262061 | d66b58f90e2bf116277fc2ea4bb5241ce41045459a657e74211d3795ef1ec17c | 1ef09d769027618b6a20f8865264db424a60d11cf74ae3d3764fc96713b5038f | Braille Lite 2000 (Hungarian) | Braille Lite 2000 (Hungarian) | BL2HUN.BNS | Braille Lite Hungarian (BL2HUN.BNS): the July 1, 1999 revision
+bl2_hu_1999_07     | bl  | hu    | blazie_hu    | english | y | -   | hun  | slow | no  | yes | 262061 | d66b58f90e2bf116277fc2ea4bb5241ce41045459a657e74211d3795ef1ec17c | 1ef09d769027618b6a20f8865264db424a60d11cf74ae3d3764fc96713b5038f | Braille Lite 2000 (Hungarian) | Braille Lite 2000 (Hungarian) | BL2HUN.BNS | Braille Lite Hungarian (BL2HUN.BNS): the July 1, 1999 revision
 bl2_it_1999_07     | bl  | it    | -       | english | s | -   | -    | slow | no  | yes | 261887 | 8d8e2830ae9f67a22015ee3e8078086634c8c2ddf6924e9da6a99131cda9f5d5 | f96029d332c5c6798f0a7ab09630789c0f81ff39ef4ea1dff8e67f846627a35b | Braille Lite 2000 (Italian, July 1999) | - | BL2ITA.BNS | Braille Lite Italian (BL2ITA.BNS): the July 1, 1999 revision
 bl2_ja             | bl  | ja    | -       | english | y | -   | -    | slow | no  | no  | 262010 | 5cd189c5c533434c16cba4fc103e947527b48ae82552be16e78582c45eac1a7c | 413984f158f1c00fb116e9041be3745e8042e076c95eb38f0fd3b02f08db57b6 | Braille Lite 2000 (Japanese) | - | BL2JPN.BNS | Braille Lite Japanese (BL2JPN.BNS)
 bl2_ko             | bl  | ko    | blazie_ko    | english | y | -   | -    | slow | no  | yes | 262010 | a80fb9d7ece58ab6ee27d4e13232c6518e337bd6af5963c640ff1bfa2a47a2d8 | 337b4b6d9fc6324850c78986a9d107b585d7bcb3c052d52991d358b548c36450 | Braille Lite 2000 (Korean) | Braille Lite 2000 (Korean) | BL2KOR.BNS | Braille Lite Korean (BL2KOR.BNS)

@@ -132,7 +132,7 @@ static const bl_release KNOWN[] = {
      "Braille Lite 2000 (Hebrew)", "Braille Lite 2000 (Hebrew)", "BL2HEB.BNS",
      "Braille Lite Hebrew (BL2HEB.BNS): the July 1, 1999 revision"},
     {"bl2_hu_1999_07", BL_MODEL_BRAILLE_LITE, "hu", BLV_FW_NONE, "blazie_hu", BLV_SHAPE_ENGLISH, 0x3D,
-     0, BLV_LATIN1, 1, 0, 1, 262061,
+     0, BLV_CPHUN, 1, 0, 1, 262061,
      "d66b58f90e2bf116277fc2ea4bb5241ce41045459a657e74211d3795ef1ec17c",
      "1ef09d769027618b6a20f8865264db424a60d11cf74ae3d3764fc96713b5038f",
      "Braille Lite 2000 (Hungarian)", "Braille Lite 2000 (Hungarian)", "BL2HUN.BNS",

@@ -134,7 +134,7 @@ SSV_API ssv_voice *ssv_bank_voice(ssv_bank *k, int i, char *err, int errlen);
 /* The accented-letter pass every voice's text path runs first (translit.h), on its own: n bytes of UTF-8 (n < 0: up
    to the NUL) in, UTF-8 out.  charset: what the firmware knows, SSV_ASCII (the English Braille Lite, the Speak-Out,
    the Accents), SSV_CP850 (the Spanish, German and Italian Braille Lites), SSV_CP857 / 860 / 866 (the Turkish,
-   Portuguese and Russian ones) or SSV_CP852 (the Slovak Braille 'n
+   Portuguese and Russian ones), SSV_CPHUN (the Hungarian one) or SSV_CP852 (the Slovak Braille 'n
    Speak 2000).  Returns the length (no NUL), copying into out when it fits in
    cap; -1 when out of memory.  For the Braille Lite's NVDA driver (its front end is Python, its unit this library)
    and for the tests that hold the voices to 0.7.0's drivers, which predate the pass.  The library also exports
@@ -145,6 +145,7 @@ SSV_API ssv_voice *ssv_bank_voice(ssv_bank *k, int i, char *err, int errlen);
 #define SSV_CP857 3                  /* the Turkish Braille Lite (bl_voice.h BLV_CP857: the same ids) */
 #define SSV_CP860 4                  /* the Portuguese ones */
 #define SSV_CP866 5                  /* the Russian one */
+#define SSV_CPHUN 6                  /* the Hungarian one (bl_voice.h BLV_CPHUN, bl_cphun.h) */
 SSV_API int ssv_translit(const char *utf8, int n, int charset, char *out, int cap);
 
 #ifdef __cplusplus

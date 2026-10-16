@@ -84,6 +84,13 @@ control "release voices CONTROL (the echo ignored, must fail)" "^FAIL bl2_hu_199
     -- env SSI263_RELEASE_VOICES_BREAK=echo python3 src/csrc/blazie/test_release_voices.py --lib "$LIB" --firmware "$DATA"
 control "releases CONTROL (a release with no voice handed out as English, must fail)" "^releases: 1 FAILED$" \
     -- env SSI263_RELEASES_TEST_BREAK=voice python3 src/csrc/blazie/test_releases.py --lib "$LIB" --firmware "$DATA"
+# the Hungarian voice's accented letters (bl_cphun.h): each one's byte and the phoneme the emulated unit says for it;
+# the control sends plain letters, as before
+check "hungarian letters: the unit says its accented vowels" python3 src/csrc/blazie/test_hun_letters.py \
+    --lib "$LIB" --firmware "$DATA"
+control "hungarian letters CONTROL (plain letters, must fail)" "^FAIL vowel +U\+0151 in b_t: B PA O PA" \
+    "^hungarian letters: [0-9]+ FAILED$" \
+    -- env SSI263_HUN_BREAK=1 python3 src/csrc/blazie/test_hun_letters.py --lib "$LIB" --firmware "$DATA"
 # issue #8: the Accent SA's text done only when said (as_voice's settle between clauses), on the module's own engine
 # objects (libsd_voices_ref.so: libssi263speech.so has no Accent SA); its control is the settle off (0.7.5's done)
 # and must name the dialog's early texts

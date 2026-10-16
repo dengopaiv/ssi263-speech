@@ -16,6 +16,7 @@
 #include "bl_cp857.h"
 #include "bl_cp860.h"
 #include "bl_cp866.h"
+#include "bl_cphun.h"
 #include "bl_firmware.h"                    /* blv_release_of: the firmware's own boot keys and echo */
 #include "../translit.h"
 
@@ -215,16 +216,17 @@ static const unsigned short *page_high(int encoding)
 {
     return encoding == BLV_CP850 ? bl_cp850_high : encoding == BLV_CP852 ? bl_cp852_high
          : encoding == BLV_CP857 ? bl_cp857_high : encoding == BLV_CP860 ? bl_cp860_high
-         : encoding == BLV_CP866 ? bl_cp866_high : NULL;
+         : encoding == BLV_CP866 ? bl_cp866_high : encoding == BLV_CPHUN ? bl_cphun_high : NULL;
 }
 
-/* the unit's byte for c in its DOS code page (BLV_CP850 ... BLV_CP866); -1 if the page has no such character */
+/* the unit's byte for c in its DOS code page (BLV_CP850 ... BLV_CPHUN); -1 if the page has no such character */
 static int cp_byte(int encoding, unsigned c)
 {
     const unsigned short *high = page_high(encoding);
     int i;
     if (c < 0x80) return (int)c;
     if (!high) return -1;
+    if (encoding == BLV_CPHUN) c = bl_hun_fold(c);
     for (i = 0; i < 128; i++)
         if (high[i] == c) return 0x80 + i;
     return -1;
@@ -235,6 +237,7 @@ static int known_cp852(unsigned c) { return cp_byte(BLV_CP852, c) >= 0; }   /* t
 static int known_cp857(unsigned c) { return cp_byte(BLV_CP857, c) >= 0; }   /* the Turkish unit's */
 static int known_cp860(unsigned c) { return cp_byte(BLV_CP860, c) >= 0; }   /* the Portuguese units' */
 static int known_cp866(unsigned c) { return cp_byte(BLV_CP866, c) >= 0; }   /* the Russian unit's */
+static int known_cphun(unsigned c) { return cp_byte(BLV_CPHUN, c) >= 0; }   /* the Hungarian unit's */
 
 /* ---- ssi263_numwords.currencies (English only): "£2.63" -> "2 pounds 63 pence" -------------------------------------
    The regex, tried as Python's re does: at each position the three alternatives in order, each amount in the
@@ -527,7 +530,8 @@ static int say_bytes(const char *utf8, int encoding, int pack, blv_numbers_fn fn
     if (!cur) { free(cps); return 0; }
     m = tl_apply(cps, m, encoding == BLV_CP850 ? known_cp850 : encoding == BLV_CP852 ? known_cp852
                          : encoding == BLV_CP857 ? known_cp857 : encoding == BLV_CP860 ? known_cp860
-                         : encoding == BLV_CP866 ? known_cp866 : tl_known_ascii, cur);
+                         : encoding == BLV_CP866 ? known_cp866 : encoding == BLV_CPHUN ? known_cphun
+                         : tl_known_ascii, cur);
     free(cps);
     cps = cur;
     /* sizes: currencies() writes at most 8 code points per one it reads ("£.5" -> "50 pence"), _clean 3 ("...") */
@@ -575,6 +579,12 @@ static int say_bytes(const char *utf8, int encoding, int pack, blv_numbers_fn fn
     *out = data;
     *out_len = len;
     return nl;
+}
+
+BL_API int blv_text_byte(int encoding, unsigned code_point)
+{
+    if (encoding == BLV_LATIN1) return code_point < 256 ? (int)code_point : -1;
+    return cp_byte(encoding, code_point);
 }
 
 BL_API int blv_say_bytes(const char *utf8, int encoding, int pack, unsigned char *out, int cap)

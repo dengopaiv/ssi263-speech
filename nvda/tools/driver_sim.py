@@ -393,6 +393,14 @@ if WHICH == "blazie":
                                                                  results[-1]["audio_s"], "ok" if good else "FAILED"))
         rel_ok = rel_ok and good
     if "blazie_hu" in present:
+        # its letters go out as the unit's own bytes (bl_cphun.h, through the library's blv_text_byte): o double acute
+        # as A7h in both cases, the others each their byte -- not the base letters of the old plain-letter path
+        enc = d._units["blazie_hu"].encoding
+        got = "Jó, tükörfúrógép, őŐ űÁ".encode(enc, "replace")
+        want = b"J\xa2, t\x81k\x94rf\xa3r\xa2g\x82p, \xa7\xa7 \x96\x8f"
+        good = got == want
+        print("blazie hungarian letters (%s): %r: %s" % (enc, got, "ok" if good else "FAILED, want %r" % want))
+        rel_ok = rel_ok and good
         d._set_voice("blazie")
         scenario("language switching (hu)", ["Hello there.", LangChangeCommand("hu"), "Jó napot.",
                                              LangChangeCommand("en"), "Goodbye."])
