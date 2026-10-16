@@ -79,6 +79,17 @@ int  bl_ccr(const bl_unit *u);
 void bl_set_double_speed(bl_unit *u, int on);
 int  bl_get_double_speed(const bl_unit *u);
 int  bl_double_speed_now(const bl_unit *u);
+/* The SSI-263's latch race, always on (BL_LATCH_RACE_US): the chip takes a register at the first edge of its own
+   clock after the write, and a write that comes before that edge also puts its value into the register written just
+   before it.  Measured on Tomi's Braille Lite 2000 (2026-10-16): at double speed BASIC's tones rumble, and the rumble
+   is a note's R4 holding 37, its R0's value, written 1.46 us later (regprog sessions: R4 = 37 at the base clock sounds
+   the same); the latch time is fitted so that pinball sometimes survives, as on the unit.  Nothing written at the
+   base clock comes closer than 2.93 us, so it never fires there.  bl_set_latch_race: tests (0 off);
+   bl_latch_catches: how many writes it has caught. */
+#define BL_LATCH_RACE_US 2.15
+void bl_set_latch_race(bl_unit *u, double us);
+double bl_latch_race(const bl_unit *u);
+unsigned long long bl_latch_catches(const bl_unit *u);
 /* the battery gauge's reading (0-255, the converter's raw value); -1 (the default) leaves ports B0h/81h as they
    were: the status menu's % then waits forever */
 void bl_battery(bl_unit *u, int level);

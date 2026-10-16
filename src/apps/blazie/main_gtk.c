@@ -1730,7 +1730,9 @@ static void do_double_note(int unused)
     (void)unused;
     message(GTK_MESSAGE_INFO, "Double speed", "The double-speed upgrade is installed. To use it, switch it on in the "
             "unit: the status menu, then + (dots 3-4-6), answered y.\n\n"
-            "Blazie's advice was to switch double speed off for programs that play sounds.");
+            "As on a real unit, programs that play sounds can misbehave with it on: their tones can come out as a low "
+            "rumble, and a game can stop the unit. Blazie's advice was to switch double speed off for them. "
+            "Firmware > Restart the unit starts a stopped unit again.");
 }
 
 static void do_about(int unused)

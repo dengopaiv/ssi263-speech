@@ -1256,8 +1256,9 @@ chosen:
                 emu_set_double_speed(g_unit, g_double);
             pthread_mutex_unlock(&g_lock);
             say("%s", g_double ? "Double-speed upgrade on. Switch it on in the unit: the status menu, then + "
-                                 "(dots 3-4-6), answered y. Blazie's advice was to switch it off for programs that "
-                                 "play sounds."
+                                 "(dots 3-4-6), answered y. As on a real unit, programs that play sounds can "
+                                 "misbehave with it on: their tones can come out as a low rumble, and a game can stop "
+                                 "the unit (the menu's r restarts it). Blazie's advice was to switch it off for them."
                                : "Double-speed upgrade off.");
             save_settings();
             continue;

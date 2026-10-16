@@ -167,8 +167,11 @@ chip was a $99 upgrade, not in every unit.  With it installed, the unit's own sw
 (dots 3-4-6), answered y -- runs its CPU at the crystal's 12.288 MHz, twice its usual clock
 (`../../csrc/blazie/bl_board.h` `bl_set_double_speed`): the firmware answers keys sooner, while the speech, the
 clock and the serial port keep their pace.  Without it the switch changes nothing, as on a unit without the chip.
-Blazie's advice was to switch double speed off for programs that play sounds.  test_emu_unit's "double speed" keys
-the English unit's switch with the upgrade and without (its control never installs it).
+Blazie's advice was to switch double speed off for programs that play sounds, and the emulator shows why, as Tomi's
+unit does: the BASIC runtime writes a note's chip registers 1.5-2 us apart at double speed, too close for the chip
+(`../../csrc/blazie/bl_board.h` `BL_LATCH_RACE_US`), so many notes come out as a low rumble and a game can stop the
+unit (pinball, now and then; Firmware > Restart the unit starts it again).  test_emu_unit's "double speed" keys the
+English unit's switch with the upgrade and without (its control never installs it).
 
 Firmware > Restart the unit (keeps its files): what switching a real unit off and on does -- its memory saved, then
 started again from it, the CPU from the beginning.  For a unit that has stopped answering; Back to the factory state

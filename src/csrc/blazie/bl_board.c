@@ -103,6 +103,14 @@ struct bl_unit {
        Never saved: derived from the core at every step, so a state's bytes do not change. */
     int x1_ok, x1;
     unsigned long long t_base, c_base;       /* board time and core cycles at the last switch */
+    /* The SSI-263's latch race (bl_set_latch_race): the chip takes a register at the first edge of its own clock
+       after the write; a write that comes before that edge also puts its value into the register written before it.
+       Only writes under ~2.2 us apart reach it -- the BASIC runtime's note writes at double speed, 1.46 and 2.12 us;
+       at the base clock nothing the firmware or BASIC writes is closer than 2.93 us.  Never saved. */
+    double race_us;                          /* the latch time; 0: off */
+    unsigned long long race_t;               /* board time of the last chip write */
+    int race_reg;                            /* its register, -1 before the first */
+    unsigned long long race_catches;         /* bl_latch_catches */
 };
 
 /* the board's time: T-states at the base PHI (clock_hz), whatever the CPU's clock */
@@ -270,6 +278,35 @@ static uint8_t io_read(void *ctx, uint16_t Port)
     return v;
 }
 
+/* one value into one of the chip's registers: the board's copy, the host's event, the A/R bookkeeping */
+static void chip_write(bl_unit *u, int reg, uint8_t V, unsigned long long cyc)
+{
+    u->ssi[reg] = V;
+    TR("IO %llu pc=%04X r%d=%02X\n", cyc, u->instr_pc, reg, V);
+    if (reg == 3)
+        u->ssi_ctl = V >> 7;
+    event(u, 'W', (unsigned char)reg, V);
+    if (reg == 0 && u->ssi_ctl) {
+        u->ssi_mode = V >> 6;
+        ar_line(u);
+    } else if (reg == 0) {
+        u->ssi_ar = 0;
+        u->ssi_ready_at = u->live_on ? ~0ULL
+                        : cyc + (unsigned long long)(u->phon_ms * u->clock_hz / 1000.0);
+        ar_line(u);
+    }
+}
+
+/* the latch race: a write at board time t before the chip's first clock edge after the last write (race_us apart,
+   counted from board time 0) */
+static int race_caught(const bl_unit *u, unsigned long long t)
+{
+    double us_per_t = 1e6 / u->clock_hz;
+    double last = (double)u->race_t * us_per_t, now = (double)t * us_per_t;
+    double edge = ((double)(unsigned long long)(last / u->race_us) + 1.0) * u->race_us;
+    return now < edge;
+}
+
 static void io_write(void *ctx, uint16_t Port, uint8_t V)
 {
     bl_unit *u = (bl_unit *)ctx;
@@ -292,20 +329,14 @@ static void io_write(void *ctx, uint16_t Port, uint8_t V)
     if (p >= 0xC0 && p <= 0xC4) {
         int reg = p - 0xC0;
         unsigned long long cyc = now_t(u);
-        u->ssi[reg] = V;
-        TR("IO %llu pc=%04X r%d=%02X\n", cyc, u->instr_pc, reg, V);
-        if (reg == 3)
-            u->ssi_ctl = V >> 7;
-        event(u, 'W', (unsigned char)reg, V);
-        if (reg == 0 && u->ssi_ctl) {
-            u->ssi_mode = V >> 6;
-            ar_line(u);
-        } else if (reg == 0) {
-            u->ssi_ar = 0;
-            u->ssi_ready_at = u->live_on ? ~0ULL
-                            : cyc + (unsigned long long)(u->phon_ms * u->clock_hz / 1000.0);
-            ar_line(u);
+        if (u->race_us > 0.0 && u->race_reg >= 0 && u->race_reg != reg && race_caught(u, cyc)) {
+            TR("CAUGHT %llu r%d=%02X (r%d=%02X came first)\n", cyc, u->race_reg, V, reg, V);
+            u->race_catches++;
+            chip_write(u, u->race_reg, V, cyc);   /* the earlier register latches this write's value */
         }
+        u->race_t = cyc;
+        u->race_reg = reg;
+        chip_write(u, reg, V, cyc);
     }
 }
 
@@ -458,6 +489,8 @@ bl_unit *bl_create(const char *firmware, const char *state, double phon_ms,
     u->pf.device = 0xA4;
     u->clock_hz = 6144000.0;
     u->phon_ms = phon_ms;
+    u->race_us = BL_LATCH_RACE_US;
+    u->race_reg = -1;
     u->irq_line = Z180_INT1;
     u->ssi_ready_value = 0x80;
     u->ssi_ar = 1;
@@ -595,6 +628,21 @@ int bl_get_double_speed(const bl_unit *u)
 int bl_double_speed_now(const bl_unit *u)
 {
     return u->x1;
+}
+
+void bl_set_latch_race(bl_unit *u, double us)
+{
+    u->race_us = us > 0.0 ? us : 0.0;
+}
+
+double bl_latch_race(const bl_unit *u)
+{
+    return u->race_us;
+}
+
+unsigned long long bl_latch_catches(const bl_unit *u)
+{
+    return u->race_catches;
 }
 
 void bl_boot(bl_unit *u, unsigned long long target_instr)
