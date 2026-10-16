@@ -28,6 +28,11 @@ typedef struct bl_voice bl_voice;
 #define BLV_CP866 5                /* DOS code page 866: the Russian one */
 #define BLV_CPHUN 6                /* the Hungarian one's letters as its speech rules take them (bl_cphun.h) */
 #define BLV_CP852SK 7              /* 852 with o circumflex sent as its capital: the Slovak and Czech units (bl_voice.c) */
+#define BLV_CP852PL 8              /* 852, Z dot above sent as its lower case, o circumflex as o: the Polish unit */
+#define BLV_CP852HR 9              /* 852, C acute and D stroke as their lower case, o circumflex as o: the Croatian */
+#define BLV_CP850FR 10             /* 850, the accented capitals the unit skips as their lower case: the French unit */
+#define BLV_CP850DANO 11           /* only the letters ae, o slash, a ring of 850: the Danish and Norwegian units */
+#define BLV_CP850SV 12             /* only a ring, a and o diaeresis, u diaeresis, E acute (e acute as it): Swedish */
 
 /* Boots the unit as the driver does (punctuation none, full numbers, inflection on or off, volume 6).
    whine: 0 off, 1 hiss, 2 whine.  NULL on failure, the reason in err. */
@@ -88,6 +93,10 @@ BL_API int blv_say_bytes_with(const char *utf8, int encoding, int pack, blv_numb
 /* The unit's byte for one code point in that encoding (below 80h itself), or -1 when the unit has none: the NVDA
    driver's codec for BLV_CPHUN, which Python has no codec for. */
 BL_API int blv_text_byte(int encoding, unsigned code_point);
+/* The letters translit.h keeps for that encoding (the rest become their base letters): voices.c's ssv_translit, the
+   NVDA driver's pass, uses the voice's own. */
+typedef int (*blv_known_fn)(unsigned code_point);
+BL_API blv_known_fn blv_text_known(int encoding);
 
 BL_API bl_host *blv_host(bl_voice *v);
 BL_API ssi263 *blv_chip(bl_voice *v);

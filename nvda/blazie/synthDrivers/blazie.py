@@ -112,8 +112,8 @@ NO_ECHO = ("blazie_it", "blazie_sk")
 # encoding); and per voice (slow boot, echoes ^F).
 RELEASE_DIR = os.path.join(_ENGINE_DIR, "bl2000")
 # bl_voice.h BLV_*: 6 on are the units' own spoken letters (the Hungarian one's, 852 with folds ...), no Python codec
-RELEASE_CODECS = {0: "latin-1", 1: "cp850", 2: "cp852", 3: "cp857", 4: "cp860", 5: "cp866",
-                  6: "blazie_text_6", 7: "blazie_text_7"}
+RELEASE_CODECS = {0: "latin-1", 1: "cp850", 2: "cp852", 3: "cp857", 4: "cp860", 5: "cp866"}
+RELEASE_CODECS.update((n, "blazie_text_%d" % n) for n in range(6, 13))
 SLOW_KEYS = (8000000, 10000000)          # bl_voice.c KEY_START_SLOW, KEY_GAP_SLOW
 _release_voices = None
 # "blazie_text_N" encodes with the library's own table for BLV_* N (blv_text_byte: its page and its folds, a letter

@@ -216,20 +216,46 @@ static int py_isspace(unsigned c)
    (93h in both) says nothing; its capital's is spoken. */
 static const unsigned short fold_hun[][2] = {{0x0151, 0x0150}};      /* o double acute -> O double acute (A7h) */
 static const unsigned short fold_852sk[][2] = {{0x00F4, 0x00D4}};    /* o circumflex -> O circumflex (E2h) */
+/* ... and the other way: capitals the unit says nothing for, sent as their lower case */
+static const unsigned short fold_852pl[][2] = {{0x017B, 0x017C}};    /* Z dot above */
+static const unsigned short fold_852hr[][2] = {{0x0106, 0x0107}, {0x0110, 0x0111}};   /* C acute, D stroke */
+static const unsigned short fold_850fr[][2] = {{0x00C0, 0x00E0}, {0x00C2, 0x00E2}, {0x00C7, 0x00E7}, {0x00C8, 0x00E8},
+    {0x00CA, 0x00EA}, {0x00CB, 0x00EB}, {0x00CE, 0x00EE}, {0x00CF, 0x00EF}, {0x00D9, 0x00F9}, {0x00DB, 0x00FB}};
+static const unsigned short fold_850sv[][2] = {{0x00E9, 0x00C9}};    /* e acute -> E acute: the Swedish unit's */
+/* Letters the unit says nothing for in either case: left out, so translit.h sends the base letter ("o" for o
+   circumflex) rather than a byte the unit skips */
+static const unsigned short drop_o_circ[] = {0x00F4, 0x00D4};
+static const unsigned short drop_850fr[] = {0x00F4, 0x00D4, 0x00FC, 0x00DC, 0x00FF};
+/* The Danish, Norwegian and Swedish units: only their own letters from 850 (the unit's answer to the rest of the page
+   -- symbols, box drawing -- is noise; translit.h keeps them as before) */
+static const unsigned short keep_850dano[] = {0x00E6, 0x00C6, 0x00F8, 0x00D8, 0x00E5, 0x00C5};
+static const unsigned short keep_850sv[] = {0x00E5, 0x00C5, 0x00E4, 0x00C4, 0x00F6, 0x00D6, 0x00FC, 0x00DC, 0x00C9};
 
 typedef struct {
     int encoding;
     const unsigned short *high;        /* the upper half (bytes 80h-FFh); 0 where the unit has no letter */
     const unsigned short (*fold)[2];   /* letter -> the letter whose byte is sent */
     int n_fold;
+    const unsigned short *drop;        /* letters the unit has no byte for, though the page has one */
+    int n_drop;
+    const unsigned short *keep;        /* when set: the only letters above 7Fh the unit has (after the folds) */
+    int n_keep;
 } text_page;
 
+#define N(a) ((int)(sizeof a / sizeof a[0]))
 static const text_page PAGES[] = {
-    {BLV_CP850, bl_cp850_high, NULL, 0}, {BLV_CP852, bl_cp852_high, NULL, 0}, {BLV_CP857, bl_cp857_high, NULL, 0},
-    {BLV_CP860, bl_cp860_high, NULL, 0}, {BLV_CP866, bl_cp866_high, NULL, 0},
-    {BLV_CPHUN, bl_cphun_high, fold_hun, 1},
-    {BLV_CP852SK, bl_cp852_high, fold_852sk, 1},
+    {BLV_CP850, bl_cp850_high, NULL, 0, NULL, 0, NULL, 0}, {BLV_CP852, bl_cp852_high, NULL, 0, NULL, 0, NULL, 0},
+    {BLV_CP857, bl_cp857_high, NULL, 0, NULL, 0, NULL, 0}, {BLV_CP860, bl_cp860_high, NULL, 0, NULL, 0, NULL, 0},
+    {BLV_CP866, bl_cp866_high, NULL, 0, NULL, 0, NULL, 0},
+    {BLV_CPHUN, bl_cphun_high, fold_hun, N(fold_hun), NULL, 0, NULL, 0},
+    {BLV_CP852SK, bl_cp852_high, fold_852sk, N(fold_852sk), NULL, 0, NULL, 0},
+    {BLV_CP852PL, bl_cp852_high, fold_852pl, N(fold_852pl), drop_o_circ, N(drop_o_circ), NULL, 0},
+    {BLV_CP852HR, bl_cp852_high, fold_852hr, N(fold_852hr), drop_o_circ, N(drop_o_circ), NULL, 0},
+    {BLV_CP850FR, bl_cp850_high, fold_850fr, N(fold_850fr), drop_850fr, N(drop_850fr), NULL, 0},
+    {BLV_CP850DANO, bl_cp850_high, NULL, 0, NULL, 0, keep_850dano, N(keep_850dano)},
+    {BLV_CP850SV, bl_cp850_high, fold_850sv, N(fold_850sv), NULL, 0, keep_850sv, N(keep_850sv)},
 };
+#undef N
 
 static const text_page *page_of(int encoding)
 {
@@ -248,6 +274,13 @@ static int cp_byte(int encoding, unsigned c)
     if (!p) return -1;
     for (i = 0; i < p->n_fold; i++)
         if (p->fold[i][0] == c) { c = p->fold[i][1]; break; }
+    for (i = 0; i < p->n_drop; i++)
+        if (p->drop[i] == c) return -1;
+    if (p->keep) {
+        for (i = 0; i < p->n_keep && p->keep[i] != c; i++)
+            ;
+        if (i == p->n_keep) return -1;
+    }
     for (i = 0; i < 128; i++)
         if (p->high[i] == c) return 0x80 + i;
     return -1;
@@ -260,6 +293,11 @@ static int known_cp860(unsigned c) { return cp_byte(BLV_CP860, c) >= 0; }   /* t
 static int known_cp866(unsigned c) { return cp_byte(BLV_CP866, c) >= 0; }   /* the Russian unit's */
 static int known_cphun(unsigned c) { return cp_byte(BLV_CPHUN, c) >= 0; }   /* the Hungarian unit's */
 static int known_852sk(unsigned c) { return cp_byte(BLV_CP852SK, c) >= 0; }   /* the Slovak and Czech units' */
+static int known_852pl(unsigned c) { return cp_byte(BLV_CP852PL, c) >= 0; }   /* the Polish unit's */
+static int known_852hr(unsigned c) { return cp_byte(BLV_CP852HR, c) >= 0; }   /* the Croatian unit's */
+static int known_850fr(unsigned c) { return cp_byte(BLV_CP850FR, c) >= 0; }   /* the French unit's */
+static int known_850dano(unsigned c) { return cp_byte(BLV_CP850DANO, c) >= 0; }   /* the Danish and Norwegian */
+static int known_850sv(unsigned c) { return cp_byte(BLV_CP850SV, c) >= 0; }   /* the Swedish unit's */
 
 /* translit.h's alphabet for an encoding: what tl_apply keeps as it is */
 static int (*known_of(int encoding))(unsigned)
@@ -272,6 +310,11 @@ static int (*known_of(int encoding))(unsigned)
     case BLV_CP866: return known_cp866;
     case BLV_CPHUN: return known_cphun;
     case BLV_CP852SK: return known_852sk;
+    case BLV_CP852PL: return known_852pl;
+    case BLV_CP852HR: return known_852hr;
+    case BLV_CP850FR: return known_850fr;
+    case BLV_CP850DANO: return known_850dano;
+    case BLV_CP850SV: return known_850sv;
     default: return tl_known_ascii;
     }
 }
@@ -619,6 +662,11 @@ BL_API int blv_text_byte(int encoding, unsigned code_point)
 {
     if (encoding == BLV_LATIN1) return code_point < 256 ? (int)code_point : -1;
     return cp_byte(encoding, code_point);
+}
+
+BL_API blv_known_fn blv_text_known(int encoding)
+{
+    return known_of(encoding);
 }
 
 BL_API int blv_say_bytes(const char *utf8, int encoding, int pack, unsigned char *out, int cap)

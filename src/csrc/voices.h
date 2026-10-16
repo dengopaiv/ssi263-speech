@@ -147,6 +147,8 @@ SSV_API ssv_voice *ssv_bank_voice(ssv_bank *k, int i, char *err, int errlen);
 #define SSV_CP866 5                  /* the Russian one */
 #define SSV_CPHUN 6                  /* the Hungarian one (bl_voice.h BLV_CPHUN, bl_cphun.h) */
 #define SSV_CP852SK 7                /* the Slovak and Czech ones (BLV_CP852SK: 852, o circumflex as its capital) */
+/* 8 on: bl_voice.h's BLV_CP852PL ... BLV_CP850SV, the same ids (the Polish, Croatian, French, Danish and Norwegian,
+   Swedish units) */
 SSV_API int ssv_translit(const char *utf8, int n, int charset, char *out, int cap);
 
 #ifdef __cplusplus

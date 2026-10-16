@@ -1640,15 +1640,18 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                         env={"SSI263_RELEASE_VOICES_BREAK": "echo"}, expect_fail=True,
                         fail_marks=[r"^FAIL bl2_hu_1999_07: speaks: .* done at [4-9]", r"^ok +bl2_da_1999_11: speaks",
                                     r"^release voices: \d+ FAILED$"]))
-    # the units' own accented letters (bl_voice.c's pages and folds): the Hungarian, Slovak and Czech letters, each its
-    # byte and exactly the unit's phonemes for it; the control sends what the voices did before (plain letters, plain
-    # 852: Hungarian o double acute an o, the Slovak o circumflex silent)
+    # the units' own accented letters (bl_voice.c's pages and folds): the Hungarian, Slovak, Czech, Polish, Croatian,
+    # French, Danish, Norwegian and Swedish letters, each its byte and exactly the unit's phonemes for it; the control
+    # sends what the voices did before (Hungarian o double acute an o, the Slovak o circumflex and the Polish Z dot
+    # and French A grave capitals silent)
     CHECKS.append(check("unit letters: each unit says its accented letters",
                         [PY, os.path.join(BL_SRC, "test_unit_letters.py")]))
     CHECKS.append(check("unit letters CONTROL (the encodings before, must fail)",
                         [PY, os.path.join(BL_SRC, "test_unit_letters.py")], env={"SSI263_LETTERS_BREAK": "1"},
                         expect_fail=True, fail_marks=[r"^FAIL letter +bl2_hu_1999_07 U\+0151: B PA O PA T PA",
                                                       r"^FAIL letter +bns2_sk U\+00F4: S PA UH3 PA S PA UH3 PA \(",
+                                                      r"^FAIL letter +bl2_pl_1998_12 U\+017B: S PA AH1 PA S PA AH1 PA \(",
+                                                      r"^FAIL letter +bl2_fr_fre_1999_07 U\+00C0: S PA AH1 PA S PA",
                                                       r"^unit letters: \d+ FAILED$"]))
     CHECKS.append(check("releases CONTROL (a release with no voice handed out as English, must fail)",
                         [PY, os.path.join(BL_SRC, "test_releases.py")], env={"SSI263_RELEASES_TEST_BREAK": "voice"},

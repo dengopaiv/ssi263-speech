@@ -10,9 +10,11 @@ The expected strings were read from the emulator (every byte 80h-FFh sent in the
           acute as A7h, Slovak o circumflex as E2h -- their lower case bytes say nothing)
   letter  each letter in its frame: exactly the unit's own phonemes for that byte
 
-Control (SSI263_LETTERS_BREAK=1): each voice sends what it did before these tables (Hungarian and Czech plain letters,
-the Slovak Braille 'n Speak plain 852), so the Hungarian vowels, the Czech letters and the Slovak o circumflex fail.
-This test must then fail.
+A letter the unit says nothing for in either case goes out as its base letter, and must be said exactly as that.
+
+Control (SSI263_LETTERS_BREAK=1): each voice sends what it did before these tables (plain letters, plain 852 or 850),
+so the Hungarian vowels, the Czech and Scandinavian letters, the Slovak o circumflex and the capitals the Polish,
+Croatian and French units skip fail.  This test must then fail.
 """
 import argparse
 import ctypes
@@ -20,6 +22,7 @@ import os
 import struct
 import sys
 import tempfile
+import unicodedata
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
@@ -98,7 +101,78 @@ RELEASES = {
         "ů": (0x85, "B PA U PA U PA T PA"), "Ů": (0xDE, "B PA U PA U PA T PA"),
         "ý": (0xEC, "B PA E PA E PA T PA"), "Ý": (0xED, "B PA E PA E PA T PA"),
         "ž": (0xA7, "B PA J PA T PA"), "Ž": (0xA6, "B PA J PA T PA")}),
+    # (None: the unit says nothing for the letter in either case, so its base letter goes out and is said as that)
+    "bl2_pl_1998_12": (8, 2, "sa{}sa", {
+        "ą": (0xA5, "S PA AH1 PA O PA OU PA HN PA S PA AH1 PA"),
+        "Ą": (0xA4, "S PA AH1 PA O PA OU PA HN PA S PA AH1 PA"),
+        "ć": (0x86, "S PA AH1 PA T PA SCH PA Y PA S PA AH1 PA"),
+        "Ć": (0x8F, "S PA AH1 PA T PA SCH PA Y PA S PA AH1 PA"),
+        "ę": (0xA9, "S PA AH1 PA EH1 PA U PA N PA S PA AH1 PA"),
+        "Ę": (0xA8, "S PA AH1 PA EH1 PA U PA N PA S PA AH1 PA"),
+        "ł": (0x88, "S PA AH1 PA U PA S PA AH1 PA"),
+        "Ł": (0x9D, "S PA AH1 PA U PA S PA AH1 PA"),
+        "ń": (0xE4, "S PA AH1 PA N PA NG PA Y PA S PA AH1 PA"),
+        "Ń": (0xE3, "S PA AH1 PA N PA NG PA Y PA S PA AH1 PA"),
+        "ó": (0xA2, "S PA AH1 PA U PA U PA S PA AH1 PA"),
+        "Ó": (0xE0, "S PA AH1 PA U PA U PA S PA AH1 PA"),
+        "ś": (0x98, "S PA AH1 PA SCH PA S PA AH1 PA"),
+        "Ś": (0x97, "S PA AH1 PA SCH PA S PA AH1 PA"),
+        "ź": (0xAB, "S PA AH1 PA J PA SCH PA Y PA S PA AH1 PA"),
+        "Ź": (0x8D, "S PA AH1 PA J PA SCH PA Y PA S PA AH1 PA"),
+        "ż": (0xBE, "S PA AH1 PA J PA S PA AH1 PA"),
+        "Ż": (0xBE, "S PA AH1 PA J PA S PA AH1 PA"),
+        "ô": (None, None), "Ô": (None, None)}),
+    "bl2_hr_1999_07": (9, 2, "sa{}sa", {
+        "č": (0x9F, "S PA AH1 PA T PA SCH PA S PA AH1 PA"),
+        "Č": (0xAC, "S PA AH1 PA T PA SCH PA S PA AH1 PA"),
+        "ć": (0x86, "S PA AH1 PA T PA Y1 PA S PA AH1 PA"),
+        "Ć": (0x86, "S PA AH1 PA T PA Y1 PA S PA AH1 PA"),
+        "đ": (0xD0, "S PA AH1 PA D PA J PA J PA S PA AH1 PA"),
+        "Đ": (0xD0, "S PA AH1 PA D PA J PA J PA S PA AH1 PA"),
+        "š": (0xE7, "S PA AH1 PA SCH PA S PA AH1 PA"),
+        "Š": (0xE6, "S PA AH1 PA SCH PA S PA AH1 PA"),
+        "ž": (0xA7, "S PA AH1 PA J PA S PA AH1 PA"),
+        "Ž": (0xA6, "S PA AH1 PA J PA S PA AH1 PA"),
+        "ô": (None, None), "Ô": (None, None)}),
+    "bl2_fr_fre_1999_07": (10, 1, "sa{}sa", {
+        "à": (0x85, "S PA AH1 PA AH1 PA Z PA AH1 PA"), "À": (0x85, "S PA AH1 PA AH1 PA Z PA AH1 PA"),
+        "â": (0x83, "S PA AH1 PA AH1 PA Z PA AH1 PA"), "Â": (0x83, "S PA AH1 PA AH1 PA Z PA AH1 PA"),
+        "æ": (0x91, "S PA AH1 PA OU PA AE PA S PA AH1 PA"),
+        "Æ": (0x92, "S PA AH1 PA OU PA AE PA S PA AH1 PA"),
+        "ç": (0x87, "S PA AH1 PA S PA S PA AH1 PA"), "Ç": (0x87, "S PA AH1 PA S PA S PA AH1 PA"),
+        "é": (0x82, "S PA AH1 PA A PA Z PA AH1 PA"), "É": (0x90, "S PA AH1 PA AY PA Z PA AH1 PA"),
+        "è": (0x8A, "S PA AH1 PA AY PA Z PA AH1 PA"), "È": (0x8A, "S PA AH1 PA AY PA Z PA AH1 PA"),
+        "ê": (0x88, "S PA AH1 PA AE PA Z PA AH1 PA"), "Ê": (0x88, "S PA AH1 PA AE PA Z PA AH1 PA"),
+        "ë": (0x89, "S PA AH1 PA AE PA Z PA AH1 PA"), "Ë": (0x89, "S PA AH1 PA AE PA Z PA AH1 PA"),
+        "î": (0x8C, "S PA AE PA Z PA AH1 PA"), "Î": (0x8C, "S PA AE PA Z PA AH1 PA"),
+        "ï": (0x8B, "S PA AH1 PA IE PA Z PA AH1 PA"), "Ï": (0x8B, "S PA AH1 PA IE PA Z PA AH1 PA"),
+        "ù": (0x97, "S PA AH1 PA U1 PA Z PA AH1 PA"), "Ù": (0x97, "S PA AH1 PA U1 PA Z PA AH1 PA"),
+        "û": (0x96, "S PA AH1 PA :UH PA Z PA AH1 PA"), "Û": (0x96, "S PA AH1 PA :UH PA Z PA AH1 PA"),
+        "ô": (None, None), "Ô": (None, None), "ü": (None, None), "Ü": (None, None),
+        "ÿ": (None, None)}),
+    "bl2_da_1999_11": (11, 0, "sa{}sa", {
+        "æ": (0x91, "S PA AE PA EH PA S PA AE PA"), "Æ": (0x92, "S PA AE PA EH PA S PA AE PA"),
+        "ø": (0x9B, "S PA AE PA ER PA S PA AE PA"), "Ø": (0x9D, "S PA AE PA ER PA S PA AE PA"),
+        "å": (0x86, "S PA AE PA AH PA S PA AE PA"), "Å": (0x8F, "S PA AE PA AH PA S PA AE PA"),
+        "é": (None, None), "É": (None, None), "ü": (None, None), "Ü": (None, None)}),
+    "bl2_no_1999_07": (11, 0, "sa{}sa", {
+        "æ": (0x91, "S PA AE PA EH PA S PA AE PA"), "Æ": (0x92, "S PA AE PA EH PA S PA AE PA"),
+        "ø": (0x9B, "S PA AE PA ER PA S PA AE PA"), "Ø": (0x9D, "S PA AE PA ER PA S PA AE PA"),
+        "å": (0x86, "S PA AE PA AH PA S PA AE PA"), "Å": (0x8F, "S PA AE PA AH PA S PA AE PA"),
+        "é": (None, None), "É": (None, None), "ü": (None, None), "Ü": (None, None),
+        "ô": (None, None), "Ô": (None, None)}),
+    "bl2_sv_1999_07": (12, 0, "sa{}sa", {
+        "å": (0x86, "S PA AE PA AH PA S PA AE PA"), "Å": (0x8F, "S PA AE PA AH PA S PA AE PA"),
+        "ä": (0x84, "S PA AE PA EH PA S PA AE PA"), "Ä": (0x8E, "S PA AE PA EH PA S PA AE PA"),
+        "ö": (0x94, "S PA AE PA :OH PA S PA AE PA"), "Ö": (0x99, "S PA AE PA :OH PA S PA AE PA"),
+        "ü": (0x81, "S PA AE PA UH PA S PA AE PA"), "Ü": (0x9A, "S PA AE PA UH PA S PA AE PA"),
+        "é": (0x90, "S PA AE PA EH PA S PA AE PA"), "É": (0x90, "S PA AE PA EH PA S PA AE PA")}),
 }
+
+
+def base(letter):
+    """The letter without its accent: what translit.h sends for a letter the unit has no byte for."""
+    return unicodedata.normalize("NFD", letter)[0]
 
 
 class W(ctypes.Structure):
@@ -170,7 +244,8 @@ def main():
         for letter, (byte, _) in letters.items():
             n = lib.blv_say_bytes(frame.format(letter).encode("utf-8"), enc, 0, buf, 256)
             got = buf.raw[:n].split(b"\r")[0]
-            want = frame.format("\x00").encode().replace(b"\x00", bytes([byte]))
+            want = frame.format("\x00").encode().replace(b"\x00", base(letter).encode() if byte is None
+                                                         else bytes([byte]))
             report(got == want, "bytes   %s U+%04X -> %r (want %r)" % (rid, ord(letter), got, want))
         if k not in found:
             print("skip %s: its firmware is not in the firmware folder" % rid)
@@ -184,6 +259,8 @@ def main():
             sys.exit("voice: " + err.value.decode(errors="replace"))
         h = lib.blv_host(v)
         for letter, (_, want) in letters.items():
+            if want is None:                         # said as its base letter (and so not skipped)
+                want = phonemes(lib, v, h, frame.format(base(letter)))
             got = phonemes(lib, v, h, frame.format(letter))
             report(got == want, "letter  %s U+%04X: %s%s" % (rid, ord(letter), got, "" if got == want else
                                                               " (want %s)" % want))

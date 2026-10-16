@@ -84,8 +84,9 @@ control "release voices CONTROL (the echo ignored, must fail)" "^FAIL bl2_hu_199
     -- env SSI263_RELEASE_VOICES_BREAK=echo python3 src/csrc/blazie/test_release_voices.py --lib "$LIB" --firmware "$DATA"
 control "releases CONTROL (a release with no voice handed out as English, must fail)" "^releases: 1 FAILED$" \
     -- env SSI263_RELEASES_TEST_BREAK=voice python3 src/csrc/blazie/test_releases.py --lib "$LIB" --firmware "$DATA"
-# the units' own accented letters (bl_voice.c's pages and folds: Hungarian, Slovak, Czech): each one's byte and the
-# unit's phonemes for it; the control sends what the voices did before
+# the units' own accented letters (bl_voice.c's pages and folds: Hungarian, Slovak, Czech, Polish, Croatian, French,
+# Danish, Norwegian, Swedish): each one's byte and the unit's phonemes for it; the control sends what the voices did
+# before
 check "unit letters: each unit says its accented letters" python3 src/csrc/blazie/test_unit_letters.py \
     --lib "$LIB" --firmware "$DATA"
 control "unit letters CONTROL (the encodings before, must fail)" "^FAIL letter +bns2_sk U\+00F4: S PA UH3 PA S PA" \

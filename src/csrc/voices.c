@@ -6,11 +6,6 @@
 
 #include "voices.h"
 #include "translit.h"
-#include "blazie/bl_cp850.h"
-#include "blazie/bl_cp852.h"
-#include "blazie/bl_cp857.h"
-#include "blazie/bl_cp860.h"
-#include "blazie/bl_cp866.h"
 #include "blazie/bl_voice.h"
 #include "blazie/bl_firmware.h"            /* blv_release_of, blv_release_text: a release's own encoding */
 #include "voices_blazie.h"
@@ -469,22 +464,6 @@ SSV_API ssv_voice *ssv_bank_voice(ssv_bank *k, int i, char *err, int errlen)
 }
 
 /* ---- the accented-letter pass on its own (translit.h) ---------------------------------------------------------- */
-static int known_in(const unsigned short *high, unsigned c)      /* bl_voice.c's cp_byte(..., c) >= 0 */
-{
-    int i;
-    if (c < 0x80) return 1;
-    for (i = 0; i < 128; i++)
-        if (high[i] == c) return 1;
-    return 0;
-}
-static int known_cp850(unsigned c) { return known_in(bl_cp850_high, c); }
-static int known_cp852(unsigned c) { return known_in(bl_cp852_high, c); }
-static int known_cp857(unsigned c) { return known_in(bl_cp857_high, c); }
-static int known_cp860(unsigned c) { return known_in(bl_cp860_high, c); }
-static int known_cp866(unsigned c) { return known_in(bl_cp866_high, c); }
-static int known_cphun(unsigned c) { return blv_text_byte(BLV_CPHUN, c) >= 0; }     /* with their folds (bl_voice.c) */
-static int known_852sk(unsigned c) { return blv_text_byte(BLV_CP852SK, c) >= 0; }
-
 SSV_API int ssv_translit(const char *utf8, int n, int charset, char *out, int cap)
 {
     unsigned *in, *t;
@@ -496,10 +475,8 @@ SSV_API int ssv_translit(const char *utf8, int n, int charset, char *out, int ca
     k = tl_utf8_decode(utf8, n, in);
     t = (unsigned *)malloc(sizeof(unsigned) * (size_t)tl_room(k));
     if (!t) { free(in); return -1; }
-    m = tl_apply(in, k, charset == SSV_CP850 ? known_cp850 : charset == SSV_CP852 ? known_cp852
-                      : charset == SSV_CP857 ? known_cp857 : charset == SSV_CP860 ? known_cp860
-                      : charset == SSV_CP866 ? known_cp866 : charset == SSV_CPHUN ? known_cphun
-                      : charset == SSV_CP852SK ? known_852sk : tl_known_ascii, t);
+    /* the voice's own alphabet for its encoding (SSV_CP* are bl_voice.h's BLV_* ids; SSV_ASCII is BLV_LATIN1's) */
+    m = tl_apply(in, k, blv_text_known(charset), t);
     free(in);
     u = (unsigned char *)malloc((size_t)m * 4 + 1);
     if (!u) { free(t); return -1; }
