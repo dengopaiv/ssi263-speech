@@ -53,14 +53,15 @@ CASES = [
     ("a. b  c\td\n\ne. f", 20, 90, 3, 100, True),
     ("OK button", 100, 0, 26, 100, True),
 ]
-CASES_ES = [("Mañana, ¿qué tal? Él está aquí. ¡Olé!", 50, 50, 7, 100, True)]
+CASES_ES = [("Mañana, ¿qué tal? Él está aquí. ¡Olé!", 50, 50, 7, 100, True),
+            ("Ángel e Íñigo, Óscar y Úrsula.", 50, 50, 7, 100, True)]
 # voice id, its firmware and state attributes, encoding (bl_voice.h), its cases
 CASES_MORE = [
     ("blazie_de", "FIRMWARE_DE", "STATE_DE", 1,
      [("Guten Tag! Wie geht es Ihnen? Grüße aus der Straße, schön.", 50, 50, 7, 100, True),
       ("Ein längerer Satz, mit einem Komma, der weit über die vierzehn Wörter hinausgeht, die das Gerät auf einmal liest. Noch einer.", 60, 40, 9, 80, False)]),
-    ("blazie_it", "FIRMWARE_IT", "STATE_IT", 1,
-     [("Buongiorno, come stai? La città è bella, perché sì.", 50, 50, 7, 100, True),
+    ("blazie_it", "FIRMWARE_IT", "STATE_IT", 14,
+     [("Buongiorno, come stai? La città è bella, perché sì. È vero, Òscar.", 50, 50, 7, 100, True),
       ("Più tardi, così è.", 70, 30, 12, 60, True)]),
     ("blazie_sk", "FIRMWARE_SK", "STATE_SK", 7,
      [("Dobrý deň, ako sa máš? Toto je slovenský hlas, čaj a šach.", 50, 50, 7, 100, True),
@@ -162,7 +163,7 @@ while d._unit is None:
 bad = compare("en", CASES, driver_side(CASES), c_side(CASES, drv_mod.FIRMWARE, drv_mod.STATE, 0))
 if os.path.isfile(drv_mod.FIRMWARE_ES) and os.path.isfile(drv_mod.STATE_ES):
     d._set_voice("blazie_es")
-    bad += compare("es", CASES_ES, driver_side(CASES_ES), c_side(CASES_ES, drv_mod.FIRMWARE_ES, drv_mod.STATE_ES, 1))
+    bad += compare("es", CASES_ES, driver_side(CASES_ES), c_side(CASES_ES, drv_mod.FIRMWARE_ES, drv_mod.STATE_ES, 13))
 more = 0
 for voice, fw_attr, st_attr, enc, cases in CASES_MORE:
     fw, st = getattr(drv_mod, fw_attr), getattr(drv_mod, st_attr)

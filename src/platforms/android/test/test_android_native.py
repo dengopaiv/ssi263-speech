@@ -150,7 +150,7 @@ FILES = {"en": ("BL2ENG.BNS", "bl2_2003_warm.state"), "es": ("BL2SPA.BNS", "bl2s
 LANG_SOURCES = {"de": ("german", "Lite2000.BNS", "lite2000_de_fresh.state"),
                 "it": ("italian", "Lite2000.BNS", "lite2000_it_fresh.state"),
                 "sk": ("bns2000", "BS2SLL.BNS", "bs2sll_fresh.state")}
-ENCODING = {"en": 0, "es": 1, "de": 1, "it": 1, "sk": 7}      # bl_voice.h's BLV_LATIN1, _CP850, _CP852SK (voices.c's)
+ENCODING = {"en": 0, "es": 13, "de": 1, "it": 14, "sk": 7}   # bl_voice.h's BLV_LATIN1, _CP850ES, _CP850, _CP850IT, _CP852SK
 NO_ECHO = ("it", "sk")                                         # voices.c's bl_no_echo
 # test_android_native.c's LANGS, in the same order: (language, the sentence, the import's probe -- SsiImport.kt's)
 LANGS = [("de", "Guten Tag. Grüß Gott, es kostet 1.234 Euro.", "Hallo."),

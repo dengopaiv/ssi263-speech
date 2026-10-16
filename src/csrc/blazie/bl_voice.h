@@ -33,6 +33,12 @@ typedef struct bl_voice bl_voice;
 #define BLV_CP850FR 10             /* 850, the accented capitals the unit skips as their lower case: the French unit */
 #define BLV_CP850DANO 11           /* only the letters ae, o slash, a ring of 850: the Danish and Norwegian units */
 #define BLV_CP850SV 12             /* only a ring, a and o diaeresis, u diaeresis, E acute (e acute as it): Swedish */
+#define BLV_CP850ES 13             /* 850, A and I acute as their lower case: the Spanish unit */
+#define BLV_CP850IT 14             /* 850, the accented capitals as their lower case, i circumflex as i: the Italian */
+#define BLV_CP857TR 15             /* 857, C cedilla as c cedilla, dotted I as i, a/i/u circumflex plain: Turkish */
+#define BLV_CP860PT 16             /* 860, the accented capitals as their lower case, o circumflex as o: Portuguese */
+#define BLV_CP866RU 17             /* 866, Cyrillic capital U as its lower case: the Russian unit */
+/* (BLV_CP850ES is Spain's Spanish for bl_numbers.c, as BLV_CP850 was) */
 
 /* Boots the unit as the driver does (punctuation none, full numbers, inflection on or off, volume 6).
    whine: 0 off, 1 hiss, 2 whine.  NULL on failure, the reason in err. */

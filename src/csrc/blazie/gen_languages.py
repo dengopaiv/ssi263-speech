@@ -28,6 +28,8 @@ TEXTS = {"7bit": "BLV_LATIN1", "850": "BLV_CP850", "852": "BLV_CP852", "857": "B
          "852sk": "BLV_CP852SK",                       # 852sk: 852, o circumflex sent as its capital
          "852pl": "BLV_CP852PL", "852hr": "BLV_CP852HR", "850fr": "BLV_CP850FR",   # their folds (bl_voice.c)
          "850dano": "BLV_CP850DANO", "850sv": "BLV_CP850SV",                     # their own letters only
+         "850es": "BLV_CP850ES", "850it": "BLV_CP850IT", "857tr": "BLV_CP857TR",   # their folds and drops
+         "860pt": "BLV_CP860PT", "866ru": "BLV_CP866RU",
          "-": "BLV_LATIN1"}                             # not yet read: plain letters, as the English unit's
 BOOTS = {"fast": "0", "slow": "1"}
 YES_NO = {"yes": "1", "no": "0"}

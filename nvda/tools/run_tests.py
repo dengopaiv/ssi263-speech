@@ -1524,7 +1524,7 @@ CHECKS.append(check("bl_voice CONTROL (fault taken as busy, must fail)", [PY, "b
 CHECKS.append(check("bl_voice = the NVDA driver, byte for byte", [PY, "voice_equiv.py"]))
 CHECKS.append(check("bl_voice CONTROL (packing flipped, must fail)", [PY, "voice_equiv.py"],
                     env={"VOICE_EQUIV_BREAK": "1"}, expect_fail=True,
-                    fail_marks=[r"^DIFF ", r"^(?!16 )[0-9]+ of 16 utterances byte-identical to the NVDA driver$"]))
+                    fail_marks=[r"^DIFF ", r"^(?!17 )[0-9]+ of 17 utterances byte-identical to the NVDA driver$"]))
 # ... and with "run ahead" on (blv_set_run_ahead, the speech-dispatcher module's SSI263RunAhead): the driver's runAhead
 # path, byte for byte, the host running ahead on both sides wherever the driver does (short pauses on); its control
 # never turns it on in C, so the C side speaks the lockstep
@@ -1533,7 +1533,7 @@ CHECKS.append(check("bl_voice run ahead CONTROL (never turned on in C, must fail
                     env={"VOICE_EQUIV_BREAK": "ahead"}, expect_fail=True,
                     fail_marks=[r"^DIFF  en .*run ahead: driver 1, C 0, want 1  'Hello there\.'",
                                 r"^DIFF  es .*run ahead: driver 1, C 0, want 1",
-                                r"^(?!16 )[0-9]+ of 16 utterances byte-identical to the NVDA driver \(run ahead on\)$"]))
+                                r"^(?!17 )[0-9]+ of 17 utterances byte-identical to the NVDA driver \(run ahead on\)$"]))
 # bl_voice's text path (currencies, clean-up, lines, encoding) against the driver's, on random texts; and its control
 CHECKS.append(check("bl_voice text = the driver's, 5000 random texts", [PY, "voice_text_equiv.py", "5000", "1"]))
 CHECKS.append(check("bl_voice text CONTROL (no currencies, must fail)", [PY, "voice_text_equiv.py", "2000", "1"],
@@ -1640,10 +1640,9 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                         env={"SSI263_RELEASE_VOICES_BREAK": "echo"}, expect_fail=True,
                         fail_marks=[r"^FAIL bl2_hu_1999_07: speaks: .* done at [4-9]", r"^ok +bl2_da_1999_11: speaks",
                                     r"^release voices: \d+ FAILED$"]))
-    # the units' own accented letters (bl_voice.c's pages and folds): the Hungarian, Slovak, Czech, Polish, Croatian,
-    # French, Danish, Norwegian and Swedish letters, each its byte and exactly the unit's phonemes for it; the control
-    # sends what the voices did before (Hungarian o double acute an o, the Slovak o circumflex and the Polish Z dot
-    # and French A grave capitals silent)
+    # the units' own accented letters (bl_voice.c's pages and folds): fifteen languages, every letter in both cases,
+    # each its byte and exactly the unit's phonemes for it; the control sends what the voices did before (Hungarian
+    # o double acute an o; the Slovak o circumflex, the Polish Z dot, French A grave and Italian E grave capitals silent)
     CHECKS.append(check("unit letters: each unit says its accented letters",
                         [PY, os.path.join(BL_SRC, "test_unit_letters.py")]))
     CHECKS.append(check("unit letters CONTROL (the encodings before, must fail)",
@@ -1652,6 +1651,7 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                                                       r"^FAIL letter +bns2_sk U\+00F4: S PA UH3 PA S PA UH3 PA \(",
                                                       r"^FAIL letter +bl2_pl_1998_12 U\+017B: S PA AH1 PA S PA AH1 PA \(",
                                                       r"^FAIL letter +bl2_fr_fre_1999_07 U\+00C0: S PA AH1 PA S PA",
+                                                      r"^FAIL letter +bl2_it_2000_09 U\+00C8: S PA AH1 PA S PA AH1 PA \(",
                                                       r"^unit letters: \d+ FAILED$"]))
     CHECKS.append(check("releases CONTROL (a release with no voice handed out as English, must fail)",
                         [PY, os.path.join(BL_SRC, "test_releases.py")], env={"SSI263_RELEASES_TEST_BREAK": "voice"},

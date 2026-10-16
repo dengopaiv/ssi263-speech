@@ -222,10 +222,19 @@ static const unsigned short fold_852hr[][2] = {{0x0106, 0x0107}, {0x0110, 0x0111
 static const unsigned short fold_850fr[][2] = {{0x00C0, 0x00E0}, {0x00C2, 0x00E2}, {0x00C7, 0x00E7}, {0x00C8, 0x00E8},
     {0x00CA, 0x00EA}, {0x00CB, 0x00EB}, {0x00CE, 0x00EE}, {0x00CF, 0x00EF}, {0x00D9, 0x00F9}, {0x00DB, 0x00FB}};
 static const unsigned short fold_850sv[][2] = {{0x00E9, 0x00C9}};    /* e acute -> E acute: the Swedish unit's */
+static const unsigned short fold_850es[][2] = {{0x00C1, 0x00E1}, {0x00CD, 0x00ED}};   /* A acute, I acute */
+static const unsigned short fold_850it[][2] = {{0x00C0, 0x00E0}, {0x00C8, 0x00E8}, {0x00CC, 0x00EC}, {0x00CD, 0x00ED},
+    {0x00D2, 0x00F2}, {0x00D9, 0x00F9}};
+static const unsigned short fold_857tr[][2] = {{0x00C7, 0x00E7}, {0x0130, 0x0069}};   /* C cedilla; dotted I -> i */
+static const unsigned short fold_860pt[][2] = {{0x00C1, 0x00E1}, {0x00C2, 0x00E2}, {0x00C0, 0x00E0}, {0x00CA, 0x00EA},
+    {0x00CD, 0x00ED}, {0x00D3, 0x00F3}, {0x00DA, 0x00FA}};
+static const unsigned short fold_866ru[][2] = {{0x0423, 0x0443}};    /* Cyrillic U: its capital's byte (93h) is silent */
 /* Letters the unit says nothing for in either case: left out, so translit.h sends the base letter ("o" for o
    circumflex) rather than a byte the unit skips */
 static const unsigned short drop_o_circ[] = {0x00F4, 0x00D4};
 static const unsigned short drop_850fr[] = {0x00F4, 0x00D4, 0x00FC, 0x00DC, 0x00FF};
+static const unsigned short drop_850it[] = {0x00EE, 0x00CE};
+static const unsigned short drop_857tr[] = {0x00E2, 0x00C2, 0x00EE, 0x00CE, 0x00FB, 0x00DB};
 /* The Danish, Norwegian and Swedish units: only their own letters from 850 (the unit's answer to the rest of the page
    -- symbols, box drawing -- is noise; translit.h keeps them as before) */
 static const unsigned short keep_850dano[] = {0x00E6, 0x00C6, 0x00F8, 0x00D8, 0x00E5, 0x00C5};
@@ -254,6 +263,11 @@ static const text_page PAGES[] = {
     {BLV_CP850FR, bl_cp850_high, fold_850fr, N(fold_850fr), drop_850fr, N(drop_850fr), NULL, 0},
     {BLV_CP850DANO, bl_cp850_high, NULL, 0, NULL, 0, keep_850dano, N(keep_850dano)},
     {BLV_CP850SV, bl_cp850_high, fold_850sv, N(fold_850sv), NULL, 0, keep_850sv, N(keep_850sv)},
+    {BLV_CP850ES, bl_cp850_high, fold_850es, N(fold_850es), NULL, 0, NULL, 0},
+    {BLV_CP850IT, bl_cp850_high, fold_850it, N(fold_850it), drop_850it, N(drop_850it), NULL, 0},
+    {BLV_CP857TR, bl_cp857_high, fold_857tr, N(fold_857tr), drop_857tr, N(drop_857tr), NULL, 0},
+    {BLV_CP860PT, bl_cp860_high, fold_860pt, N(fold_860pt), drop_o_circ, N(drop_o_circ), NULL, 0},
+    {BLV_CP866RU, bl_cp866_high, fold_866ru, N(fold_866ru), NULL, 0, NULL, 0},
 };
 #undef N
 
@@ -274,6 +288,7 @@ static int cp_byte(int encoding, unsigned c)
     if (!p) return -1;
     for (i = 0; i < p->n_fold; i++)
         if (p->fold[i][0] == c) { c = p->fold[i][1]; break; }
+    if (c < 0x80) return (int)c;               /* folded to a plain letter (the Turkish dotted I -> i) */
     for (i = 0; i < p->n_drop; i++)
         if (p->drop[i] == c) return -1;
     if (p->keep) {
@@ -298,6 +313,11 @@ static int known_852hr(unsigned c) { return cp_byte(BLV_CP852HR, c) >= 0; }   /*
 static int known_850fr(unsigned c) { return cp_byte(BLV_CP850FR, c) >= 0; }   /* the French unit's */
 static int known_850dano(unsigned c) { return cp_byte(BLV_CP850DANO, c) >= 0; }   /* the Danish and Norwegian */
 static int known_850sv(unsigned c) { return cp_byte(BLV_CP850SV, c) >= 0; }   /* the Swedish unit's */
+static int known_850es(unsigned c) { return cp_byte(BLV_CP850ES, c) >= 0; }   /* the Spanish unit's */
+static int known_850it(unsigned c) { return cp_byte(BLV_CP850IT, c) >= 0; }   /* the Italian unit's */
+static int known_857tr(unsigned c) { return cp_byte(BLV_CP857TR, c) >= 0; }   /* the Turkish unit's */
+static int known_860pt(unsigned c) { return cp_byte(BLV_CP860PT, c) >= 0; }   /* the Portuguese units' */
+static int known_866ru(unsigned c) { return cp_byte(BLV_CP866RU, c) >= 0; }   /* the Russian unit's */
 
 /* translit.h's alphabet for an encoding: what tl_apply keeps as it is */
 static int (*known_of(int encoding))(unsigned)
@@ -315,6 +335,11 @@ static int (*known_of(int encoding))(unsigned)
     case BLV_CP850FR: return known_850fr;
     case BLV_CP850DANO: return known_850dano;
     case BLV_CP850SV: return known_850sv;
+    case BLV_CP850ES: return known_850es;
+    case BLV_CP850IT: return known_850it;
+    case BLV_CP857TR: return known_857tr;
+    case BLV_CP860PT: return known_860pt;
+    case BLV_CP866RU: return known_866ru;
     default: return tl_known_ascii;
     }
 }

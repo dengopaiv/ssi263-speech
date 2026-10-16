@@ -17,9 +17,9 @@ from . import _native
 
 # language: (firmware, state, text code page (bl_voice.h BLV_*), the unit never echoes ^F (voices.c bl_no_echo))
 FILES = {"en": ("BL2ENG.BNS", "bl2_2003_warm.state", 0, False),
-         "es": ("BL2SPA.BNS", "bl2spa_fresh.state", 1, False),
+         "es": ("BL2SPA.BNS", "bl2spa_fresh.state", 13, False),
          "de": ("Lite2000_de.BNS", "lite2000_de_fresh.state", 1, False),
-         "it": ("Lite2000_it.BNS", "lite2000_it_fresh.state", 1, True),
+         "it": ("Lite2000_it.BNS", "lite2000_it_fresh.state", 14, True),
          "sk": ("BS2SLL.BNS", "bs2sll_fresh.state", 7, True)}      # 852, o circumflex as its capital
 
 

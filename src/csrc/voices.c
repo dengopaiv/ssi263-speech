@@ -118,7 +118,9 @@ typedef struct {
 static int bl_encoding(const char *lang)
 {
     if (!strcmp(lang, "sk")) return BLV_CP852SK;
-    if (!strcmp(lang, "es") || !strcmp(lang, "de") || !strcmp(lang, "it")) return BLV_CP850;
+    if (!strcmp(lang, "es")) return BLV_CP850ES;
+    if (!strcmp(lang, "it")) return BLV_CP850IT;
+    if (!strcmp(lang, "de")) return BLV_CP850;
     return BLV_LATIN1;
 }
 

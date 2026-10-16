@@ -99,14 +99,14 @@ lib.bh_clear_writes.argtypes = [ctypes.c_void_p]
 # 0.8: the other units by language: their files (the module's flat names), code page (bl_voice.h) and whether they
 # echo ^F (voices.c bl_no_echo)
 UNITS = {"de": ("Lite2000_de.BNS", "lite2000_de_fresh.state", 1, False),
-         "it": ("Lite2000_it.BNS", "lite2000_it_fresh.state", 1, True),
+         "it": ("Lite2000_it.BNS", "lite2000_it_fresh.state", 14, True),
          "sk": ("BS2SLL.BNS", "bs2sll_fresh.state", 7, True)}
 
 
 class Ref:
     def __init__(self, spanish=False, rate=22050, whine=0, run_ahead=0, numbers=1, line_lift=0, lang=None):
         fw, st = (("BL2SPA.BNS", "bl2spa_fresh.state") if spanish else ("BL2ENG.BNS", "bl2_2003_warm.state"))
-        enc, no_echo = int(spanish), False
+        enc, no_echo = (13 if spanish else 0), False      # bl_voice.h BLV_CP850ES / BLV_LATIN1
         if lang:
             fw, st, enc, no_echo = UNITS[lang]
             numbers = 0                                 # the unit reads its own numbers (voices.c)

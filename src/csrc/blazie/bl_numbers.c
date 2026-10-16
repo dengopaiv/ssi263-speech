@@ -100,7 +100,7 @@ static size_t money_at(const char *s, size_t n, size_t i)
 
 BL_API char *bl_numbers(const char *s, int encoding)
 {
-    if (encoding == BLV_CP850) {                             /* normalise(text, lang="es", decimal_comma=True) */
+    if (encoding == BLV_CP850 || encoding == BLV_CP850ES) {  /* normalise(text, lang="es", decimal_comma=True) */
         size_t n = strlen(s);
         unsigned *cp = (unsigned *)malloc(sizeof(unsigned) * (n + 1));
         char *out;

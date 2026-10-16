@@ -96,9 +96,9 @@ FIRMWARE_SK = os.path.join(_ENGINE_DIR, "BS2SLL.BNS")
 STATE_SK = os.path.join(_ENGINE_DIR, "bs2sll_fresh.state")
 # voice id: (display name, language, firmware, snapshot, text encoding)
 VOICES = {"blazie": ("Braille Lite 2000 (June 2003)", "en", FIRMWARE, STATE, "latin-1"),
-          "blazie_es": ("Braille Lite 2000 (espa\u00f1ol)", "es", FIRMWARE_ES, STATE_ES, "cp850"),
+          "blazie_es": ("Braille Lite 2000 (espa\u00f1ol)", "es", FIRMWARE_ES, STATE_ES, "blazie_text_13"),
           "blazie_de": ("Braille Lite 2000 (Deutsch)", "de", FIRMWARE_DE, STATE_DE, "cp850"),
-          "blazie_it": ("Braille Lite 2000 (italiano)", "it", FIRMWARE_IT, STATE_IT, "cp850"),
+          "blazie_it": ("Braille Lite 2000 (italiano)", "it", FIRMWARE_IT, STATE_IT, "blazie_text_14"),
           "blazie_sk": ("Braille 'n Speak 2000 (sloven\u010dina)", "sk", FIRMWARE_SK, STATE_SK, "blazie_text_7")}
 # "Custom number processing" exists for these languages only; the other units read their numbers themselves
 # (voices.c bl_has_numbers)
@@ -113,7 +113,7 @@ NO_ECHO = ("blazie_it", "blazie_sk")
 RELEASE_DIR = os.path.join(_ENGINE_DIR, "bl2000")
 # bl_voice.h BLV_*: 6 on are the units' own spoken letters (the Hungarian one's, 852 with folds ...), no Python codec
 RELEASE_CODECS = {0: "latin-1", 1: "cp850", 2: "cp852", 3: "cp857", 4: "cp860", 5: "cp866"}
-RELEASE_CODECS.update((n, "blazie_text_%d" % n) for n in range(6, 13))
+RELEASE_CODECS.update((n, "blazie_text_%d" % n) for n in range(6, 18))
 SLOW_KEYS = (8000000, 10000000)          # bl_voice.c KEY_START_SLOW, KEY_GAP_SLOW
 _release_voices = None
 # "blazie_text_N" encodes with the library's own table for BLV_* N (blv_text_byte: its page and its folds, a letter
