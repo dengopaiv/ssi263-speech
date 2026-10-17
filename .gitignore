@@ -28,6 +28,8 @@ paths.local
 *.state
 firmware/gw-micro-speakout/*
 !firmware/gw-micro-speakout/README.txt
+firmware/gw-micro-sounding-board/*
+!firmware/gw-micro-sounding-board/README.txt
 firmware/blazie/*
 !firmware/blazie/README.txt
 # Sweet Micro Systems' (the Mockingboard's), treated as Blazie's (Tomi, 2026-10-09), and Apple II disk images (the

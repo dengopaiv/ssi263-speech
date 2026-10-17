@@ -1399,6 +1399,16 @@ if os.path.isfile(os.path.join(SO_LIB, "test_v40_contract.exe")):
     SO_HEX = os.path.join(os.path.dirname(os.path.dirname(HERE)), "firmware", "gw-micro-speakout", "SPEAKOUT.HEX")
     if os.path.isfile(SO_HEX) and os.path.isfile(os.path.join(SO_LIB, "x64", "speakout_v40.dll")):
         CHECKS.append(check("Speak-Out: MAME V40 core against Unicorn", [PY, "speakout_core_compare.py"]))
+        # GW Micro's Sounding Board (SBLOAD.COM + SB.COM 2.7 on MAME's 8086): its front end is the Speak-Out's, frame
+        # for frame; the control gives it each sentence without its last word (tools/check_soundingboard.py)
+        SB_DIR = os.path.join(os.path.dirname(os.path.dirname(HERE)), "firmware", "gw-micro-sounding-board")
+        if all(os.path.isfile(os.path.join(SB_DIR, f)) for f in ("SBLOAD.COM", "SB.COM")):
+            SB_CHECK = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_soundingboard.py")
+            CHECKS.append(check("Sounding Board: its front end is the Speak-Out's, frame for frame", [PY, SB_CHECK]))
+            CHECKS.append(check("Sounding Board CONTROL (each sentence without its last word, must fail)",
+                                [PY, SB_CHECK], env={"SB_CHECK_BREAK": "1"}, expect_fail=True,
+                                fail_marks=[r"^FAIL  Hello, this is the Sounding Board\. ",
+                                            r"^sounding board: 3 FAILED$"]))
         CHECKS.append(check("Speak-Out: MAME V40 core CONTROL (a value flipped, must fail)",
                             [PY, "speakout_core_compare.py"], env={"SPEAKOUT_COMPARE_FLIP": "1"}, expect_fail=True,
                             fail_marks=[r"^mame-steps: write values DIFFER from Unicorn's at write \d+ of",
