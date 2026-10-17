@@ -1,13 +1,14 @@
 """Generate bl_cp864ar.h: the Arabic (UAE) Braille Lite 2000's letters (bl2_ar_ae_1998_12, bl_languages.txt's text
 864ar) for bl_voice.c's BLV_CP864AR -- bytes 0x80-0xFF of DOS code page 864 as Python's codec decodes them, the 27 of
-them the unit speaks, and every Arabic letter folded onto the one it speaks.
+them the unit speaks, and every form of a letter it speaks folded onto it.
 
 Read from the unit (every byte 80h-FFh sent between two x's through the voice, its phonemes logged, 2026-10-16): it
 speaks exactly 27 bytes, each a CP864 Arabic letter in its isolated or initial form (SPOKEN below), and nothing for
 the other high bytes (the medial and final forms, the other letters, the symbols).  The unit reads one form per letter,
 so the letter's position in a word does not matter: a base letter (U+0621-U+064A) and every presentation form of it
-(U+FE80-U+FEFC, by Unicode's own decomposition) are sent as the spoken form.  A letter the unit has no byte for goes
-to the nearest one it speaks (FOLDS, each choice said there); Arabic-Indic digits go to ASCII digits (the unit reads
+(U+FE80-U+FEFC, by Unicode's own decomposition) are sent as the spoken form, and so are a letter's other forms (a
+hamza's seat, a madda, wasla: FOLDS).  A letter the unit has no byte for (alef maksura, teh marbuta, zah) is never sent
+as another letter: it stays the gap the firmware has (Tomi).  Arabic-Indic digits go to ASCII digits (the unit reads
 its numbers itself, half in Arabic).  The vowel marks, the tatweel and a bare hamza are dropped by bl_voice.c's
 clean (a space would split the word), not here.
 
@@ -34,10 +35,10 @@ FOLDS = {
     0x0671: 0x0627,   # alef wasla -> alef
     0x0624: 0x0648,   # waw with hamza above -> waw
     0x0626: 0x064A,   # yeh with hamza above -> yeh
-    0x0649: 0x064A,   # alef maksura -> yeh (its byte, FDh, is the yeh the unit speaks)
-    0x0629: 0x0647,   # teh marbuta -> heh: a word read alone ends in its pausal sound (-a/-ah), not -t; the unit's
-                      # heh is "OU HF", its teh "T" (the construct -t is lost: listening may revise this)
-    0x0638: 0x0636,   # zah -> dad: the unit has no byte for it; Gulf Arabic says both as the emphatic dh ("D D")
+    # Only forms of a letter fold onto it (a hamza's seat, a madda, wasla, the positional forms), as an accented
+    # letter goes out as its base letter for the other units.  A letter the firmware has no byte for is NOT sent as
+    # another letter: alef maksura, teh marbuta and zah stay the gaps the unit has (Tomi, 2026-10-16: "any gaps
+    # unfortunately we should keep as they were, at least for now").
 }
 
 

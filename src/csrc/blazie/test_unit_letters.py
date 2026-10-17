@@ -350,9 +350,10 @@ RELEASES = {
         "\u042f": (0x9F, "S PA AH PA Y1 PA AH PA S PA AH PA"),
     }),
     # the Arabic (UAE) unit: code page 864, the 27 letters it speaks (isolated or initial forms), every Arabic
-    # letter and form sent as the one it speaks, the letters it has no byte for as the nearest it does
-    # (gen_cp864ar.py FOLDS); the phonemes are its own for each byte, read from the sweep (every byte 80h-FFh
-    # between two x's, 2026-10-16).  Before: plain letters (its text column was -), which drop every Arabic one.
+    # letter's forms sent as the one it speaks (gen_cp864ar.py FOLDS); a letter it has no byte for (alef maksura,
+    # teh marbuta, zah) stays the gap the unit has, never sent as another letter (Tomi).  The phonemes are its own for
+    # each byte, read from the sweep (every byte 80h-FFh between two x's, 2026-10-16).  Before: plain letters (its
+    # text column was -), which drop every Arabic one.
     "bl2_ar_ae_1998_12": (18, 0, "x{}x.", {
         "\u0622": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF WITH MADDA ABOVE
         "\u0623": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF WITH HAMZA ABOVE
@@ -361,7 +362,6 @@ RELEASES = {
         "\u0626": (0xFD, "K PA S PA Y1 PA K PA S PA"),   # LETTER YEH WITH HAMZA ABOVE
         "\u0627": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF
         "\u0628": (0xA9, "K PA S PA B PA K PA S PA"),   # LETTER BEH
-        "\u0629": (0xF3, "K PA S PA OU PA HF PA K PA S PA"),   # LETTER TEH MARBUTA
         "\u062A": (0xAA, "K PA S PA T PA K PA S PA"),   # LETTER TEH
         "\u062B": (0xAB, "K PA S PA T PA K PA S PA"),   # LETTER THEH
         "\u062C": (0xAD, "K PA S PA J PA K PA S PA"),   # LETTER JEEM
@@ -376,7 +376,6 @@ RELEASES = {
         "\u0635": (0xD5, "K PA S PA S PA S PA K PA S PA"),   # LETTER SAD
         "\u0636": (0xD6, "K PA S PA D PA D PA K PA S PA"),   # LETTER DAD
         "\u0637": (0xD7, "K PA S PA T PA T PA K PA S PA"),   # LETTER TAH
-        "\u0638": (0xD6, "K PA S PA D PA D PA K PA S PA"),   # LETTER ZAH
         "\u0639": (0xDF, "K PA S PA K PA HVC PA K PA S PA"),   # LETTER AIN
         "\u063A": (0xEE, "K PA S PA T PA SCH PA K PA S PA"),   # LETTER GHAIN
         "\u0641": (0xE1, "K PA S PA F PA K PA S PA"),   # LETTER FEH
@@ -387,7 +386,6 @@ RELEASES = {
         "\u0646": (0xF2, "K PA S PA N PA K PA S PA"),   # LETTER NOON
         "\u0647": (0xF3, "K PA S PA OU PA HF PA K PA S PA"),   # LETTER HEH
         "\u0648": (0xE8, "K PA S PA W PA K PA S PA"),   # LETTER WAW
-        "\u0649": (0xFD, "K PA S PA Y1 PA K PA S PA"),   # LETTER ALEF MAKSURA
         "\u064A": (0xFD, "K PA S PA Y1 PA K PA S PA"),   # LETTER YEH
         "\uFE91": (0xA9, "K PA S PA B PA K PA S PA"),   # LETTER BEH INITIAL FORM
         "\uFEE8": (0xF2, "K PA S PA N PA K PA S PA"),   # LETTER NOON MEDIAL FORM
@@ -398,7 +396,7 @@ RELEASES = {
 # not made spaces; Arabic-Indic digits as ASCII)
 WORDS = {"bl2_ar_ae_1998_12": [
     ("\u0645\u064E\u0631\u0652\u062D\u064E\u0628\u064B\u0627", b"\xef\xd1\xae\xa9\xc7"),     # marhaban, with its marks
-    ("\u0645\u062F\u0631\u0633\u0629 \u0661\u0662\u0663", b"\xef\xcf\xd1\xd3\xf3 123"),     # madrasa 123
+    ("\u0645\u062F\u0631\u0633\u0629 \u0661\u0662\u0663", b"\xef\xcf\xd1\xd3 123"),         # madrasa 123: no teh marbuta
     ("\u0633\u0640\u0644\u0627\u0645", b"\xd3\xfb\xc7\xef"),                                # salam, with a tatweel
     ("\u0633\u0645\u0627\u0621", b"\xd3\xef\xc7"),                                          # sama', its hamza dropped
 ]}
