@@ -194,6 +194,13 @@ first start shows the setup's seven questions. The Back key leaves the screen; k
 screen's. A keyboard connected or put away does not restart the unit (`configChanges`). The sound is an AudioTrack
 at 22050 Hz fed 20 ms at a time, beside TalkBack and never in its place. Quick key response is the desktop's.
 
+"Load programs and files into flash" is the Windows, GTK and Apple shells' (`ssa_unit_add_files`, on
+`bl_files_xfer.h`'s `blx_add_cp`): the unit switched off and saved, the files chosen in Android's own picker (any
+kind, several at once), added to its flash startup folder in one batch, all or nothing, with their times; names it
+already has are replaced only when the person says so (the default is not to); the memory as it was kept as
+`<state>.before-import`; the unit switched on again if it was on. A unit never started has no memory of its own yet,
+and is asked to be switched on once first. The Braille 'n Speak 640 has no file flash: it is refused with the reason.
+
 Whether TalkBack sends the field to a braille display, and how many keys a keyboard reports down at once, are for
 testers. Tested on a Nothing Phone (Android 16) with a keyboard made in software (`test/uhid_keys.c`: real scan codes,
 two keys down at once) and with scrcpy's `--keyboard=uhid` (a PC's keyboard as the phone's): chords reach the unit,
@@ -419,7 +426,7 @@ and restored after it by the voice itself (`sov_speak`, `amv_speak`), moved at l
 | `test/accent_reference.py` | The Accent SA's reference: the NVDA Accent add-on's driver under the stand-in NVDA, a fresh unit per case |
 | `test/test_volume_headroom.py` | The default engine volume keeps headroom, for every voice, with controls |
 | `test/test_import_native.py` | The import's native part: the list of releases, the refusals, and the states made on the device, against the listed ones, with their progress |
-| `test/test_unit_native.c`, `test_unit_native.py` | The unit screen's native part on real firmware, on the desktop (and the phone: `build_android.sh --unit-test`): keys to the chords and Type 'n Speak events `emu_unit` gets, sample for sample against the unit keyed directly; a chord answered; the others left to the screen; its memory saved and started again; a release unit's first state; the control (dots 1 and 4 swapped) |
+| `test/test_unit_native.c`, `test_unit_native.py` | The unit screen's native part on real firmware, on the desktop (and the phone: `build_android.sh --unit-test`): keys to the chords and Type 'n Speak events `emu_unit` gets, sample for sample against the unit keyed directly; a chord answered; the others left to the screen; its memory saved and started again; files loaded into flash (an existing name asked, replaced on request, the memory before kept, the unit started from the new one); a release unit's first state; the controls (dots 1 and 4 swapped; the files never written) |
 | `test/uhid_keys.c` | A USB keyboard made in software over adb (`/dev/uhid`, the shell user's, no root): a script of keys down and up, real scan codes, several at once -- the device test's keyboard |
 | `test/check_apk_no_firmware.py` | An APK carries no firmware but Aicom's three ROMs and the Accent-mini's driver (by sha256): no Blazie or Speak-Out firmware or state, by content and by name; its controls |
 | `test/test_device_service.py` | The installed app's TTS service on the phone, every voice and their capitals, the Braille Lite with run ahead, its files' PCM against the same references |

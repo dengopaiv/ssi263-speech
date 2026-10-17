@@ -164,6 +164,40 @@ int main(int argc, char **argv)
         check("its memory saved and started again", u && rms(a, 6 * RATE) > 0.005, d);
         ssa_unit_stop(u);
     }
+    {   /* "Load programs and files into flash" on that saved (switched-off) unit: loaded; the same name again without
+           replace is reported and nothing done; with replace it is replaced; the old memory kept beside it; the unit
+           starts from the new memory */
+        char state[1100], before[1120], msg[400];
+        const char *names[1] = {"hello.txt"};
+        static const unsigned char text[] = "hello from the phone\r\n";
+        const unsigned char *datas[1] = {text};
+        unsigned long sizes[1] = {sizeof text - 1};
+        unsigned times[1] = {(12u << 11) | (34u << 5)}, dates[1] = {(46u << 9) | (10u << 5) | 16u};
+        int added = 0, replaced = 0, r1, r2, r3;
+        FILE *f;
+        ssa_unit *u;
+        snprintf(state, sizeof state, "%s/keys/english.state", scratch);
+        snprintf(before, sizeof before, "%s.before-import", state);
+        r1 = ssa_unit_add_files(state, 850, 1, names, datas, sizes, times, dates, 0, &added, &replaced, msg, sizeof msg);
+        snprintf(d, sizeof d, "loaded %d, added %d", r1, added);
+        check("files: loaded into flash", r1 == 1 && added == 1, d);
+        r2 = ssa_unit_add_files(state, 850, 1, names, datas, sizes, times, dates, 0, &added, &replaced, msg, sizeof msg);
+        snprintf(d, sizeof d, "again: %d, the unit's names: %.200s", r2, msg);
+        check("files: an existing name asked, nothing done", r2 == -1 && strstr(msg, "hello") != NULL, d);
+        r3 = ssa_unit_add_files(state, 850, 1, names, datas, sizes, times, dates, 1, &added, &replaced, msg, sizeof msg);
+        f = fopen(before, "rb");
+        snprintf(d, sizeof d, "replace: %d, replaced %d; the old memory kept: %s", r3, replaced, f ? "yes" : "no");
+        check("files: replaced on request, the old memory kept", r3 == 1 && replaced == 1 && f, d);
+        if (f)
+            fclose(f);
+        snprintf(saved_dir, sizeof saved_dir, "%s/keys", scratch);
+        u = ssa_unit_start(dir, "bl-en", saved_dir, RATE, 0, NULL, NULL, err, sizeof err);
+        if (u)
+            ssa_unit_render(u, a, 6 * RATE);
+        snprintf(d, sizeof d, "%s, rms %.4f over 6 s", u ? "started" : err, u ? rms(a, 6 * RATE) : 0.0);
+        check("files: the unit starts from its new memory", u && rms(a, 6 * RATE) > 0.005, d);
+        ssa_unit_stop(u);
+    }
 
     for (i = 0; i < n && strcmp(units[i].key, "tns-en"); i++)
         ;

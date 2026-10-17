@@ -9,6 +9,7 @@
 #include <jni.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ssa_unit.h"
@@ -28,8 +29,8 @@ static int progress(void *ctx, double done)
     return 1;                                   /* go on */
 }
 
-/* The units the data folder can run: "key\tname\tkind\tsaved" each (kind: 0 Braille Lite, 1 Type 'n Speak; saved:
-   its memory's file name). */
+/* The units the data folder can run: "key\tname\tkind\tsaved\tcodepage" each (kind: 0 Braille Lite, 1 Type 'n Speak;
+   saved: its memory's file name; codepage: its files' names, 850 or 852). */
 JNIEXPORT jobjectArray JNICALL FN(nativeUnitList)(JNIEnv *env, jclass cls, jstring jdir)
 {
     static emc_unit units[EMC_MAX];             /* one caller at a time: the screen's own thread */
@@ -44,7 +45,8 @@ JNIEXPORT jobjectArray JNICALL FN(nativeUnitList)(JNIEnv *env, jclass cls, jstri
     (*env)->ReleaseStringUTFChars(env, jdir, dir);
     out = (*env)->NewObjectArray(env, n, str, NULL);
     for (i = 0; out && i < n; i++) {
-        snprintf(row, sizeof row, "%s\t%s\t%d\t%s", units[i].key, units[i].name, units[i].kind, units[i].saved);
+        snprintf(row, sizeof row, "%s\t%s\t%d\t%s\t%d", units[i].key, units[i].name, units[i].kind, units[i].saved,
+                 units[i].codepage);
         (*env)->SetObjectArrayElement(env, out, i, (*env)->NewStringUTF(env, row));
     }
     return out;
@@ -156,6 +158,55 @@ JNIEXPORT void JNICALL FN(nativeUnitQuick)(JNIEnv *env, jclass cls, jlong h, jbo
 {
     (void)env; (void)cls;
     ssa_unit_set_quick(UNIT(h), on == JNI_TRUE);
+}
+
+/* "Load programs and files into flash" on a switched-off unit's saved memory (ssa_unit_add_files): its result as
+   "1\tadded\treplaced", "-1\tthe names it has already, one a line" or "0\tthe reason". */
+JNIEXPORT jstring JNICALL FN(nativeUnitAddFiles)(JNIEnv *env, jclass cls, jstring jstate, jint codepage,
+                                                 jobjectArray jnames, jobjectArray jdatas, jintArray jtimes,
+                                                 jintArray jdates, jboolean replace)
+{
+    char msg[2048], out[2100];
+    jsize n = (*env)->GetArrayLength(env, jnames), i;
+    const char **names = (const char **)calloc((size_t)(n ? n : 1), sizeof *names);
+    jbyte **bytes = (jbyte **)calloc((size_t)(n ? n : 1), sizeof *bytes);
+    jbyteArray *arrays = (jbyteArray *)calloc((size_t)(n ? n : 1), sizeof *arrays);
+    jstring *strs = (jstring *)calloc((size_t)(n ? n : 1), sizeof *strs);
+    unsigned long *sizes = (unsigned long *)calloc((size_t)(n ? n : 1), sizeof *sizes);
+    unsigned *times = (unsigned *)calloc((size_t)(n ? n : 1), sizeof *times);
+    unsigned *dates = (unsigned *)calloc((size_t)(n ? n : 1), sizeof *dates);
+    jint *t = (*env)->GetIntArrayElements(env, jtimes, NULL), *d = (*env)->GetIntArrayElements(env, jdates, NULL);
+    const char *state = (*env)->GetStringUTFChars(env, jstate, NULL);
+    int added = 0, replaced = 0, got = 0;
+    (void)cls;
+    msg[0] = 0;
+    if (names && bytes && arrays && strs && sizes && times && dates && t && d && state) {
+        for (i = 0; i < n; i++) {
+            strs[i] = (jstring)(*env)->GetObjectArrayElement(env, jnames, i);
+            names[i] = (*env)->GetStringUTFChars(env, strs[i], NULL);
+            arrays[i] = (jbyteArray)(*env)->GetObjectArrayElement(env, jdatas, i);
+            bytes[i] = (*env)->GetByteArrayElements(env, arrays[i], NULL);
+            sizes[i] = (unsigned long)(*env)->GetArrayLength(env, arrays[i]);
+            times[i] = (unsigned)t[i];
+            dates[i] = (unsigned)d[i];
+        }
+        got = ssa_unit_add_files(state, codepage, (int)n, names, (const unsigned char *const *)bytes, sizes, times,
+                                 dates, replace == JNI_TRUE, &added, &replaced, msg, sizeof msg);
+        for (i = 0; i < n; i++) {
+            (*env)->ReleaseStringUTFChars(env, strs[i], names[i]);
+            (*env)->ReleaseByteArrayElements(env, arrays[i], bytes[i], JNI_ABORT);
+        }
+    } else
+        snprintf(msg, sizeof msg, "out of memory");
+    if (got == 1)
+        snprintf(out, sizeof out, "1\t%d\t%d", added, replaced);
+    else
+        snprintf(out, sizeof out, "%d\t%s", got, msg);
+    if (t) (*env)->ReleaseIntArrayElements(env, jtimes, t, JNI_ABORT);
+    if (d) (*env)->ReleaseIntArrayElements(env, jdates, d, JNI_ABORT);
+    if (state) (*env)->ReleaseStringUTFChars(env, jstate, state);
+    free((void *)names); free(bytes); free(arrays); free(strs); free(sizes); free(times); free(dates);
+    return (*env)->NewStringUTF(env, out);
 }
 
 JNIEXPORT jboolean JNICALL FN(nativeUnitFlashBusy)(JNIEnv *env, jclass cls, jlong h)

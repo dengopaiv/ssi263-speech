@@ -16,6 +16,9 @@
 #include "emu_unit.h"
 #include "keys.h"
 #include "tns_term.h"
+#include "blazie/bl_files.h"
+#include "blazie/bl_files_state.h"
+#include "blazie/bl_files_xfer.h"
 
 int ssa_unit_break;
 
@@ -252,6 +255,68 @@ void ssa_unit_set_idle(ssa_unit *u, int sound, int keep_open, int pop_click, int
     pthread_mutex_lock(&u->lock);
     emu_set_idle(u->emu, sound, keep_open, pop_click, tick);
     pthread_mutex_unlock(&u->lock);
+}
+
+int ssa_unit_add_files(const char *state, int codepage, int n, const char *const *names,
+                       const unsigned char *const *data, const unsigned long *sizes, const unsigned *times,
+                       const unsigned *dates, int replace, int *added, int *replaced, char *msg, int msglen)
+{
+    bls_unit unit;
+    blf_fs *fs;
+    blx_report report;
+    char before[EMC_PATH + 16];
+    int got;
+    msg[0] = 0;
+    if (n <= 0) {
+        snprintf(msg, (size_t)msglen, "No files were chosen.");
+        return 0;
+    }
+    if (!bls_load(state, &unit, msg, msglen))
+        return 0;
+    fs = blf_open(unit.model, unit.ram, unit.flash, unit.flash_size, msg, msglen);
+    if (!fs) {
+        bls_free(&unit);
+        return 0;
+    }
+    blx_report_init(&report);
+    got = blx_add_cp(fs, codepage, n, names, data, sizes, times, dates, replace, &report, msg, msglen);
+    if (got == BLX_ADD_EXISTS) {               /* nothing changed: the names it has already, one a line */
+        const char *p = report.log ? report.log : "";
+        int len = 0;
+        while (*p && len < msglen - 1) {
+            const char *end = strchr(p, '\n');
+            size_t l = end ? (size_t)(end - p) : strlen(p);
+            if (l > 7 && !strncmp(p, "exists ", 7)) {
+                int take = (int)(l - 7) < msglen - 2 - len ? (int)(l - 7) : msglen - 2 - len;
+                memcpy(msg + len, p + 7, (size_t)take);
+                len += take;
+                msg[len++] = '\n';
+            }
+            p = end ? end + 1 : p + l;
+        }
+        msg[len] = 0;
+        got = -1;
+    } else if (got == 1 && blf_check(fs, msg, msglen) == 1) {
+        FILE *in = fopen(state, "rb"), *out;
+        snprintf(before, sizeof before, "%s.before-import", state);   /* the memory as it was, beside it */
+        out = in ? fopen(before, "wb") : NULL;
+        if (in && out) {
+            unsigned char buf[65536];
+            size_t k;
+            while ((k = fread(buf, 1, sizeof buf, in)) > 0)
+                fwrite(buf, 1, k, out);
+        }
+        if (in) fclose(in);
+        if (out) fclose(out);
+        got = ssa_unit_break == 2 ? 1 : bls_save(state, &unit, msg, msglen) ? 1 : 0;   /* 2: the control, unsaved */
+        if (added) *added = report.added;
+        if (replaced) *replaced = report.replaced;
+    } else
+        got = 0;
+    blx_report_free(&report);
+    blf_close(fs);
+    bls_free(&unit);
+    return got;
 }
 
 int ssa_unit_flash_busy(ssa_unit *u)

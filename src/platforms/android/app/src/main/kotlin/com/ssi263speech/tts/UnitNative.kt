@@ -6,13 +6,18 @@ package com.ssi263speech.tts
 object UnitNative {
     init { SsiNative.load() }
 
-    /** A unit the data folder can run. */
-    data class Unit(val key: String, val name: String, val typeNSpeak: Boolean, val saved: String)
+    /** A unit the data folder can run: its files' names in `codepage` (850, or 852 for the Slovak unit). */
+    data class Unit(val key: String, val name: String, val typeNSpeak: Boolean, val saved: String, val codepage: Int)
 
     fun units(dataDir: String): List<Unit> = (nativeUnitList(dataDir) ?: emptyArray()).map { row ->
         val c = row.split('\t')
-        Unit(c[0], c[1], c[2] == "1", c[3])
+        Unit(c[0], c[1], c[2] == "1", c[3], c[4].toInt())
     }
+
+    /** "Load programs and files into flash" on a switched-off unit's saved memory: "1\tadded\treplaced", "-1\tnames
+     * it has already (one a line)" or "0\tthe reason".  times and dates as FAT keeps them. */
+    external fun nativeUnitAddFiles(state: String, codepage: Int, names: Array<String>, datas: Array<ByteArray>,
+                                    times: IntArray, dates: IntArray, replace: Boolean): String
 
     const val RATE = 22050
 

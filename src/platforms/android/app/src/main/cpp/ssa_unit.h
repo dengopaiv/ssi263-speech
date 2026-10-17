@@ -58,7 +58,18 @@ void ssa_unit_set_idle(ssa_unit *u, int sound, int keep_open, int pop_click, int
 /* 1 while the unit erases or writes its file flash (switching it off then would lose the write) */
 int ssa_unit_flash_busy(ssa_unit *u);
 
-/* The tests' control (an app never sets it): 1 swaps dots 1 and 4 (F and J), so a chord's check must fail. */
+/* "Load programs and files into flash" (Apple's UnitFiles.swift, the Windows and GTK shells'): files into the flash
+   startup folder of the unit saved at `state` (switched off), one batch, all or nothing (bl_files_xfer.h blx_add_cp),
+   names in the unit's code page, times and dates as FAT keeps them; checked (blf_check), the memory as it was kept
+   as STATE.before-import, the new one written.  1 loaded (*added, *replaced); -1 names the unit has already and
+   `replace` is 0: nothing done, those names in msg one a line (ask, then call again with replace 1); 0 failed,
+   the reason in msg (nothing written).  The Braille 'n Speak 640 has no file flash: it is refused with the reason. */
+int ssa_unit_add_files(const char *state, int codepage, int n, const char *const *names,
+                       const unsigned char *const *data, const unsigned long *sizes, const unsigned *times,
+                       const unsigned *dates, int replace, int *added, int *replaced, char *msg, int msglen);
+
+/* The tests' controls (an app never sets it): 1 swaps dots 1 and 4 (F and J), so a chord's check must fail; 2 loads
+   files but never writes the memory, so the second load's "already there" must fail. */
 extern int ssa_unit_break;
 
 #endif

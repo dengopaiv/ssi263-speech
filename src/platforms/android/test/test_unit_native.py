@@ -96,11 +96,18 @@ def main():
     code, out = run(exe, env, a.firmware)
     print(out.rstrip())
     code_c, out_c = run(exe, env, a.firmware, "1")
-    fails = re.findall(r"^FAIL +(.+?)  ", out_c, re.M)
+    fails = [ln[4:].strip() for ln in out_c.splitlines() if ln.startswith("FAIL")]   # a check's name may fill its column
     control = code_c != 0 and len(fails) == 1 and fails[0].startswith("keys: the chords the unit gets")
     print("%s control (dots 1 and 4 swapped): %s" % ("ok  " if control else "FAIL",
                                                      ", ".join(f.strip() for f in fails) or "nothing failed"))
-    return 0 if code == 0 and control else 1
+    # the files' control: loaded but never written, so the second load cannot find the name (and no key check fails)
+    code_f, out_f = run(exe, env, a.firmware, "2")
+    ffails = [ln[4:].strip() for ln in out_f.splitlines() if ln.startswith("FAIL")]
+    control_f = code_f != 0 and any(f.startswith("files: an existing name asked") for f in ffails) and not any(
+        f.startswith("keys") for f in ffails)
+    print("%s control (the files never written): %s" % ("ok  " if control_f else "FAIL",
+                                                        ", ".join(ffails) or "nothing failed"))
+    return 0 if code == 0 and control and control_f else 1
 
 
 if __name__ == "__main__":

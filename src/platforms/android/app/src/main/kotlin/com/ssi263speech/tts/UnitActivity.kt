@@ -12,8 +12,14 @@ package com.ssi263speech.tts
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
+import java.util.Calendar
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -75,6 +81,10 @@ class UnitActivity : Activity() {
                 prefs.edit().putBoolean("quick", on).apply()
                 if (handle != 0L) UnitNative.nativeUnitQuick(handle, on)
             }
+            page.addView(Button(this).apply {
+                text = "Load programs and files into flash…"
+                setOnClickListener { pickFiles() }
+            })
             field = TextView(this).apply {
                 isFocusable = true
                 isFocusableInTouchMode = true
@@ -188,6 +198,108 @@ class UnitActivity : Activity() {
         if (!isFinishing) refresh()
     }
 
+    // ---- "Load programs and files into flash" (Apple's UnitFiles.swift, the Windows and GTK shells'): the unit
+    // switched off and saved, the files chosen, added to its flash startup folder in one batch, all or nothing
+    // (ssa_unit_add_files), names it already has replaced only when the person says so, the memory as it was kept as
+    // <state>.before-import, the unit switched on again if it was on.
+
+    private var reopen = false
+
+    private fun pickFiles() {
+        val unit = units[selected]
+        val state = File(File(filesDir, "units"), unit.saved)
+        if (!state.exists()) {
+            status.text = "Switch the ${unit.name} on once first: it has no memory of its own yet."
+            return
+        }
+        reopen = handle != 0L
+        if (handle != 0L) switchOff()
+        if (handle != 0L) return                     // writing its flash: switchOff said so
+        val pick = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+            .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        try {
+            startActivityForResult(pick, PICK_FILES)
+        } catch (e: ActivityNotFoundException) {
+            status.text = "This phone has no file picker."
+            afterLoad()
+        }
+    }
+
+    @Deprecated("the platform's own picker result; this app has no AndroidX")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != PICK_FILES) return super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK || data == null) {
+            status.text = "Nothing loaded."
+            afterLoad()
+            return
+        }
+        val uris = data.clipData?.let { c -> (0 until c.itemCount).map { c.getItemAt(it).uri } }
+            ?: listOfNotNull(data.data)
+        val unit = units[selected]
+        status.text = "Loading ${uris.size} file(s) into the ${unit.name}…"
+        Thread {
+            val files = try { uris.map { readPicked(it) } } catch (e: Exception) {
+                main.post { status.text = "A file could not be read: ${e.message}"; afterLoad() }
+                return@Thread
+            }
+            load(unit, files, false)
+        }.start()
+    }
+
+    private class Picked(val name: String, val data: ByteArray, val time: Int, val date: Int)
+
+    /** a picked document: its name, its bytes (2 MB at most: the unit's whole flash), its time as FAT keeps it */
+    private fun readPicked(uri: Uri): Picked {
+        var name = "file"
+        var modified = System.currentTimeMillis()
+        contentResolver.query(uri, null, null, null, null)?.use { c ->
+            if (c.moveToFirst()) {
+                c.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let { name = c.getString(it) ?: name }
+                c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED).takeIf { it >= 0 }
+                    ?.let { if (!c.isNull(it)) modified = c.getLong(it) }
+            }
+        }
+        val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+        if (bytes.size > 2 * 1024 * 1024) throw IllegalArgumentException("$name is larger than the unit's flash")
+        val cal = Calendar.getInstance().apply { timeInMillis = modified }
+        val time = (cal.get(Calendar.HOUR_OF_DAY) shl 11) or (cal.get(Calendar.MINUTE) shl 5) or (cal.get(Calendar.SECOND) / 2)
+        val date = (maxOf(cal.get(Calendar.YEAR) - 1980, 0) shl 9) or ((cal.get(Calendar.MONTH) + 1) shl 5) or
+            cal.get(Calendar.DAY_OF_MONTH)
+        return Picked(name, bytes, time, date)
+    }
+
+    private fun load(unit: UnitNative.Unit, files: List<Picked>, replace: Boolean) {
+        val state = File(File(filesDir, "units"), unit.saved).path
+        val r = UnitNative.nativeUnitAddFiles(state, unit.codepage, files.map { it.name }.toTypedArray(),
+            files.map { it.data }.toTypedArray(), files.map { it.time }.toIntArray(), files.map { it.date }.toIntArray(),
+            replace).split('\t', limit = 3)
+        main.post {
+            when (r[0]) {
+                "1" -> {
+                    status.text = "Loaded into the ${unit.name}'s flash: ${r[1]} added, ${r[2]} replaced. Its memory " +
+                        "before is kept as ${unit.saved}.before-import."
+                    afterLoad()
+                }
+                "-1" -> AlertDialog.Builder(this).setTitle("Replace files?")
+                    .setMessage("The ${unit.name} already has:\n${r.getOrElse(1) { "" }.trim()}\n\nReplace them?")
+                    .setPositiveButton("Replace") { _, _ -> Thread { load(unit, files, true) }.start() }
+                    .setNegativeButton("Don't replace") { _, _ -> status.text = "Nothing loaded."; afterLoad() }
+                    .setOnCancelListener { status.text = "Nothing loaded."; afterLoad() }
+                    .show()
+                else -> {
+                    status.text = "Nothing loaded: ${r.getOrElse(1) { "" }}"
+                    afterLoad()
+                }
+            }
+        }
+    }
+
+    /** the unit on again if it was on before the load */
+    private fun afterLoad() {
+        if (reopen && handle == 0L && !isFinishing) switchOn()
+        reopen = false
+    }
+
     private fun releaseKeys() {
         heldKeys.clear()
         if (handle != 0L) UnitNative.nativeUnitReleaseKeys(handle)
@@ -254,5 +366,6 @@ class UnitActivity : Activity() {
 
     companion object {
         private const val PREFS = "unit"
+        private const val PICK_FILES = 41
     }
 }
