@@ -256,6 +256,12 @@ if [ -f "$SRC/speakout/so_voice.c" ]; then
     ENGINE_OBJS="$ENGINE_OBJS $OUT/obj_v40/so_board.o $OUT/obj_v40/so_icu.o $OUT/obj_v40/so_scu.o $OUT/obj_v40/so_hex.o $OUT/obj_v40/v40_mame.o"
     SD_DEFS="$SD_DEFS -DSSV_HAVE_SPEAKOUT"
 fi
+# the Sounding Board (0.8.5): the Speak-Out's voice on the card's DOS drivers, on the Accent-mini's pc86 above
+if [ -f "$SRC/soundingboard/sb_host.c" ] && [ -f "$SRC/speakout/so_voice.c" ] && [ -f "$SRC/accentmini/am_voice.c" ]; then
+    VOICE_SRCS="$VOICE_SRCS $SRC/soundingboard/sb_host.c"
+    VOICE="$VOICE -I$SRC/soundingboard -DSO_HAVE_SOUNDINGBOARD"
+    SD_DEFS="$SD_DEFS -DSSV_HAVE_SOUNDINGBOARD -DSO_HAVE_SOUNDINGBOARD"
+fi
 if [ -f "$SRC/mockingboard/mb_voice.c" ]; then     # the Mockingboard (0.8): Fake6502, the board, the host, the voice
     VOICE_SRCS="$VOICE_SRCS $SRC/cpu/m6502.c $SRC/mockingboard/mb_board.c $SRC/mockingboard/mb_host.c $SRC/mockingboard/mb_voice.c $SRC/mockingboard/mb_dsk.c"
     SD_DEFS="$SD_DEFS -DSSV_HAVE_MOCKINGBOARD"

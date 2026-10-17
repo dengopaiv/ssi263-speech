@@ -108,10 +108,17 @@ def canonical():
     if not table:
         raise SystemExit("uniform: no VOICES[] table in src/csrc/voices.c")
     voices = []
-    for m in re.finditer(r'\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)",\s*"([^"]+)",\s*(SSV_\w+),\s*(\d+),', table.group(1)):
-        voices.append(dict(id=m.group(1), name=c_string(m.group(2)), lang=m.group(3), engine=m.group(4)))
-    for r in release_rows():           # voices_blazie.h's rows, from their source
-        voices.append(dict(id="blazie:" + r["voice"], name=r["vname"], lang=r["tag"], engine="SSV_BLAZIE"))
+    # the hand-written rows before the release table's, the release table's (voices_blazie.h's rows, from their
+    # source), then any after it (the Sounding Board, 0.8.5) -- the table's own order; a slot may be an expression
+    before, _, after = table.group(1).partition("SSV_BLAZIE_RELEASE_ROWS")
+    row = r'\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)",\s*"([^"]+)",\s*(SSV_\w+),\s*([^,{}]+),'
+    for part in (before, None, after):
+        if part is None:
+            for r in release_rows():
+                voices.append(dict(id="blazie:" + r["voice"], name=r["vname"], lang=r["tag"], engine="SSV_BLAZIE"))
+            continue
+        for m in re.finditer(row, part):
+            voices.append(dict(id=m.group(1), name=c_string(m.group(2)), lang=m.group(3), engine=m.group(4)))
     ids = [v["id"] for v in voices]
     if not voices or len(set(ids)) != len(ids):
         raise SystemExit("uniform: src/csrc/voices.c's table is empty or repeats an id: %s" % ids)

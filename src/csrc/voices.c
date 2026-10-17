@@ -14,6 +14,9 @@
 #ifdef SSV_HAVE_SPEAKOUT
 #include "speakout/so_voice.h"
 #endif
+#if defined(SSV_HAVE_SOUNDINGBOARD) && !(defined(SSV_HAVE_SPEAKOUT) && defined(SO_HAVE_SOUNDINGBOARD))
+#error "the Sounding Board is the Speak-Out's voice on its own drivers: build it with SSV_HAVE_SPEAKOUT and so_voice.c with SO_HAVE_SOUNDINGBOARD (and sb_host.c, pc86)"
+#endif
 #ifdef SSV_HAVE_ACCENTMINI
 #include "accentmini/am_voice.h"
 #endif
@@ -47,6 +50,10 @@ static const ssv_info VOICES[] = {
     /* 0.8: the Braille Lite 2000 in 17 more languages (Blazie's updates, an anonymous donation), one voice per
        language, from the release table (blazie/bl_languages.txt, generated: voices_blazie.h) */
     SSV_BLAZIE_RELEASE_ROWS
+    /* 0.8.5: GW Micro's Sounding Board, the Speak-Out's front end in the card's own DOS drivers (version 2.7), for
+       those who want them -- imported only, never shipped.  Last, so no earlier voice's index or slot moves */
+    {"speakout:soundingboard", "Sounding Board (GW Micro)", "en", SSV_SOUNDINGBOARD, 9 + SSV_BLAZIE_RELEASE_VOICES,
+     {"gw-micro-sounding-board/SBLOAD.COM", "gw-micro-sounding-board/SB.COM", NULL}},
 };
 #define NVOICES ((int)(sizeof VOICES / sizeof VOICES[0]))
 
@@ -213,6 +220,27 @@ static void eng_so_cancel(void *u) { sov_cancel((so_voice *)u); }
 static void eng_so_destroy(void *u) { sov_destroy((so_voice *)u); }
 #endif
 
+#ifdef SSV_HAVE_SOUNDINGBOARD
+/* the Sounding Board: the Speak-Out's voice (its settings, set, speak, render, cancel) on the card's DOS drivers */
+static void *eng_sb_create(const ssv_info *info, const ssv_source *src, const ssv_boot *b, char *err, int errlen)
+{
+    size_t n[2];
+    unsigned char *owned[2];
+    const unsigned char *d[2];
+    so_voice *v = NULL;
+    int k;
+    for (k = 0; k < 2; k++)
+        d[k] = source_bytes(src, k, &n[k], &owned[k]);
+    if (d[0] && d[1])
+        v = sov_create_sb(d[0], n[0], d[1], n[1], (double)b->sample_rate, err, errlen);
+    else
+        snprintf(err, errlen, "could not read the Sounding Board's %s and %s", info->files[0], info->files[1]);
+    for (k = 0; k < 2; k++)
+        free(owned[k]);
+    return v;
+}
+#endif
+
 #ifdef SSV_HAVE_ACCENTMINI
 /* the Accent-mini: accentmini.py's "mini" voice (rate, pitch, inflection, volume, number words, voice characteristic) */
 static void *eng_am_create(const ssv_info *info, const ssv_source *src, const ssv_boot *b, char *err, int errlen)
@@ -272,6 +300,9 @@ static const ssv_engine *engine(int kind)
 #ifdef SSV_HAVE_MOCKINGBOARD
     static const ssv_engine mb = {eng_mb_create, eng_mb_set, eng_mb_speak, eng_mb_render, eng_mb_cancel, eng_mb_destroy};
 #endif
+#ifdef SSV_HAVE_SOUNDINGBOARD
+    static const ssv_engine sb = {eng_sb_create, eng_so_set, eng_so_speak, eng_so_render, eng_so_cancel, eng_so_destroy};
+#endif
     switch (kind) {
     case SSV_BLAZIE: return &bl;
     case SSV_ACCENT_SA: return &as;
@@ -283,6 +314,9 @@ static const ssv_engine *engine(int kind)
 #endif
 #ifdef SSV_HAVE_MOCKINGBOARD
     case SSV_MOCKINGBOARD: return &mb;
+#endif
+#ifdef SSV_HAVE_SOUNDINGBOARD
+    case SSV_SOUNDINGBOARD: return &sb;
 #endif
     default: return NULL;
     }
@@ -328,7 +362,7 @@ SSV_API void ssv_defaults(int i, ssv_settings *s)
     s->run_ahead = 0;              /* blazie.py: self._run_ahead = False */
     s->line_lift = 0;              /* blazie.py: self._line_lift = False */
     s->tone = kind == SSV_BLAZIE ? 7          /* DEFAULT_TONE */
-            : kind == SSV_SPEAKOUT ? 8        /* self._tone = "i" */
+            : kind == SSV_SPEAKOUT || kind == SSV_SOUNDINGBOARD ? 8   /* self._tone = "i" (the Sounding Board: its manual's too) */
             : kind == SSV_ACCENT_MINI ? 5     /* self._voice_char = "5" */
             : 0;
 }
@@ -414,7 +448,7 @@ SSV_API int ssv_render(ssv_voice *v, const short **pcm, int *done) { return v->e
 SSV_API void ssv_cancel(ssv_voice *v) { v->e->cancel(v->u); }
 
 /* ---- a bank ---------------------------------------------------------------------------------------------------------- */
-#define SLOTS (9 + SSV_BLAZIE_RELEASE_VOICES)     /* the table's slots 0..8, then one per release voice */
+#define SLOTS (10 + SSV_BLAZIE_RELEASE_VOICES)    /* the table's slots 0..8, one per release voice, the Sounding Board's */
 
 struct ssv_bank {
     char *fwdir;

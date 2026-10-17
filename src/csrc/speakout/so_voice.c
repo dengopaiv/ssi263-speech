@@ -7,6 +7,9 @@
 #include "so_voice.h"
 #include "../numwords.h"
 #include "../translit.h"
+#ifdef SO_HAVE_SOUNDINGBOARD
+#include "../soundingboard/sb_host.h"
+#endif
 
 /* the driver's constants */
 #define BLOCK_S 0.03
@@ -27,6 +30,13 @@ struct so_voice {
     ssi263 *chip;
     char *hex;                                       /* the firmware's text, kept for a reboot */
     size_t hex_len;
+#ifdef SO_HAVE_SOUNDINGBOARD
+    /* the Sounding Board instead (sov_create_sb): GW Micro's DOS drivers, the Speak-Out's front end byte for byte,
+       in their own host (sb_host.h); then h is NULL and these are kept for a reboot */
+    sb_host *sb;
+    unsigned char *sbload, *sbcom;
+    size_t sbload_len, sbcom_len;
+#endif
     double out_rate;
     int rate, pitch, tone, volume, join, short_pauses;   /* NVDA's scales */
     box_settings sent;                               /* _sent */
@@ -40,19 +50,124 @@ struct so_voice {
     int pcm_cap;
 };
 
+/* ---- the box's host: the Speak-Out's (so_host.h), or the Sounding Board's (sb_host.h), which takes the same calls -- */
+typedef struct {
+    so_host *so;
+#ifdef SO_HAVE_SOUNDINGBOARD
+    sb_host *sb;
+#endif
+} box;
+
+static box box_of(const so_voice *v)
+{
+    box b;
+    b.so = v->h;
+#ifdef SO_HAVE_SOUNDINGBOARD
+    b.sb = v->sb;
+#endif
+    return b;
+}
+
+#ifdef SO_HAVE_SOUNDINGBOARD
+#define ON_BOX(b, so_call, sb_call) ((b).sb ? (sb_call) : (so_call))
+#else
+#define ON_BOX(b, so_call, sb_call) (so_call)
+#endif
+
+static void box_say(box b, const unsigned char *bytes, int n) { ON_BOX(b, soh_say(b.so, bytes, n), sbh_say(b.sb, bytes, n)); }
+static int box_run(box b, double s, double step, const double **y)
+{
+    return ON_BOX(b, soh_run(b.so, s, step, y), sbh_run(b.sb, s, step, y));
+}
+static void box_boot(box b, double s) { ON_BOX(b, soh_boot(b.so, s), sbh_boot(b.sb, s)); }
+static void box_cancel(box b, double limit) { ON_BOX(b, soh_cancel(b.so, limit), sbh_cancel(b.sb, limit)); }
+static int box_busy(box b, double quiet, double patience)
+{
+    return ON_BOX(b, soh_busy(b.so, quiet, patience), sbh_busy(b.sb, quiet, patience));
+}
+static int box_fault(box b) { return ON_BOX(b, soh_fault(b.so), sbh_fault(b.sb)); }
+static double box_last_speech(box b)
+{
+    return ON_BOX(b, soh_get_double(b.so, "last_speech"), sbh_get_double(b.sb, "last_speech"));
+}
+static ssi263 *box_chip(box b) { return ON_BOX(b, soh_chip(b.so), sbh_chip(b.sb)); }
+static void box_destroy(box b) { ON_BOX(b, soh_destroy(b.so), sbh_destroy(b.sb)); }
+
 /* ---- _boot ---------------------------------------------------------------------------------------------------- */
-static so_host *boot(const so_voice *v, double out_rate, char *err, int errlen)
+static box boot(const so_voice *v, double out_rate, char *err, int errlen)
 {
     static const unsigned char PUNCT_NONE[] = {0x05, 'M', 'n'};  /* punctuation: none -- NVDA speaks symbols itself */
     const double *y;
-    so_host *h = soh_create(v->hex, v->hex_len, NULL, out_rate, err, errlen);
-    if (!h)
-        return NULL;
-    soh_boot(h, BOOT_S);
-    soh_say(h, PUNCT_NONE, (int)sizeof PUNCT_NONE);
-    soh_run(h, 0.05, STEP_S, &y);
-    return h;
+    box b;
+    memset(&b, 0, sizeof b);
+#ifdef SO_HAVE_SOUNDINGBOARD
+    if (v->sbload) {
+        b.sb = sbh_create(v->sbload, v->sbload_len, v->sbcom, v->sbcom_len, NULL, out_rate, err, errlen);
+        if (!b.sb)
+            return b;
+    } else
+#endif
+    if (!(b.so = soh_create(v->hex, v->hex_len, NULL, out_rate, err, errlen)))
+        return b;
+    box_boot(b, BOOT_S);
+    box_say(b, PUNCT_NONE, (int)sizeof PUNCT_NONE);
+    box_run(b, 0.05, STEP_S, &y);
+    return b;
 }
+
+static int booted(box b)
+{
+#ifdef SO_HAVE_SOUNDINGBOARD
+    if (b.sb)
+        return 1;
+#endif
+    return b.so != NULL;
+}
+
+/* the voice's box replaced by a new one (and the old freed) */
+static void take_box(so_voice *v, box b)
+{
+    box_destroy(box_of(v));
+    v->h = b.so;
+#ifdef SO_HAVE_SOUNDINGBOARD
+    v->sb = b.sb;
+#endif
+    v->chip = box_chip(b);
+}
+
+/* the box booted and the voice's defaults set; the voice freed on failure */
+static so_voice *start(so_voice *v, double out_rate, char *err, int errlen)
+{
+    box b = boot(v, out_rate, err, errlen);
+    if (!booted(b)) {
+        sov_destroy(v);
+        return NULL;
+    }
+    take_box(v, b);
+    v->out_rate = out_rate;
+    /* __init__'s defaults: rate 50 (box 5), pitch 50 (box 3), volume 100, tone i, join and short pauses on */
+    v->rate = 50; v->pitch = 50; v->volume = 100; v->tone = DEFAULT_TONE; v->join = 1; v->short_pauses = 1;
+    return v;
+}
+
+#ifdef SO_HAVE_SOUNDINGBOARD
+SO_API so_voice *sov_create_sb(const unsigned char *sbload, size_t sbload_len, const unsigned char *sbcom,
+                               size_t sbcom_len, double out_rate, char *err, int errlen)
+{
+    so_voice *v = (so_voice *)calloc(1, sizeof *v);
+    if (!v || !(v->sbload = (unsigned char *)malloc(sbload_len ? sbload_len : 1))
+            || !(v->sbcom = (unsigned char *)malloc(sbcom_len ? sbcom_len : 1))) {
+        sov_destroy(v);
+        if (err && errlen > 0) snprintf(err, (size_t)errlen, "out of memory");
+        return NULL;
+    }
+    memcpy(v->sbload, sbload, sbload_len);
+    v->sbload_len = sbload_len;
+    memcpy(v->sbcom, sbcom, sbcom_len);
+    v->sbcom_len = sbcom_len;
+    return start(v, out_rate, err, errlen);
+}
+#endif
 
 SO_API so_voice *sov_create_hex(const char *hex, size_t len, double out_rate, char *err, int errlen)
 {
@@ -64,17 +179,7 @@ SO_API so_voice *sov_create_hex(const char *hex, size_t len, double out_rate, ch
     }
     memcpy(v->hex, hex, len);
     v->hex_len = len;
-    v->h = boot(v, out_rate, err, errlen);
-    if (!v->h) {
-        free(v->hex);
-        free(v);
-        return NULL;
-    }
-    v->chip = soh_chip(v->h);
-    v->out_rate = out_rate;
-    /* __init__'s defaults: rate 50 (box 5), pitch 50 (box 3), volume 100, tone i, join and short pauses on */
-    v->rate = 50; v->pitch = 50; v->volume = 100; v->tone = DEFAULT_TONE; v->join = 1; v->short_pauses = 1;
-    return v;
+    return start(v, out_rate, err, errlen);
 }
 
 SO_API so_voice *sov_create(const char *firmware, double out_rate, char *err, int errlen)
@@ -108,13 +213,20 @@ SO_API so_voice *sov_create(const char *firmware, double out_rate, char *err, in
 SO_API void sov_destroy(so_voice *v)
 {
     if (!v) return;
-    soh_destroy(v->h);
+    box_destroy(box_of(v));
     free(v->hex);
+#ifdef SO_HAVE_SOUNDINGBOARD
+    free(v->sbload);
+    free(v->sbcom);
+#endif
     free(v->pcm);
     free(v);
 }
 
 SO_API so_host *sov_host(so_voice *v) { return v->h; }
+#ifdef SO_HAVE_SOUNDINGBOARD
+SO_API void *sov_sb_host(so_voice *v) { return v->sb; }
+#endif
 SO_API ssi263 *sov_chip(so_voice *v) { return v->chip; }
 SO_API double sov_sample_rate(const so_voice *v) { return v->out_rate; }
 SO_API int sov_fault(const so_voice *v) { return v->fault; }
@@ -138,17 +250,15 @@ SO_API void sov_set(so_voice *v, int rate, int pitch, int tone, int volume, int 
 SO_API int sov_set_sample_rate(so_voice *v, double out_rate)
 {
     char err[128];
-    so_host *h;
+    box b;
     if (out_rate == v->out_rate)
         return 0;
     if (v->active)
         sov_cancel(v);
-    h = boot(v, out_rate, err, (int)sizeof err);
-    if (!h)
+    b = boot(v, out_rate, err, (int)sizeof err);
+    if (!booted(b))
         return -1;
-    soh_destroy(v->h);
-    v->h = h;
-    v->chip = soh_chip(h);
+    take_box(v, b);
     v->out_rate = out_rate;
     v->sent_valid = 0;
     v->pitch_dirty = 0;                     /* (the driver leaves _snap_until_speech as it was) */
@@ -250,7 +360,7 @@ SO_API int sov_say_bytes(const char *utf8, unsigned char *out, int cap)
 /* ---- _speakJob / _speakItems ----------------------------------------------------------------------------------- */
 static void say_str(so_voice *v, const char *s)
 {
-    soh_say(v->h, (const unsigned char *)s, (int)strlen(s));
+    box_say(box_of(v), (const unsigned char *)s, (int)strlen(s));
 }
 
 static void say_pitch(so_voice *v, int p)                      /* box.chip.snap_pitch = True; box.say("\x05P%d") */
@@ -298,11 +408,9 @@ static void begin(so_voice *v)
         sov_cancel(v);
     if (v->fault) {                         /* the driver's "speech failed; rebooting the emulated box" */
         char err[128];
-        so_host *h = boot(v, v->out_rate, err, (int)sizeof err);
-        if (h) {
-            soh_destroy(v->h);
-            v->h = h;
-            v->chip = soh_chip(h);
+        box b = boot(v, v->out_rate, err, (int)sizeof err);
+        if (booted(b)) {
+            take_box(v, b);
             v->sent_valid = 0;
             v->fault = 0;
         }
@@ -325,7 +433,7 @@ static void begin(so_voice *v)
 static void text_item(so_voice *v, const unsigned char *bytes, int n)
 {
     v->t_start = ssi263_time(v->chip);
-    soh_say(v->h, bytes, n);
+    box_say(box_of(v), bytes, n);
     v->active = 1;
 }
 
@@ -378,7 +486,7 @@ SO_API void sov_end(so_voice *v)
 
 SO_API void sov_flush(so_voice *v)
 {
-    soh_cancel(v->h, CANCEL_LIMIT);         /* _run: box.cancel() */
+    box_cancel(box_of(v), CANCEL_LIMIT);         /* _run: box.cancel() */
     if (v->pitch_dirty && v->sent_valid) {  /* _resend_pitch (none after a reboot) */
         char cmd[16];
         ssi263_set_snap_pitch(v->chip, 1);
@@ -397,7 +505,7 @@ SO_API int sov_render(so_voice *v, const short **pcm, int *done)
     *pcm = v->pcm;
     *done = 0;
     if (!v->active) { *done = 1; return 0; }
-    n = soh_run(v->h, BLOCK_S, STEP_S, &y);
+    n = box_run(box_of(v), BLOCK_S, STEP_S, &y);
     if (n < 0) { finish(v); *done = 1; return 0; }
     if (v->lead) {                                             /* _trim_lead: the box's reading time is only delay */
         int k;
@@ -419,16 +527,16 @@ SO_API int sov_render(so_voice *v, const short **pcm, int *done)
     *pcm = v->pcm;
     if (count > 0)
         ssi_pcm16(y + start, count, v->gain, v->pcm);
-    if (v->snap_until_speech && soh_get_double(v->h, "last_speech") >= v->t_start) {
+    if (v->snap_until_speech && box_last_speech(box_of(v)) >= v->t_start) {
         /* the first phoneme is set up; a leftover snap would flatten a glide later */
         ssi263_set_snap_pitch(v->chip, 0);
         v->snap_until_speech = 0;
     }
-    if (!soh_busy(v->h, SOH_QUIET, SOH_PATIENCE)) {
+    if (!box_busy(box_of(v), SOH_QUIET, SOH_PATIENCE)) {
         v->pitch_dirty = 0;                                    /* the box has read everything sent so far */
         finish(v);
         *done = 1;
-    } else if (soh_fault(v->h)) {                              /* never in the driver: a faulted V40 stays busy */
+    } else if (box_fault(box_of(v))) {                              /* never in the driver: a faulted V40 stays busy */
         v->fault = 1;
         v->active = 0;
         *done = 1;

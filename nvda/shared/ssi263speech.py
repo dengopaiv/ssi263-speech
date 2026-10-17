@@ -87,6 +87,15 @@ def load(path):
         _sig(lib, p + "_text", _I, [_P, _S, _I])
         _sig(lib, p + "_end", None if p == "sov" else _I, [_P])
         _sig(lib, p + "_flush", None if p == "sov" else _I, [_P])
+    if hasattr(lib, "sov_create_sb"):                     # the Sounding Board (0.8.5): so_voice on sb_host.h
+        _sig(lib, "sov_create_sb", _P, [_S, ctypes.c_size_t, _S, ctypes.c_size_t, _D] + err)
+        _sig(lib, "sov_sb_host", _P, [_P])
+        _sig(lib, "sbh_get_double", _D, [_P, _S])
+        _sig(lib, "sbh_set_double", None, [_P, _S, _D])
+        _sig(lib, "sbh_get_int", _I, [_P, _S])
+        _sig(lib, "sbh_set_int", None, [_P, _S, _I])
+        _sig(lib, "sbh_writes", _I, [_P, wl])
+        _sig(lib, "sbh_clear_writes", None, [_P])
     if hasattr(lib, "mbv_create"):                        # the Mockingboard (0.8): mb_voice.h's one-text API
         _sig(lib, "mbv_create", _P, [_S, ctypes.c_size_t, _D] + err)
         _sig(lib, "mbv_destroy", None, [_P])
@@ -266,6 +275,24 @@ class SpeakOutC(_Unit):
         out = ctypes.create_string_buffer(n + 1)
         self._lib.sov_say_bytes(data, out, n + 1)
         return out.raw[:n].rstrip(b"\r").decode("latin-1")
+
+
+class SoundingBoardC(SpeakOutC):
+    """GW Micro's Sounding Board: the card's own DOS drivers (SBLOAD.COM and SB.COM 2.7) on MAME's 8086, whose front
+    end is the Speak-Out's byte for byte -- the same voice and settings (so_voice.h's sov_create_sb), its own host
+    (sb_host.h)."""
+    _host = "sbh"
+
+    def __init__(self, lib_path, sbload, sbcom, out_rate):
+        _Unit.__init__(self, lib_path, out_rate)
+        if not hasattr(self._lib, "sov_create_sb"):
+            raise NativeVoiceError("SoundingBoardC: this library has no Sounding Board")
+        a, b = _read(sbload), _read(sbcom)
+        err = ctypes.create_string_buffer(256)
+        self._created(self._lib.sov_create_sb(a, len(a), b, len(b), float(out_rate), err, 256), err)
+
+    def _host_ptr(self):
+        return self._lib.sov_sb_host(self._v)
 
 
 class _Accent(_Unit):

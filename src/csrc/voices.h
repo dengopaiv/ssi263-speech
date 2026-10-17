@@ -12,6 +12,9 @@
  *     accentmini:sa       Accent SA                       as_voice.h (u2, u3, u4)
  *     mockingboard:mockingboard  Mockingboard              mb_voice.h (mockingboard-tts-1.1.bin)  with SSV_HAVE_MOCKINGBOARD
  *     mockingboard:early  Mockingboard, early             mb_voice.h (mockingboard-tts-early.bin)  with SSV_HAVE_MOCKINGBOARD
+ *     speakout:soundingboard  Sounding Board (GW Micro)   so_voice.h (SBLOAD.COM + SB.COM 2.7: sov_create_sb)  with
+ *                                                         SSV_HAVE_SOUNDINGBOARD (0.8.5; last in the table, after the
+ *                                                         Braille Lite's release voices)
  *
  * Each engine is a table of six functions -- create, set, speak, render, cancel, destroy -- over its voice's own API
  * (blv_, sov_, amv_, asv_, mbv_); a voice whose engine is not compiled in is still listed, and ssv_create says why it cannot
@@ -46,12 +49,13 @@ extern "C" {
 #define SSV_ACCENT_MINI 2          /* Aicom's Accent-mini (am_voice.h) */
 #define SSV_ACCENT_SA 3            /* Aicom's Accent SA (as_voice.h) */
 #define SSV_MOCKINGBOARD 4         /* Sweet Micro Systems' Mockingboard (mockingboard/mb_voice.h) */
+#define SSV_SOUNDINGBOARD 5        /* GW Micro's Sounding Board: the Speak-Out's voice on its DOS drivers (so_voice.h) */
 
 typedef struct {
     const char *id;                /* "blazie:blazie": the NVDA driver module and its voice, as the SAPI tokens carry it */
     const char *name;              /* the NVDA driver's name for it, UTF-8 */
     const char *lang;              /* "en", "es", "de", "it", "sk" */
-    int engine;                    /* SSV_BLAZIE ... SSV_MOCKINGBOARD */
+    int engine;                    /* SSV_BLAZIE ... SSV_SOUNDINGBOARD */
     int slot;                      /* voices of one slot share one unit in a bank (the two Accents: one card) */
     const char *files[4];          /* its firmware, relative to the firmware folder, "/"-separated; NULL after the last */
 } ssv_info;

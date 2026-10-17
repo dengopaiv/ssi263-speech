@@ -50,6 +50,10 @@ FIRMWARE_TYPES = OrderedDict([
     ("accentsa", ("Accent SA", accentmini, OrderedDict([("en", "sa")]))),
     ("accentmini", ("Accent-mini", accentmini, OrderedDict([("en", "mini")]))),
 ])
+# 0.8.5: GW Micro's Sounding Board, the Speak-Out driver's second voice (the card's DOS drivers, the same front end),
+# a firmware type of its own as the two Accents are, when its two files are beside the Speak-Out's
+if getattr(speakout.SynthDriver, "_soundingboard_here", None) and speakout.SynthDriver._soundingboard_here():
+    FIRMWARE_TYPES["soundingboard"] = ("Sounding Board (GW Micro)", speakout, OrderedDict([("en", "soundingboard")]))
 if mockingboard is not None:
     FIRMWARE_TYPES["mockingboard"] = ("Mockingboard", mockingboard, OrderedDict([("en", "mockingboard")]))
     # the earlier text-to-speech of Mockingboard disk 1: its own rules ("Mocking-bo-wrd", "dough-lars")

@@ -70,6 +70,14 @@ def units():
         u += [(MAME, "cpu/i86_mame.cpp"), (am, "pc86/pc86.c")]
         u += [(am, "accentmini/%s.c" % n) for n in ("am_host", "am_voice")]
         have.append("-DSSV_HAVE_ACCENTMINI")
+    # the Sounding Board (0.8.5): the Speak-Out's voice on the card's DOS drivers, on the same pc86 as the Accent-mini
+    if "-DSSV_HAVE_SPEAKOUT" in have and "-DSSV_HAVE_ACCENTMINI" in have \
+            and os.path.isfile(os.path.join(SRC, "soundingboard", "sb_host.c")):
+        sb = FRONT + inc("cpu", "pc86", "soundingboard")
+        u += [(sb, "soundingboard/sb_host.c")]
+        u = [(flags + inc("pc86", "soundingboard") + ["-DSO_HAVE_SOUNDINGBOARD"], s) if s == "speakout/so_voice.c"
+             else (flags, s) for flags, s in u]
+        have += ["-DSSV_HAVE_SOUNDINGBOARD", "-DSO_HAVE_SOUNDINGBOARD"]
     if os.path.isfile(os.path.join(SRC, "mockingboard", "mb_voice.c")):      # mb-voice's sources (mb_voice.h, 0.8)
         mb = ["-O2", "-std=gnu99", "-ffp-contract=off", "-w"] + inc("cpu", "mockingboard", "")
         u += [(mb, "cpu/m6502.c")] + [(mb, "mockingboard/%s.c" % n)

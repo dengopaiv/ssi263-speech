@@ -34,6 +34,13 @@ typedef struct so_voice so_voice;
    text in memory (Android's asset).  NULL on failure, the reason in err. */
 SO_API so_voice *sov_create(const char *firmware, double out_rate, char *err, int errlen);
 SO_API so_voice *sov_create_hex(const char *hex, size_t len, double out_rate, char *err, int errlen);
+/* GW Micro's Sounding Board (built with SO_HAVE_SOUNDINGBOARD): its DOS drivers SBLOAD.COM and SB.COM 2.7, whose front
+   end is the Speak-Out's byte for byte, in their own host (../soundingboard/sb_host.h) -- the same voice, the same
+   settings and text, the same driver behind sov_speak */
+SO_API so_voice *sov_create_sb(const unsigned char *sbload, size_t sbload_len, const unsigned char *sbcom,
+                               size_t sbcom_len, double out_rate, char *err, int errlen);
+/* the Sounding Board's host (sb_host.h's sb_host *), NULL for the Speak-Out's (sov_host is then the one) */
+SO_API void *sov_sb_host(so_voice *v);
 SO_API void sov_destroy(so_voice *v);
 
 /* The driver's settings, on NVDA's scales: rate, pitch and volume 0-100 (50, 50, 100 = the box's rate 5 and pitch 3,

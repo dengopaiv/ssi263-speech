@@ -64,6 +64,9 @@ static const voice_def ALL[] = {
     /* 0.8: the Braille Lite 2000 in 17 more languages (Blazie's updates, an anonymous donation), from the release
        table, each its image and state in the data folder's bl2000/ (tools/make_release_states.py) */
     SSV_BLAZIE_RELEASE_SD_ROWS
+    /* 0.8.5: GW Micro's Sounding Board, the Speak-Out's voice on the card's DOS drivers (voices.c, last) */
+    {"speakout:soundingboard", "Sounding Board (GW Micro)", "en-US", "soundingboard",
+     {"gw-micro-sounding-board/SBLOAD.COM", "gw-micro-sounding-board/SB.COM", NULL}},
 };
 #define N_ALL ((int)(sizeof ALL / sizeof ALL[0]))
 
@@ -169,6 +172,7 @@ static void settings_for(int i, const sd_settings *s, int rate, int pitch, int v
         o->tone = s->accent_voice;
         break;
     case SSV_SPEAKOUT:                 /* sov_set: its tone, join phrases, short pauses */
+    case SSV_SOUNDINGBOARD:            /* the same voice (its drivers' front end is the Speak-Out's) */
         o->tone = s->speakout_tone;
         o->join = s->speakout_join;
         o->pack = s->speakout_short_pauses;

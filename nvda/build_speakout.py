@@ -10,6 +10,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MANIFEST, VERSION = read_manifest(os.path.join(HERE, "speakout"))
 REPO = os.path.dirname(HERE)
 FIRMWARE = os.path.join(REPO, "firmware", "gw-micro-speakout", "SPEAKOUT.HEX")
+SB_DIR = os.path.join(REPO, "firmware", "gw-micro-sounding-board")
+SOUNDINGBOARD = ("SBLOAD.COM", "SB.COM")
 BUILD = os.path.join(HERE, "dist", "speakout-build")
 OUT = os.path.join(HERE, "dist", "speakout-ssi263-%s.nvda-addon" % VERSION)
 
@@ -25,6 +27,11 @@ def main():
     shutil.copy2(os.path.join(HERE, "speakout", "synthDrivers", "speakout.py"), sd)
     copy_native_binding(eng)
     shutil.copy2(FIRMWARE, eng)
+    # GW Micro's Sounding Board (0.8.5): its two DOS drivers, when the local firmware folder has them -- optional, the
+    # driver's second voice (whether a release carries them is decided for the release, never by default here)
+    for name in SOUNDINGBOARD:
+        if os.path.isfile(os.path.join(SB_DIR, name)):
+            shutil.copy2(os.path.join(SB_DIR, name), eng)
     with open(os.path.join(BUILD, "manifest.ini"), "w", encoding="utf-8") as f:
         f.write(MANIFEST)
     zip_build(BUILD, OUT)

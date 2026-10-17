@@ -26,7 +26,10 @@ SB_DIR = os.path.join(ROOT, "firmware", "gw-micro-sounding-board")
 HEX = os.path.join(ROOT, "firmware", "gw-micro-speakout", "SPEAKOUT.HEX")
 TEXTS = ["Hello, this is the Sounding Board.",
          "The quick brown fox jumps over the lazy dog, 1234 times.",
-         "Doctor Smith's appointment is at 3:45 PM on Tuesday."]
+         "Doctor Smith's appointment is at 3:45 PM on Tuesday.",
+         # the settings so_voice.c sends (^E R, P, T, W, I and M), its defaults and others, ahead of a sentence
+         "MnR5P3TiW1I1Settings as the voice sends them.",
+         "R8P1TcW0I0Faster, lower, another tone."]
 BREAK = os.environ.get("SB_CHECK_BREAK") == "1"
 
 
@@ -79,7 +82,7 @@ def main():
         same = a == b and len(a) > 10
         where = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
         print("%-5s %-58s %d frames (Speak-Out) / %d (Sounding Board)%s" % (
-            "ok" if same else "FAIL", text, len(a), len(b), "" if same else ", first difference at frame %d" % where))
+            "ok" if same else "FAIL", text.replace("", "^E"), len(a), len(b), "" if same else ", first difference at frame %d" % where))
         failures += not same
     print("sounding board: %s" % ("every sentence the Speak-Out's, write for write" if not failures
                                   else "%d FAILED" % failures))

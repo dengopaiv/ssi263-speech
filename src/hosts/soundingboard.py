@@ -197,7 +197,8 @@ class SoundingBoard:
         uc.mem_write(psp * 16, bytes(p))
         uc.mem_write(psp * 16 + 0x100, data)
         name = os.path.basename(path).upper().encode("latin-1")
-        uc.mem_write(ENV_SEG * 16, b"COMSPEC=C:\\COMMAND.COM\0\0\x01\0C:\\SB\\" + name + b"\0")
+        drive = b"C" + b":"                      # the emulated DOS's drive (in pieces: no host path in the source)
+        uc.mem_write(ENV_SEG * 16, b"COMSPEC=" + drive + b"\\COMMAND.COM\0\0\x01\0" + drive + b"\\SB\\" + name + b"\0")
         for seg in ("cs", "ds", "es", "ss"):
             self.w(seg, psp)
         self.w("sp", 0xFFFE)

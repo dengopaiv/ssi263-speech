@@ -29,8 +29,15 @@ _ENGINE_DIR = os.path.join(_HERE, "_ssi263_speakout")
 # the other add-ons ship modules of the same names, and one process has one module per name.
 from ._ssi263_speakout import ssi263_rates as rates
 from ._ssi263_speakout.ssi263speech import SpeakOutC, dll_path
+try:
+    from ._ssi263_speakout.ssi263speech import SoundingBoardC
+except ImportError:                       # an engine from before 0.8.5
+    SoundingBoardC = None
 
 FIRMWARE = os.path.join(_ENGINE_DIR, "SPEAKOUT.HEX")
+# GW Micro's Sounding Board (0.8.5): the card's DOS drivers beside the Speak-Out's HEX, the same front end -- a second
+# voice of this driver when both are there
+SOUNDINGBOARD = (os.path.join(_ENGINE_DIR, "SBLOAD.COM"), os.path.join(_ENGINE_DIR, "SB.COM"))
 DLL = dll_path(_ENGINE_DIR)
 TONES = "abcdefghijklmnopqrstuvwxyz"
 
@@ -88,6 +95,7 @@ class SynthDriver(SynthDriver):
         # NVDA's own loadSettings fail ("setSynth failed ... KeyError: 'voiceInflection'", Tomi, 0.6.0 draft).
         # NVDA applies the saved values through the setters right after; the worker restarts once if needed.
         self._out_rate = self._want_rate = rates.DEFAULT   # the worker switches to _want_rate
+        self._want_voice = self._box_voice = "speakout"     # ... and to _want_voice (the Sounding Board, 0.8.5)
         self._player = self._makePlayer()
         self._queue = queue.Queue()
         self._cancelFlag = threading.Event()
@@ -220,18 +228,32 @@ class SynthDriver(SynthDriver):
         # the worker applies it before the next utterance: new player, box rebooted at the new rate
         self._want_rate = rates.parse(v) or self._want_rate
 
+    @staticmethod
+    def _soundingboard_here():
+        return SoundingBoardC is not None and all(os.path.isfile(p) for p in SOUNDINGBOARD)
+
     def _get_availableVoices(self):
-        return {"speakout": VoiceInfo("speakout", "Speak-Out", "en")}
+        voices = {"speakout": VoiceInfo("speakout", "Speak-Out", "en")}
+        if self._soundingboard_here():
+            voices["soundingboard"] = VoiceInfo("soundingboard", "Sounding Board (GW Micro)", "en")
+        return voices
 
     def _get_voice(self):
-        return "speakout"
+        return self._want_voice
 
     def _set_voice(self, v):
-        pass
+        # the worker boots the other box before the next utterance, as for a new sample rate
+        if v == "soundingboard" and self._soundingboard_here():
+            self._want_voice = "soundingboard"
+        elif v == "speakout":
+            self._want_voice = "speakout"
 
     # -- worker: the only thread that touches the emulated box -----------------
     def _boot(self):
         # power-on, the greeting flushed, punctuation none (NVDA speaks symbols itself): so_voice.c's boot
+        self._box_voice = self._want_voice
+        if self._box_voice == "soundingboard":
+            return SoundingBoardC(DLL, SOUNDINGBOARD[0], SOUNDINGBOARD[1], self._out_rate)
         return SpeakOutC(DLL, FIRMWARE, self._out_rate)
 
     def _apply(self, box):
@@ -257,6 +279,11 @@ class SynthDriver(SynthDriver):
                     self._switch_rate()
                 except Exception:
                     log.error("Speak-Out: could not switch the sample rate", exc_info=True)
+            elif self._want_voice != self._box_voice:
+                try:
+                    self._reboot()
+                except Exception:
+                    log.error("Speak-Out: could not switch to the %s" % self._want_voice, exc_info=True)
             try:
                 self._speakJob(job)
             except Exception:
