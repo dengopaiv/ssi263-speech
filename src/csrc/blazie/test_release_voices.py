@@ -31,7 +31,7 @@ WINDOWS = sys.platform == "win32"
 BREAK = {"": 0, "fast": 1, "echo": 2}[os.environ.get("SSI263_RELEASE_VOICES_BREAK", "")]
 RATE = 22050
 TEXT = b"Hello. One two three."
-TEXTS = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "852sk": 7, "852pl": 8, "852hr": 9, "850fr": 10, "850dano": 11, "850sv": 12, "850es": 13, "850it": 14, "857tr": 15, "860pt": 16, "866ru": 17, "-": 0}
+TEXTS = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "852sk": 7, "852pl": 8, "852hr": 9, "850fr": 10, "850dano": 11, "850sv": 12, "850es": 13, "850it": 14, "857tr": 15, "860pt": 16, "866ru": 17, "864ar": 18, "-": 0}
 SHAPE = {"english": 0, "slow": 1}
 SHIPPED = {"english", "spanish", "german", "italian", "slovak"}   # the shipped voices: their own tests
 PROGRESS = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_double)

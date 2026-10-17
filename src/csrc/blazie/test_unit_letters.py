@@ -12,9 +12,11 @@ The expected strings were read from the emulator (every byte 80h-FFh sent in the
 
 A letter the unit says nothing for in either case goes out as its base letter, and must be said exactly as that.
 
+  word    (the Arabic (UAE) unit) whole words with their vowel marks, a tatweel, a hamza and digits: the bytes it gets
+
 Control (SSI263_LETTERS_BREAK=1): each voice sends what it did before these tables (plain letters, plain 852 or 850),
-so the Hungarian vowels, the Czech and Scandinavian letters, the Slovak o circumflex and the capitals the Polish,
-Croatian and French units skip fail.  This test must then fail.
+so the Hungarian vowels, the Czech and Scandinavian letters, the Slovak o circumflex, the capitals the Polish,
+Croatian and French units skip and the Arabic (UAE) unit's letters and words fail.  This test must then fail.
 """
 import argparse
 import ctypes
@@ -347,7 +349,59 @@ RELEASES = {
         "\u044f": (0xEF, "S PA AH PA Y1 PA AH PA S PA AH PA"),
         "\u042f": (0x9F, "S PA AH PA Y1 PA AH PA S PA AH PA"),
     }),
+    # the Arabic (UAE) unit: code page 864, the 27 letters it speaks (isolated or initial forms), every Arabic
+    # letter and form sent as the one it speaks, the letters it has no byte for as the nearest it does
+    # (gen_cp864ar.py FOLDS); the phonemes are its own for each byte, read from the sweep (every byte 80h-FFh
+    # between two x's, 2026-10-16).  Before: plain letters (its text column was -), which drop every Arabic one.
+    "bl2_ar_ae_1998_12": (18, 0, "x{}x.", {
+        "\u0622": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF WITH MADDA ABOVE
+        "\u0623": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF WITH HAMZA ABOVE
+        "\u0624": (0xE8, "K PA S PA W PA K PA S PA"),   # LETTER WAW WITH HAMZA ABOVE
+        "\u0625": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF WITH HAMZA BELOW
+        "\u0626": (0xFD, "K PA S PA Y1 PA K PA S PA"),   # LETTER YEH WITH HAMZA ABOVE
+        "\u0627": (0xC7, "K PA S PA AE PA K PA S PA"),   # LETTER ALEF
+        "\u0628": (0xA9, "K PA S PA B PA K PA S PA"),   # LETTER BEH
+        "\u0629": (0xF3, "K PA S PA OU PA HF PA K PA S PA"),   # LETTER TEH MARBUTA
+        "\u062A": (0xAA, "K PA S PA T PA K PA S PA"),   # LETTER TEH
+        "\u062B": (0xAB, "K PA S PA T PA K PA S PA"),   # LETTER THEH
+        "\u062C": (0xAD, "K PA S PA J PA K PA S PA"),   # LETTER JEEM
+        "\u062D": (0xAE, "K PA S PA OU PA HF PA K PA S PA"),   # LETTER HAH
+        "\u062E": (0xAF, "K PA S PA K PA K PA S PA"),   # LETTER KHAH
+        "\u062F": (0xCF, "K PA S PA D PA K PA S PA"),   # LETTER DAL
+        "\u0630": (0xD0, "K PA S PA D PA K PA S PA"),   # LETTER THAL
+        "\u0631": (0xD1, "K PA S PA R1 PA K PA S PA"),   # LETTER REH
+        "\u0632": (0xD2, "K PA S PA Z PA K PA S PA"),   # LETTER ZAIN
+        "\u0633": (0xD3, "K PA S PA S PA K PA S PA"),   # LETTER SEEN
+        "\u0634": (0xD4, "K PA S PA SCH PA K PA S PA"),   # LETTER SHEEN
+        "\u0635": (0xD5, "K PA S PA S PA S PA K PA S PA"),   # LETTER SAD
+        "\u0636": (0xD6, "K PA S PA D PA D PA K PA S PA"),   # LETTER DAD
+        "\u0637": (0xD7, "K PA S PA T PA T PA K PA S PA"),   # LETTER TAH
+        "\u0638": (0xD6, "K PA S PA D PA D PA K PA S PA"),   # LETTER ZAH
+        "\u0639": (0xDF, "K PA S PA K PA HVC PA K PA S PA"),   # LETTER AIN
+        "\u063A": (0xEE, "K PA S PA T PA SCH PA K PA S PA"),   # LETTER GHAIN
+        "\u0641": (0xE1, "K PA S PA F PA K PA S PA"),   # LETTER FEH
+        "\u0642": (0xE2, "K PA S PA K PA K PA S PA"),   # LETTER QAF
+        "\u0643": (0xFC, "K PA S PA K PA K PA S PA"),   # LETTER KAF
+        "\u0644": (0xFB, "K PA S PA L PA K PA S PA"),   # LETTER LAM
+        "\u0645": (0xEF, "K PA S PA M PA K PA S PA"),   # LETTER MEEM
+        "\u0646": (0xF2, "K PA S PA N PA K PA S PA"),   # LETTER NOON
+        "\u0647": (0xF3, "K PA S PA OU PA HF PA K PA S PA"),   # LETTER HEH
+        "\u0648": (0xE8, "K PA S PA W PA K PA S PA"),   # LETTER WAW
+        "\u0649": (0xFD, "K PA S PA Y1 PA K PA S PA"),   # LETTER ALEF MAKSURA
+        "\u064A": (0xFD, "K PA S PA Y1 PA K PA S PA"),   # LETTER YEH
+        "\uFE91": (0xA9, "K PA S PA B PA K PA S PA"),   # LETTER BEH INITIAL FORM
+        "\uFEE8": (0xF2, "K PA S PA N PA K PA S PA"),   # LETTER NOON MEDIAL FORM
+        "\uFEEA": (0xF3, "K PA S PA OU PA HF PA K PA S PA"),   # LETTER HEH FINAL FORM
+    }),
 }
+# whole words, end to end: the bytes the unit gets (the vowel marks, tatweel and a bare hamza dropped inside the word,
+# not made spaces; Arabic-Indic digits as ASCII)
+WORDS = {"bl2_ar_ae_1998_12": [
+    ("\u0645\u064E\u0631\u0652\u062D\u064E\u0628\u064B\u0627", b"\xef\xd1\xae\xa9\xc7"),     # marhaban, with its marks
+    ("\u0645\u062F\u0631\u0633\u0629 \u0661\u0662\u0663", b"\xef\xcf\xd1\xd3\xf3 123"),     # madrasa 123
+    ("\u0633\u0640\u0644\u0627\u0645", b"\xd3\xfb\xc7\xef"),                                # salam, with a tatweel
+    ("\u0633\u0645\u0627\u0621", b"\xd3\xef\xc7"),                                          # sama', its hamza dropped
+]}
 
 
 def base(letter, want=None):
@@ -462,6 +516,10 @@ def main():
             want = frame.format("\x00").encode().replace(b"\x00", base(letter, expect).encode() if byte is None
                                                          else bytes([byte]))
             report(got == want, "bytes   %s U+%04X -> %r (want %r)" % (rid, ord(letter), got, want))
+        for word, want in WORDS.get(rid, ()):
+            n = lib.blv_say_bytes(word.encode("utf-8"), enc, 0, buf, 256)
+            got = buf.raw[:n].split(b"\r")[0]
+            report(got == want, "word    %s %a -> %r (want %r)" % (rid, word, got, want))
         if k not in found:
             print("skip %s: its firmware is not in the firmware folder" % rid)
             continue

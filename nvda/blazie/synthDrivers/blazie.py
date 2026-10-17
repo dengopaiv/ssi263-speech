@@ -114,7 +114,8 @@ NO_ECHO = ("blazie_it", "blazie_sk")
 RELEASE_DIR = os.path.join(_ENGINE_DIR, "bl2000")
 # bl_voice.h BLV_*: 6 on are the units' own spoken letters (the Hungarian one's, 852 with folds ...), no Python codec
 RELEASE_CODECS = {0: "latin-1", 1: "cp850", 2: "cp852", 3: "cp857", 4: "cp860", 5: "cp866"}
-RELEASE_CODECS.update((n, "blazie_text_%d" % n) for n in range(6, 18))
+RELEASE_CODECS.update((n, "blazie_text_%d" % n) for n in range(6, 19))
+ARABIC_CODEC = "blazie_text_18"          # bl_voice.h BLV_CP864AR: the Arabic (UAE) unit's 27 letters
 SLOW_KEYS = (8000000, 10000000)          # bl_voice.c KEY_START_SLOW, KEY_GAP_SLOW
 _release_voices = None
 # "blazie_text_N" encodes with the library's own table for BLV_* N (blv_text_byte: its page and its folds, a letter
@@ -265,12 +266,20 @@ def _translit(text, encoding="latin-1"):
     return out.raw[:n].decode("utf-8", "surrogatepass")
 
 
+def _arabic_silent(o):
+    """Arabic the Arabic (UAE) unit has no byte for and that sits inside a word -- the vowel marks, the superscript
+    alef, the Quranic marks, the tatweel, a bare hamza: dropped, not made a space (bl_voice.c arabic_silent)."""
+    return 0x064B <= o <= 0x065F or o == 0x0670 or 0x0610 <= o <= 0x061A or o == 0x0640 or o == 0x0621
+
+
 def _clean(text, encoding="latin-1"):
     """7-bit text for the English unit; for the Spanish one also every character its code page has (accents,
     n-tilde, the inverted marks)."""
     out = []
     for ch in text:
         o = ord(ch)
+        if encoding == ARABIC_CODEC and _arabic_silent(o):
+            continue
         if o < 32 or o == 127:
             out.append(" ")
         elif o < 128:

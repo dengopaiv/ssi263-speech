@@ -42,7 +42,7 @@ VOICE = {"english": 0, "spanish": 1, "german": 2, "italian": 3, "slovak": 4, "-"
 MODEL = {"bl": 0, "bns": 1, "bns640": 2}
 SHAPE = {"english": 0, "slow": 1}
 TRILLIONS = {"-": 0, "fold": 1, "reads": 2, "digits": 3}   # bl_firmware.h BLV_TRILLIONS_*
-TEXT_ID = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "852sk": 7, "852pl": 8, "852hr": 9, "850fr": 10, "850dano": 11, "850sv": 12, "850es": 13, "850it": 14, "857tr": 15, "860pt": 16, "866ru": 17, "-": 0}   # bl_voice.h BLV_*
+TEXT_ID = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "852sk": 7, "852pl": 8, "852hr": 9, "850fr": 10, "850dano": 11, "850sv": 12, "850es": 13, "850it": 14, "857tr": 15, "860pt": 16, "866ru": 17, "864ar": 18, "-": 0}   # bl_voice.h BLV_*
 N_CHORD = 0x1D                                   # n in computer braille
 NO_VOICE = -8                                    # bl_firmware.h BLV_FW_NO_VOICE
 

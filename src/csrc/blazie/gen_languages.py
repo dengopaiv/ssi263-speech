@@ -30,6 +30,7 @@ TEXTS = {"7bit": "BLV_LATIN1", "850": "BLV_CP850", "852": "BLV_CP852", "857": "B
          "850dano": "BLV_CP850DANO", "850sv": "BLV_CP850SV",                     # their own letters only
          "850es": "BLV_CP850ES", "850it": "BLV_CP850IT", "857tr": "BLV_CP857TR",   # their folds and drops
          "860pt": "BLV_CP860PT", "866ru": "BLV_CP866RU",
+         "864ar": "BLV_CP864AR",                       # the Arabic (UAE) unit's 27 letters (bl_cp864ar.h)
          "-": "BLV_LATIN1"}                             # not yet read: plain letters, as the English unit's
 BOOTS = {"fast": "0", "slow": "1"}
 TRILLIONS = {"fold": "BLV_TRILLIONS_FOLD", "reads": "BLV_TRILLIONS_READS", "digits": "BLV_TRILLIONS_DIGITS",

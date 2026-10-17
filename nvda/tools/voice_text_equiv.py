@@ -14,6 +14,11 @@ amounts, digits and commas, punctuation, odd whitespace, characters the units la
                               # a folding unit's number processing (bl_languages.txt's trillions = fold): the
                               # driver's _trillions against bl_trillions (blazie/bl_numbers.c), from ssi263speech.dll
     VOICE_TEXT_BREAK=trillions  # control, with --trillions: the Python side skips _trillions -- must FAIL
+    python voice_text_equiv.py [count] [seed] --arabic
+                              # the Arabic (UAE) unit's text (bl_voice.h BLV_CP864AR, the driver's "blazie_text_18"):
+                              # Arabic letters and their presentation forms, vowel marks, tatweel, hamza, Arabic-Indic
+                              # digits, mixed with the Latin pieces
+    VOICE_TEXT_BREAK=arabic   # control, with --arabic: the Python side keeps the vowel marks (as spaces) -- must FAIL
 """
 import ctypes
 import os
@@ -24,6 +29,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 NUMBERS = "--numbers" in sys.argv
 TRILLIONS = "--trillions" in sys.argv
+ARABIC = "--arabic" in sys.argv
 POS = [a for a in sys.argv[1:] if not a.startswith("--")]
 COUNT = int(POS[0]) if len(POS) > 0 else 5000
 SEED = int(POS[1]) if len(POS) > 1 else 1
@@ -33,6 +39,8 @@ exec(src.split("d = drv_mod.SynthDriver()")[0])     # the driver module only: no
 BREAK = os.environ.get("VOICE_TEXT_BREAK") == "1"
 BREAK_NUMBERS = os.environ.get("VOICE_TEXT_BREAK") == "numbers"
 BREAK_TRILLIONS = os.environ.get("VOICE_TEXT_BREAK") == "trillions"
+if ARABIC and os.environ.get("VOICE_TEXT_BREAK") == "arabic":
+    drv_mod._arabic_silent = lambda o: False     # the control: the marks reach _clean, which makes them spaces
 
 ARCH = "x64" if struct.calcsize("P") == 8 else "x86"
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -69,6 +77,15 @@ if TRILLIONS:                                       # numbers either side of thi
                "x1234567890123y", "é1234567890123", "1 234 567 890 123", "$1234567890123", "1,234,567,890,12"]
 
 
+if ARABIC:                                          # letters, forms, marks, tatweel, hamza, digits, a ligature
+    PIECES += ["مرحبا", "مَرْحَبًا ",
+               "السلام عليكم", "مدرسة",
+               "ظل", "أحمد", "إلى", "آمن", "مؤمن",
+               "شاطئ", "ســلام", "سماء",
+               "١٢٣", "۴۵", "ﺑﺎﺏ", "ﻪ", "ﻻ", "ٰ", "ْ",
+               "ً", "ـ", "ء", "ؕ", "؟", "،"]
+
+
 def py_bytes(text, enc_name, lang, pack):
     text = drv_mod._translit(text, enc_name)        # the accented letters first (translit.h, the driver's ctypes call)
     t = text if BREAK else drv_mod.numwords.currencies(text, lang)
@@ -101,6 +118,8 @@ bad = 0
 for k in range(COUNT):
     text = "".join(rng.choice(PIECES) for _ in range(rng.randint(0, 60)))
     enc, enc_name, lang = (1, "cp850", "es") if k % 5 == 4 else (0, "latin-1", "en")
+    if ARABIC and k % 5 != 4:                       # the Arabic (UAE) unit's encoding for most texts
+        enc, enc_name, lang = 18, "blazie_text_18", "ar"
     pack = k % 3 != 2
     a, b = py_bytes(text, enc_name, lang, pack), c_bytes(text, enc, pack)
     if a != b:

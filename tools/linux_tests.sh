@@ -97,12 +97,12 @@ check "latch race: BASIC's tones at double speed, speech untouched" python3 src/
     "^ok +speech " "^FAIL tones " "^latch race: 1 FAILED$" -- env SSI263_LATCH_RACE_BREAK=1 \
     python3 src/csrc/blazie/test_latch_race.py --lib "$LIB" --firmware "$DATA" --files build/linux/blazie_files
 # the units' own accented letters (bl_voice.c's pages and folds: Hungarian, Slovak, Czech, Polish, Croatian, French,
-# Danish, Norwegian, Swedish): each one's byte and the unit's phonemes for it; the control sends what the voices did
-# before
+# Danish, Norwegian, Swedish ... and the Arabic (UAE) unit's code page 864 letters and words): each one's byte and the
+# unit's phonemes for it; the control sends what the voices did before
 check "unit letters: each unit says its accented letters" python3 src/csrc/blazie/test_unit_letters.py \
     --lib "$LIB" --firmware "$DATA"
 control "unit letters CONTROL (the encodings before, must fail)" "^FAIL letter +bns2_sk U\+00F4: S PA UH3 PA S PA" \
-    "^unit letters: [0-9]+ FAILED$" \
+    "^FAIL word +bl2_ar_ae_1998_12 " "^unit letters: [0-9]+ FAILED$" \
     -- env SSI263_LETTERS_BREAK=1 python3 src/csrc/blazie/test_unit_letters.py --lib "$LIB" --firmware "$DATA"
 # the trillion guard (bl_numbers.c bl_trillions, for the units that fold a trillion into billions): its text and the
 # Hungarian unit's billion word said once at most; voices.c's voice cases are Windows' (libssi263speech.so has no

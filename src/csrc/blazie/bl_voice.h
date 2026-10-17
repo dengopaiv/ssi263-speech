@@ -38,6 +38,8 @@ typedef struct bl_voice bl_voice;
 #define BLV_CP857TR 15             /* 857, C cedilla as c cedilla, dotted I as i, a/i/u circumflex plain: Turkish */
 #define BLV_CP860PT 16             /* 860, the accented capitals as their lower case, o circumflex as o: Portuguese */
 #define BLV_CP866RU 17             /* 866, Cyrillic capital U as its lower case: the Russian unit */
+#define BLV_CP864AR 18             /* 864, the 27 letters the Arabic (UAE) unit speaks, every form of each sent as its
+                                      spoken one; vowel marks, tatweel and a bare hamza dropped (bl_cp864ar.h) */
 /* (BLV_CP850ES is Spain's Spanish for bl_numbers.c, as BLV_CP850 was) */
 
 /* Boots the unit as the driver does (punctuation none, full numbers, inflection on or off, volume 6).

@@ -392,6 +392,14 @@ if os.path.isfile(os.path.join(os.path.dirname(os.path.dirname(HERE)), "build", 
                         [PY, "voice_text_equiv.py", "2000", "1", "--trillions"], env={"VOICE_TEXT_BREAK": "trillions"},
                         expect_fail=True,
                         fail_marks=[r"^DIFF ", r"^(?!2000 )\d+ of 2000 texts give the unit the same bytes"]))
+    # the Arabic (UAE) unit's text (BLV_CP864AR, the driver's blazie_text_18) on random texts: Arabic letters and
+    # forms, vowel marks, tatweel, hamza, digits -- the driver against bl_voice; the control keeps the marks
+    CHECKS.append(check("bl_voice Arabic text = the driver's, 5000 random texts",
+                        [PY, "voice_text_equiv.py", "5000", "1", "--arabic"]))
+    CHECKS.append(check("bl_voice Arabic text CONTROL (the driver keeps the vowel marks, must fail)",
+                        [PY, "voice_text_equiv.py", "2000", "1", "--arabic"], env={"VOICE_TEXT_BREAK": "arabic"},
+                        expect_fail=True,
+                        fail_marks=[r"^DIFF ", r"^(?!2000 )\d+ of 2000 texts give the unit the same bytes"]))
 # ... and the SAPI engine DLL itself, driven through SAPI's own interface (ISpTTSEngine, an engine site of the test's)
 # with nothing registered (sapi\build.ps1 -Dev's harness): every case byte-identical to the Python server, the
 # declared rate, bookmarks, SAPI's abort, BrailleLiteNumbers with no value, 1 and 0 (the Mockingboard against the
@@ -1672,6 +1680,9 @@ CHECKS.append(check("idle channel table (bl_idle_table.h = blazie_idle.py)",
                      "--check"]))
 CHECKS.append(check("cp850 table", [PY, os.path.join(os.path.dirname(os.path.dirname(HERE)), "src", "csrc", "blazie",
                                                      "gen_cp850.py"), "--check"]))
+CHECKS.append(check("cp864 Arabic table (bl_cp864ar.h = gen_cp864ar.py)",
+                    [PY, os.path.join(os.path.dirname(os.path.dirname(HERE)), "src", "csrc", "blazie", "gen_cp864ar.py"),
+                     "--check"]))
 # the Braille Lite release table (bl_languages.txt -> bl_languages_table.h): the header current, the library's list the
 # text file's, and each release whose firmware is here making its listed state by its row's recipe; the control
 # answers every setup with n, so every state must differ
@@ -1722,6 +1733,8 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                                                       r"^FAIL letter +bl2_pl_1998_12 U\+017B: S PA AH1 PA S PA AH1 PA \(",
                                                       r"^FAIL letter +bl2_fr_fre_1999_07 U\+00C0: S PA AH1 PA S PA",
                                                       r"^FAIL letter +bl2_it_2000_09 U\+00C8: S PA AH1 PA S PA AH1 PA \(",
+                                                      r"^FAIL letter +bl2_ar_ae_1998_12 U\+0628: EH PA K PA S PA EH PA K",
+                                                      r"^FAIL word +bl2_ar_ae_1998_12 ",
                                                       r"^unit letters: \d+ FAILED$"]))
     # double speed (issue #15): the firmware's own switch runs the CPU at twice the base PHI when the emulator allows
     # it; letters answered faster, speech at its pace; the control never allows it (the switch changes nothing)

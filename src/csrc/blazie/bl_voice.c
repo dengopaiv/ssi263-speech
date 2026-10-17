@@ -16,6 +16,7 @@
 #include "bl_cp857.h"
 #include "bl_cp860.h"
 #include "bl_cp866.h"
+#include "bl_cp864ar.h"
 #include "bl_cphun.h"
 #include "bl_firmware.h"                    /* blv_release_of: the firmware's own boot keys and echo */
 #include "../translit.h"
@@ -268,6 +269,9 @@ static const text_page PAGES[] = {
     {BLV_CP857TR, bl_cp857_high, fold_857tr, N(fold_857tr), drop_857tr, N(drop_857tr), NULL, 0},
     {BLV_CP860PT, bl_cp860_high, fold_860pt, N(fold_860pt), drop_o_circ, N(drop_o_circ), NULL, 0},
     {BLV_CP866RU, bl_cp866_high, fold_866ru, N(fold_866ru), NULL, 0, NULL, 0},
+    /* the Arabic (UAE) unit: its 27 spoken letters only, every Arabic letter and form folded onto them
+       (gen_cp864ar.py) */
+    {BLV_CP864AR, bl_cp864_high, fold_864ar, N(fold_864ar), NULL, 0, keep_864ar, N(keep_864ar)},
 };
 #undef N
 
@@ -318,6 +322,7 @@ static int known_850it(unsigned c) { return cp_byte(BLV_CP850IT, c) >= 0; }   /*
 static int known_857tr(unsigned c) { return cp_byte(BLV_CP857TR, c) >= 0; }   /* the Turkish unit's */
 static int known_860pt(unsigned c) { return cp_byte(BLV_CP860PT, c) >= 0; }   /* the Portuguese units' */
 static int known_866ru(unsigned c) { return cp_byte(BLV_CP866RU, c) >= 0; }   /* the Russian unit's */
+static int known_864ar(unsigned c) { return cp_byte(BLV_CP864AR, c) >= 0; }   /* the Arabic (UAE) unit's */
 
 /* translit.h's alphabet for an encoding: what tl_apply keeps as it is */
 static int (*known_of(int encoding))(unsigned)
@@ -340,6 +345,7 @@ static int (*known_of(int encoding))(unsigned)
     case BLV_CP857TR: return known_857tr;
     case BLV_CP860PT: return known_860pt;
     case BLV_CP866RU: return known_866ru;
+    case BLV_CP864AR: return known_864ar;
     default: return tl_known_ascii;
     }
 }
@@ -510,11 +516,20 @@ static int currencies(const unsigned *t, int n, unsigned *out)
 }
 
 /* ---- _clean ---------------------------------------------------------------------------------------------------- */
+/* Arabic that the Arabic (UAE) unit has no byte for and that sits inside a word: the vowel marks (U+064B-U+065F, the
+   superscript alef U+0670, the Quranic marks U+0610-U+061A), the tatweel (U+0640) and a bare hamza (U+0621).  Dropped,
+   not made a space as an unknown character is: a space would split the word (blazie.py _arabic_silent) */
+static int arabic_silent(unsigned c)
+{
+    return (c >= 0x064B && c <= 0x065F) || c == 0x0670 || (c >= 0x0610 && c <= 0x061A) || c == 0x0640 || c == 0x0621;
+}
+
 static int clean(const unsigned *in, int n, int encoding, unsigned *out)
 {
     int i, m = 0;
     for (i = 0; i < n; i++) {
         unsigned c = in[i];
+        if (encoding == BLV_CP864AR && arabic_silent(c)) continue;
         if (c < 32 || c == 127) out[m++] = ' ';
         else if (c < 128) out[m++] = c;
         else if (encoding != BLV_LATIN1 && cp_byte(encoding, c) >= 0) out[m++] = c;

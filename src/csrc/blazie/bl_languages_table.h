@@ -48,7 +48,7 @@ static const bl_release KNOWN[] = {
      "Braille Lite 2000 (Arabic)", "Braille Lite 2000 (Arabic)", "BL2ARB.BNS",
      "Braille Lite Arabic (BL2ARB.BNS): the December 18, 1998 revision"},
     {"bl2_ar_ae_1998_12", BL_MODEL_BRAILLE_LITE, "ar-AE", BLV_FW_NONE, "blazie_ar_ae", BLV_SHAPE_ENGLISH, 0x3D,
-     0, BLV_LATIN1, 1, 0, 1, BLV_TRILLIONS_FOLD, 262010,
+     0, BLV_CP864AR, 1, 0, 1, BLV_TRILLIONS_FOLD, 262010,
      "5da73f35432fe75a72452b969091649b696e695fef4dbc840d65f4a00814c6e5",
      "442ba78f2292684904a1c8afe1563d37fac87cd9ddc01fcd8fe6b6cc4140b453",
      "Braille Lite 2000 (Arabic, UAE)", "Braille Lite 2000 (Arabic, UAE)", "BL2UAE.BNS",
