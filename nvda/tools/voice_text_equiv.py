@@ -10,6 +10,10 @@ amounts, digits and commas, punctuation, odd whitespace, characters the units la
                               # ssi263speech.dll (src/csrc/build_ssi263speech.py)
     VOICE_TEXT_BREAK=1        # control: the Python side skips currencies() -- must FAIL
     VOICE_TEXT_BREAK=numbers  # control, with --numbers: the Python side skips _numbers -- must FAIL
+    python voice_text_equiv.py [count] [seed] --trillions
+                              # a folding unit's number processing (bl_languages.txt's trillions = fold): the
+                              # driver's _trillions against bl_trillions (blazie/bl_numbers.c), from ssi263speech.dll
+    VOICE_TEXT_BREAK=trillions  # control, with --trillions: the Python side skips _trillions -- must FAIL
 """
 import ctypes
 import os
@@ -19,6 +23,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 NUMBERS = "--numbers" in sys.argv
+TRILLIONS = "--trillions" in sys.argv
 POS = [a for a in sys.argv[1:] if not a.startswith("--")]
 COUNT = int(POS[0]) if len(POS) > 0 else 5000
 SEED = int(POS[1]) if len(POS) > 1 else 1
@@ -27,15 +32,16 @@ src = open(os.path.join(HERE, "fake_nvda_driver_test.py"), encoding="utf-8").rea
 exec(src.split("d = drv_mod.SynthDriver()")[0])     # the driver module only: no unit is started
 BREAK = os.environ.get("VOICE_TEXT_BREAK") == "1"
 BREAK_NUMBERS = os.environ.get("VOICE_TEXT_BREAK") == "numbers"
+BREAK_TRILLIONS = os.environ.get("VOICE_TEXT_BREAK") == "trillions"
 
 ARCH = "x64" if struct.calcsize("P") == 8 else "x86"
 REPO = os.path.dirname(os.path.dirname(HERE))
-if NUMBERS:                                         # the unified library: bl_voice with bl_numbers beside it
+if NUMBERS or TRILLIONS:                            # the unified library: bl_voice with bl_numbers beside it
     lib = ctypes.CDLL(os.path.join(REPO, "build", "win", ARCH, "ssi263speech.dll"))
     lib.blv_say_bytes_with.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_char_p,
                                        ctypes.c_int]
     lib.blv_say_bytes_with.restype = ctypes.c_int
-    NUMBERS_FN = ctypes.cast(lib.bl_numbers, ctypes.c_void_p)
+    NUMBERS_FN = ctypes.cast(lib.bl_trillions if TRILLIONS else lib.bl_numbers, ctypes.c_void_p)
 else:
     ctypes.CDLL(os.path.join(REPO, "src", "ssi263", "_bin", ARCH, "ssi263.dll"))
     lib = ctypes.CDLL(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", ARCH, "bl.dll"))
@@ -56,12 +62,21 @@ if NUMBERS:                                         # the number words' own edge
                "$9999999999999.999"]
 
 
+if TRILLIONS:                                       # numbers either side of thirteen digits, grouped and not
+    PIECES += ["1234567890123", "123456789012", "1,234,567,890,123", "1.234.567.890.123", "999,999,999,999",
+               "1001000000000", "12345678901234567890", "1,234,567,890,123.45", "1.234.567.890.123,5", "1,2345",
+               "123,456,789,012,345,678", "0000000000000", "1,234.567.890.123", "12,345,678,901,234", "1,234,5678",
+               "x1234567890123y", "é1234567890123", "1 234 567 890 123", "$1234567890123", "1,234,567,890,12"]
+
+
 def py_bytes(text, enc_name, lang, pack):
     text = drv_mod._translit(text, enc_name)        # the accented letters first (translit.h, the driver's ctypes call)
     t = text if BREAK else drv_mod.numwords.currencies(text, lang)
     t = drv_mod._clean(t, enc_name)
     if NUMBERS and not BREAK_NUMBERS:
         t = drv_mod._numbers(t, lang)
+    if TRILLIONS and not BREAK_TRILLIONS:
+        t = drv_mod._trillions(t)
     lines = drv_mod._lines(t, pack=pack)
     if not lines:
         return b""
@@ -70,7 +85,7 @@ def py_bytes(text, enc_name, lang, pack):
 
 def c_bytes(text, enc, pack):
     raw = text.encode("utf-8", "surrogatepass")
-    if NUMBERS:
+    if NUMBERS or TRILLIONS:
         n = lib.blv_say_bytes_with(raw, enc, int(pack), NUMBERS_FN, None, 0)
         buf = ctypes.create_string_buffer(max(n, 1))
         lib.blv_say_bytes_with(raw, enc, int(pack), NUMBERS_FN, buf, n)
@@ -93,4 +108,15 @@ for k in range(COUNT):
         if bad <= 5:
             print("DIFF %s pack=%d %a\n  driver %a\n  C      %a" % (enc_name, pack, text, a, b))   # %a: NVDA-safe
 print("%d of %d texts give the unit the same bytes (driver vs bl_voice)" % (COUNT - bad, COUNT))
+if TRILLIONS:                                       # the driver's _folds: the release table through its bl.dll
+    FW = os.environ.get("SSI263_FIRMWARE") or os.path.join(REPO, "firmware", "blazie")
+    for name, want in (("BL2HUN.BNS", True), ("BL2RUS.BNS", False)):
+        path = next((os.path.join(d, name) for d in (FW, os.path.join(FW, "bl2000"))
+                     if os.path.isfile(os.path.join(d, name))), None)
+        if not path:
+            print("skip the driver's _folds: no %s in %s" % (name, FW))
+            continue
+        got = drv_mod._folds(path)
+        print("%s the driver's _folds(%s) = %s (want %s)" % ("ok  " if got == want else "FAIL", name, got, want))
+        bad += got != want
 sys.exit(1 if bad else 0)

@@ -21,6 +21,15 @@ extern "C" {
 /* _numbers(text, lang): text is the voice's cleaned text (UTF-8; 7-bit for the English unit), encoding the voice's
    (bl_voice.h BLV_LATIN1 = English, BLV_CP850 = Spanish).  A malloc'd UTF-8 string, NULL when out of memory. */
 BL_API char *bl_numbers(const char *utf8, int encoding);
+/* _trillions(text): the number processing of a unit whose own reader folds a trillion into billions (bl_firmware.h
+   BLV_TRILLIONS_FOLD; every other voice's number words are its own): a number of 13 digits or more goes to the unit a
+   digit at a time, "1 2 3 ...", each digit said in the unit's own language; one of 12 or fewer is left as it is.  A
+   number is a run of digits, or one to three digits and groups of exactly three after the same ',' or '.'; what
+   follows it (a decimal part) is left as it is.  Same signature as bl_numbers, for blv_set_numbers.  Plain C: it
+   needs no number words, and works on the bytes (UTF-8 never puts a digit, ',' or '.' inside a character). */
+BL_API char *bl_trillions(const char *utf8, int encoding);
+/* The tests' control (an app never sets it): nonzero, bl_trillions leaves every number as it is. */
+BL_API extern int bl_trillions_break;
 
 #ifdef __cplusplus
 }

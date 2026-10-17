@@ -101,7 +101,8 @@ VOICES = {"blazie": ("Braille Lite 2000 (June 2003)", "en", FIRMWARE, STATE, "la
           "blazie_it": ("Braille Lite 2000 (italiano)", "it", FIRMWARE_IT, STATE_IT, "blazie_text_14"),
           "blazie_sk": ("Braille 'n Speak 2000 (sloven\u010dina)", "sk", FIRMWARE_SK, STATE_SK, "blazie_text_7")}
 # "Custom number processing" exists for these languages only; the other units read their numbers themselves
-# (voices.c bl_has_numbers)
+# (voices.c bl_has_numbers) -- but past twelve digits, a unit whose reader folds a trillion into billions gets the
+# number a digit at a time (_trillions, the release table's trillions column)
 NUMBER_LANGS = ("en", "es")
 # the units that never echo ^F (XON/XOFF only): their end comes from the chip alone (bl_host.c "no_echo")
 NO_ECHO = ("blazie_it", "blazie_sk")
@@ -288,6 +289,56 @@ def _in_codepage(ch, encoding):
         return True
     except UnicodeEncodeError:
         return False
+
+
+def _digit(c):
+    return "0" <= c <= "9"
+
+
+def _trillions(text):
+    """The number processing of a unit whose own reader folds a trillion into billions (the release table's
+    trillions = fold, measured: "one billion one billion"): a number of 13 digits or more goes to it a digit at a
+    time ("1 2 3 ..."), each digit said in its own language; 12 or fewer as they are.  A number is a run of digits,
+    or one to three digits and groups of exactly three after the same "," or "."; what follows it (a decimal part)
+    is left as it is.  bl_numbers.c's bl_trillions, the same walk (voice_text_equiv.py --trillions)."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        if not _digit(text[i]) or (i and _digit(text[i - 1])):
+            out.append(text[i])
+            i += 1
+            continue
+        j = i
+        while j < n and _digit(text[j]):
+            j += 1
+        digits = j - i
+        if digits <= 3 and j + 4 <= n and text[j] in ",.":
+            sep = text[j]
+            while (j + 4 <= n and text[j] == sep and all(_digit(c) for c in text[j + 1:j + 4])
+                   and not (j + 4 < n and _digit(text[j + 4]))):
+                j += 4
+                digits += 3
+        out.append(" ".join(c for c in text[i:j] if _digit(c)) if digits >= 13 else text[i:j])
+        i = j
+    return "".join(out)
+
+
+_folds_cache = {}
+
+
+def _folds(firmware):
+    """True when the firmware's release folds a trillion into billions (bl_firmware.h blv_release_trillions)."""
+    if firmware not in _folds_cache:
+        folds = False
+        try:
+            import ctypes
+            lib = ctypes.CDLL(DLL)
+            lib.blv_release_of.argtypes = [ctypes.c_char_p]
+            lib.blv_release_trillions.argtypes = [ctypes.c_int]
+            folds = lib.blv_release_trillions(lib.blv_release_of(os.fsencode(firmware))) == 1   # BLV_TRILLIONS_FOLD
+        except (OSError, AttributeError) as e:
+            log.warning("Braille Lite: the release's trillions not read (%s: %s)" % (DLL, e))
+        _folds_cache[firmware] = folds
+    return _folds_cache[firmware]
 
 
 def _numbers(text, lang="en"):
@@ -713,6 +764,7 @@ class SynthDriver(SynthDriver):
         unit.send(b"\x05%dV" % UNIT_VOLUME)
         unit.run(0.05)
         unit.whine = None if self._whine == "off" else self._whine
+        unit.folds = _folds(firmware)
         unit.encoding = encoding
         unit.lang = lang.split("-")[0]
         if not echoes and hasattr(type(unit), "no_echo"):
@@ -962,6 +1014,10 @@ class SynthDriver(SynthDriver):
                 # with the add-on's boot the firmware counts to 999,999,999,999 and says a
                 # trillion as "one billion" (measured); this is for those
                 text = _numbers(text, unit.lang)
+            elif self._numbers and getattr(unit, "folds", False):
+                # the other units read their own numbers, but past twelve digits most fold a trillion into billions
+                # (measured): such a number goes a digit at a time
+                text = _trillions(text)
             lines = _lines(text, pack=self._short)
             if not lines:
                 continue

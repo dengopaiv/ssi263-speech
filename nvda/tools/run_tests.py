@@ -383,6 +383,15 @@ if os.path.isfile(os.path.join(os.path.dirname(os.path.dirname(HERE)), "build", 
                         [PY, "voice_text_equiv.py", "2000", "1", "--numbers"], env={"VOICE_TEXT_BREAK": "numbers"},
                         expect_fail=True,
                         fail_marks=[r"^DIFF ", r"^(?!2000 )\d+ of 2000 texts give the unit the same bytes"]))
+    # a folding unit's numbers past twelve digits (bl_languages.txt's trillions = fold), on random texts: the
+    # driver's _trillions against bl_trillions, and the driver's _folds read from its bl.dll (Hungarian folds,
+    # Russian not)
+    CHECKS.append(check("bl_voice trillions = the driver's, 5000 random texts",
+                        [PY, "voice_text_equiv.py", "5000", "1", "--trillions"]))
+    CHECKS.append(check("bl_voice trillions CONTROL (the driver's _trillions skipped, must fail)",
+                        [PY, "voice_text_equiv.py", "2000", "1", "--trillions"], env={"VOICE_TEXT_BREAK": "trillions"},
+                        expect_fail=True,
+                        fail_marks=[r"^DIFF ", r"^(?!2000 )\d+ of 2000 texts give the unit the same bytes"]))
 # ... and the SAPI engine DLL itself, driven through SAPI's own interface (ISpTTSEngine, an engine site of the test's)
 # with nothing registered (sapi\build.ps1 -Dev's harness): every case byte-identical to the Python server, the
 # declared rate, bookmarks, SAPI's abort, BrailleLiteNumbers with no value, 1 and 0 (the Mockingboard against the
@@ -1692,6 +1701,18 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
     # the units' own accented letters (bl_voice.c's pages and folds): fifteen languages, every letter in both cases,
     # each its byte and exactly the unit's phonemes for it; the control sends what the voices did before (Hungarian
     # o double acute an o; the Slovak o circumflex, the Polish Z dot, French A grave and Italian E grave capitals silent)
+    # the trillion guard (bl_numbers.c bl_trillions): its text, the Hungarian unit no longer saying its billion word
+    # twice for 1,001,000,000,000, and voices.c giving it to the folding Hungarian voice and not the Russian; the
+    # control leaves every number as it is
+    CHECKS.append(check("trillions: a folding unit's long numbers a digit at a time",
+                        [PY, os.path.join(BL_SRC, "test_trillions.py")]))
+    CHECKS.append(check("trillions CONTROL (every number left as it is, must fail)",
+                        [PY, os.path.join(BL_SRC, "test_trillions.py")], env={"SSI263_TRILLIONS_BREAK": "1"},
+                        expect_fail=True,
+                        fail_marks=[r"^FAIL text +'1001000000000' -> '1001000000000'",
+                                    r"^FAIL unit +the Hungarian unit's billion word .* said 2 times",
+                                    r"^FAIL voice +bl2_hu_1999_07, number processing on: NOT as the digits",
+                                    r"^ok +voice +bl2_ru_1998_12 \(reads trillions\)", r"^trillions: 8 FAILED$"]))
     CHECKS.append(check("unit letters: each unit says its accented letters",
                         [PY, os.path.join(BL_SRC, "test_unit_letters.py")]))
     CHECKS.append(check("unit letters CONTROL (the encodings before, must fail)",

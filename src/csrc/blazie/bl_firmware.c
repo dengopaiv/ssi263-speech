@@ -36,6 +36,7 @@ typedef struct {
     int slow_boot;                         /* the voice's boot keys later and further apart (a slower firmware) */
     int echo;                              /* the unit echoes ^F at a line's end */
     int speaks;                            /* the voice path speaks it */
+    int trillions;                         /* bl_firmware.h BLV_TRILLIONS_*: its reading of 13 digits or more */
     long length;
     const char *sha256;                    /* the image */
     const char *state;                     /* the state made from it */
@@ -290,6 +291,11 @@ BL_API int blv_release_echo(int release)
 BL_API int blv_release_speaks(int release)
 {
     return release >= 0 && release < N_KNOWN ? KNOWN[release].speaks : -1;
+}
+
+BL_API int blv_release_trillions(int release)
+{
+    return release >= 0 && release < N_KNOWN ? KNOWN[release].trillions : -1;
 }
 
 BL_API const char *blv_release_tag(int release){

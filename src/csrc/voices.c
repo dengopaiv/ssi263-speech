@@ -125,7 +125,8 @@ static int bl_encoding(const char *lang)
 }
 
 /* "Custom number processing" (bl_numbers): English and Spain's Spanish only; every other unit reads its numbers
-   itself (blazie.py NUMBER_LANGS) */
+   itself (blazie.py NUMBER_LANGS), except that past twelve digits one whose reader folds a trillion into billions
+   gets them a digit at a time (bl_trillions; ssv_voice.folds, from the release table's trillions column) */
 static int bl_has_numbers(const char *lang) { return !strcmp(lang, "en") || !strcmp(lang, "es"); }
 
 /* the Italian Braille Lite and the Slovak Braille 'n Speak never echo ^F (XON/XOFF only): their end comes from the
@@ -337,6 +338,7 @@ struct ssv_voice {
     int index, rate;
     const ssv_engine *e;
     void *u;
+    int folds;                     /* a Blazie unit whose own reader folds a trillion (bl_firmware.h BLV_TRILLIONS_FOLD) */
 };
 
 static int valid_rate(int r) { return r == 11025 || r == 22050 || r == 44100 ? r : 22050; }
@@ -374,6 +376,8 @@ SSV_API ssv_voice *ssv_create_from(int i, const ssv_source *src, const ssv_boot 
     v->e = e;
     v->u = e->create(&VOICES[i], src, &d, err, errlen);
     if (!v->u) { free(v); return NULL; }
+    if (VOICES[i].engine == SSV_BLAZIE)    /* its firmware's release, as measured (bl_languages.txt's trillions) */
+        v->folds = blv_release_trillions(blv_release_of(src->path[0])) == BLV_TRILLIONS_FOLD;
     return v;
 }
 
@@ -390,15 +394,19 @@ SSV_API int ssv_sample_rate(const ssv_voice *v) { return v->rate; }
 SSV_API int ssv_speak(ssv_voice *v, const ssv_settings *s, const char *utf8, int pitch_offset)
 {
     ssv_settings d;
+    int guard = 0;
     if (!s) { ssv_defaults(v->index, &d); s = &d; }
     if (VOICES[v->index].engine == SSV_BLAZIE && !bl_has_numbers(VOICES[v->index].lang)
             && (s->numbers || s->run_ahead)) {
+        guard = s->numbers && v->folds;
         d = *s;                    /* the unit reads its own numbers: no number words of ours; and run ahead is */
         d.numbers = 0;             /* tested on the English and Spanish units only (blazie.py RUN_AHEAD_TESTED; */
         d.run_ahead = 0;           /* without ^F echoes it cannot even tell its end) */
         s = &d;
     }
     v->e->set(v->u, s);
+    if (guard)                     /* but past twelve digits a folding unit gets them a digit at a time (blazie.py) */
+        blv_set_numbers((bl_voice *)v->u, bl_trillions);
     return v->e->speak(v->u, utf8 ? utf8 : "", pitch_offset);
 }
 

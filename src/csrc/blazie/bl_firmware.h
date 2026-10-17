@@ -79,6 +79,15 @@ BL_API int blv_release_text(int release);
 BL_API int blv_release_slow_boot(int release);
 BL_API int blv_release_echo(int release);
 BL_API int blv_release_speaks(int release);
+/* How the release's unit reads a number of 13 digits or more (bl_languages.txt's trillions, measured): its own reader
+   stops at 999,999,999,999; FOLD says its billion word for the trillion group (the voices' number processing then
+   sends such a number a digit at a time: bl_numbers.h bl_trillions), READS says trillions right, DIGITS says long
+   numbers digit by digit already; UNKNOWN not measured (a release with no voice).  -1 past the list. */
+#define BLV_TRILLIONS_UNKNOWN 0
+#define BLV_TRILLIONS_FOLD 1
+#define BLV_TRILLIONS_READS 2
+#define BLV_TRILLIONS_DIGITS 3
+BL_API int blv_release_trillions(int release);
 BL_API const char *blv_release_tag(int release);
 BL_API int blv_release_model(int release);
 BL_API int blv_release_code_page(int release);

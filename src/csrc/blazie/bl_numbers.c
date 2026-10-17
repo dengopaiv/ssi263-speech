@@ -124,3 +124,56 @@ BL_API char *bl_numbers(const char *s, int encoding)
         return b.p;
     }
 }
+
+/* ---- bl_trillions: blazie.py _trillions, the same walk ------------------------------------------------------------- */
+int bl_trillions_break;
+
+/* the number starting at s[i] (a digit with none before it): its end, and its digits' count in *digits.  Grouped: one
+   to three digits, then groups of exactly three after the same ',' or '.', each with no digit after it; else the run */
+static size_t number_at(const char *s, size_t n, size_t i, int *digits)
+{
+    size_t j = i;
+    char sep;
+    while (j < n && dig(s[j])) j++;
+    *digits = (int)(j - i);
+    if (j - i > 3 || j + 4 > n || (s[j] != ',' && s[j] != '.'))
+        return j;
+    sep = s[j];
+    for (;;) {
+        if (j + 4 > n || s[j] != sep || !dig(s[j + 1]) || !dig(s[j + 2]) || !dig(s[j + 3])
+                || (j + 4 < n && dig(s[j + 4])))
+            return j;
+        j += 4;
+        *digits += 3;
+    }
+}
+
+BL_API char *bl_trillions(const char *s, int encoding)
+{
+    sbuf b = {NULL, 0, 0, 0};
+    size_t n = strlen(s), i = 0, e, k;
+    int digits, first;
+    (void)encoding;
+    sb_putn(&b, "", 0);
+    while (i < n) {
+        if (!dig(s[i]) || (i > 0 && dig(s[i - 1]))) {
+            sb_putn(&b, s + i, 1);
+            i++;
+            continue;
+        }
+        e = number_at(s, n, i, &digits);
+        if (digits < 13 || bl_trillions_break) {
+            sb_putn(&b, s + i, e - i);
+        } else {                               /* a digit at a time: "1 2 3 ..." */
+            for (k = i, first = 1; k < e; k++) {
+                if (!dig(s[k])) continue;
+                if (!first) sb_putn(&b, " ", 1);
+                sb_putn(&b, s + k, 1);
+                first = 0;
+            }
+        }
+        i = e;
+    }
+    if (b.oom) { free(b.p); return NULL; }
+    return b.p;
+}
