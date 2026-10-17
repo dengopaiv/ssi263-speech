@@ -51,6 +51,15 @@
             </intent-filter>
         </activity>
 
+        <!-- The Braille Lite unit screen (the settings' third tab).  A keyboard connected or put away, or the screen
+             turned, must not restart it: the unit would be switched off mid-sentence.  Exported for the device test
+             (am start -n com.ssi263speech.tts/.UnitActivity); it runs only the person's own imported units. -->
+        <activity
+            android:name=".UnitActivity"
+            android:exported="true"
+            android:label="Braille Lite unit"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize" />
+
         <activity
             android:name=".CheckVoiceDataActivity"
             android:exported="true"

@@ -65,11 +65,18 @@ class SettingsActivity : Activity() {
 
         setupTab = Button(this).apply { text = "Setup"; setOnClickListener { show(0) } }
         voiceTab = Button(this).apply { text = "Voice settings"; setOnClickListener { show(1) } }
+        // the Braille Lite unit: a screen of its own (its sound, its keyboard, its memory saved when it is left)
+        val unitScreen = Button(this).apply {
+            text = "Braille Lite unit"
+            contentDescription = "Braille Lite unit, opens its screen"
+            setOnClickListener { startActivity(Intent(this@SettingsActivity, UnitActivity::class.java)) }
+        }
         val wide = resources.configuration.screenWidthDp >= 340
         val tabs = LinearLayout(this).apply {
             orientation = if (wide) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             addView(setupTab, tabParams(wide))
             addView(voiceTab, tabParams(wide))
+            addView(unitScreen, tabParams(wide))
         }
         val holder = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL

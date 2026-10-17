@@ -19,6 +19,7 @@
 #   sh build_android.sh                  arm64-v8a, armeabi-v7a and x86_64
 #   sh build_android.sh arm64-v8a        one ABI
 #   sh build_android.sh --test arm64-v8a the host-side test program for that ABI (run over adb)
+#   sh build_android.sh --unit-test arm64-v8a  the unit screen's native test for that ABI (test_unit_native.py --adb)
 #
 # Found from the environment first, then paths.local (the key of the same name), then the default:
 #   SSI263_FIRMWARE    only with SSI263_ANDROID_BUNDLE_FIRMWARE=1 (a developer build that carries the firmware):
@@ -67,6 +68,9 @@ echo "NDK: $NDK"
 CHIP="-O2 -std=c99 -ffp-contract=off -fPIC -fvisibility=hidden -Wall -Wextra -Wno-unused-parameter"
 BOARD="-O3 -std=gnu89 -ffp-contract=off -fPIC -fvisibility=hidden -DBL_Z180_MAME -w -I$SRC/blazie -I$SRC/cpu -I$SRC"
 FRONT="-O2 -std=c99 -ffp-contract=off -fPIC -fvisibility=hidden -Wall -Wextra -Wno-unused-parameter -I$SRC"
+# the Braille Lite unit screen's emulator (src/apps/blazie, as build_apple.sh's EMU)
+EMU_APP="$ROOT/src/apps/blazie"
+EMU="-O2 -std=gnu99 -ffp-contract=off -fPIC -fvisibility=hidden -w -I$EMU_APP -I$SRC"
 # MAME's cores (the Braille Lite's Z180, the Accent SA's 8085), as build_linux.sh builds them: C++17 without
 # exceptions or RTTI; the Accent SA's board and host in gnu89.  libc++ is linked statically into the one .so
 # (-static-libstdc++) and its symbols kept inside it.
@@ -135,6 +139,18 @@ objects() {
     cc --target="$TARGET" $FRONT -c -o "$O/ssa_map.o" "$CPP/ssa_map.c"
     cc --target="$TARGET" $FRONT $HAVE -c -o "$O/ssa_engine.o" "$CPP/ssa_engine.c"
     cc --target="$TARGET" $FRONT $HAVE -c -o "$O/ssa_import.o" "$CPP/ssa_import.c"
+    # The Braille Lite unit screen (UnitActivity.kt): one Blazie unit running in real time (emu_unit, on the boards
+    # above and the Type 'n Speak's), the units the data folder can run (emu_catalog), a chord from keys going down
+    # and up (chords), the Type 'n Speak's keys (keys, tns_term), a Linux key code by its place (evdev_linux:
+    # Android's scan codes are Linux's), the unit's file system (bl_files ...), and ssa_unit on top -- as build_apple.sh
+    cc --target="$TARGET" $BOARD -c -o "$O/tns_board.o" "$SRC/blazie/tns_board.c"
+    for f in emu_unit emu_catalog tns_setup chords keys tns_term evdev_linux; do
+        cc --target="$TARGET" $EMU -c -o "$O/$f.o" "$EMU_APP/$f.c"
+    done
+    for f in bl_files bl_files_state bl_files_xfer fat_img; do
+        cc --target="$TARGET" $EMU -I"$SRC/blazie" -c -o "$O/$f.o" "$SRC/blazie/$f.c"
+    done
+    cc --target="$TARGET" $FRONT -std=gnu99 -I"$EMU_APP" -c -o "$O/ssa_unit.o" "$CPP/ssa_unit.c"
     # The Speak-Out (MAME's V40, src/csrc/speakout: its board, host and voice; so_voice.h lists them)
     cxx --target="$TARGET" $MAME -c -o "$O/v40_mame.o" "$SRC/cpu/v40_mame.cpp"
     for f in so_board so_icu so_scu so_hex so_host; do
@@ -163,6 +179,7 @@ build_abi() {
     echo "=== $ABI ==="
     objects "$ABI"
     cc --target="$TARGET" $FRONT -c -o "$O/ssa_jni.o" "$CPP/ssa_jni.c"
+    cc --target="$TARGET" $FRONT -std=gnu99 -I"$EMU_APP" -c -o "$O/ssa_unit_jni.o" "$CPP/ssa_unit_jni.c"
     mkdir -p "$APP/jniLibs/$ABI"
     rm -f "$O/test_android_native.o"
     # only the API and the JNI entry points are exported; the Z180 core's globals and libc++ stay inside
@@ -272,8 +289,23 @@ stage_assets() {
     ls -R "$A" | head -20
 }
 
+# The unit screen's native test (src/platforms/android/test/test_unit_native.c) for a device, as build_test
+build_unit_test() {
+    ABI="$1"; TARGET="$(target "$ABI")"; O="$OUT/$ABI/obj"
+    objects "$ABI"
+    cc --target="$TARGET" $FRONT -std=gnu99 -I"$CPP" -I"$EMU_APP" -c -o "$O/test_unit_native.o" \
+        "$ROOT/src/platforms/android/test/test_unit_native.c"
+    cxx --target="$TARGET" -static-libstdc++ -o "$OUT/$ABI/test_unit_native" "$O"/*.o -lm
+    rm -f "$O/test_unit_native.o"
+    echo "  -> build/android/$ABI/test_unit_native"
+}
+
 if [ "$1" = "--test" ]; then
     build_test "${2:-arm64-v8a}"
+    exit 0
+fi
+if [ "$1" = "--unit-test" ]; then
+    build_unit_test "${2:-arm64-v8a}"
     exit 0
 fi
 if [ -n "$1" ]; then build_abi "$1"; else build_abi arm64-v8a; build_abi armeabi-v7a; build_abi x86_64; fi

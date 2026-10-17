@@ -1,5 +1,5 @@
 /* emu_catalog.h -- the units an emulator can offer from its firmware folder: one list for every shell (Windows,
- * GTK, the terminal, Apple's emulator tab), so none keeps its own.
+ * GTK, the terminal, the BT Speak's, Apple's unit tab, Android's unit screen), so none keeps its own.
  *
  * Two parts.  The eight units the emulators always had, exactly as before -- their names, the short keys the command
  * line takes, the saved-state file names and settings values are users' data and never change.  Then every release

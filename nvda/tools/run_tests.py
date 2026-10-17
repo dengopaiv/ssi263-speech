@@ -1150,6 +1150,15 @@ if os.path.isfile(MAME_LIVE):
 # a Blazie image beside them, the Speak-Out's HEX and a changed Aicom ROM must each fail.
 ANDROID_TEST = os.path.join(os.path.dirname(os.path.dirname(HERE)), "src", "platforms", "android", "test",
                             "test_android_native.py")
+# The Android app's Braille Lite unit screen (app/src/main/cpp/ssa_unit.c), built here with the app's sources: keys
+# going down and up become the chords and Type 'n Speak key events emu_unit gets (sample for sample against the unit
+# keyed directly), a chord answered, its memory saved and started again, a release unit's first state; its runner's
+# control swaps dots 1 and 4 and must fail on exactly the keys' check
+UNIT_TEST = os.path.join(os.path.dirname(ANDROID_TEST), "test_unit_native.py")
+if os.path.isfile(UNIT_TEST):
+    CHECKS.append(check("Android: the Braille Lite unit screen's native part (and its control)", [PY, UNIT_TEST],
+                        ok=lambda out: bool(re.search(r"^unit: all passed$", out, re.M))
+                        and bool(re.search(r"^ok +control \(dots 1 and 4 swapped\)", out, re.M))))
 if os.path.isfile(ANDROID_TEST):
     ANDROID_FW = os.path.join(os.path.dirname(os.path.dirname(HERE)), "firmware")
     ANDROID_SO = os.path.isfile(os.path.join(ANDROID_FW, "gw-micro-speakout", "SPEAKOUT.HEX"))

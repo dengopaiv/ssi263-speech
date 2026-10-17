@@ -174,6 +174,31 @@ TalkBack hears every fifth of the way, no closer than 5 s apart. Then the unit s
 do the files replace what was there, in device-protected storage. Until then the service reports its languages as
 missing data and CheckVoiceData fails.
 
+## The Braille Lite unit screen
+
+The settings' third button, **Braille Lite unit**, opens a Blazie unit running in real time on the firmware already
+imported for the voices -- one app, no second firmware picker, as Apple's unit tab. Its units are the emulator's own
+catalog over the data folder (`emc_list`, `src/apps/blazie/emu_catalog.c`, the list every emulator shell reads): every
+unit whose firmware is imported, never one without. A release unit's first start makes its state by its own recipe
+(`emc_make_factory`, with its progress shown). Each unit's memory is the app's own (`files/units/`), saved when it is
+switched off or the screen is left; the voices' states are only read. The screen never runs a unit unseen.
+
+The keyboard field holds the display as Unicode braille (empty for a unit with none) and takes a hardware keyboard's
+keys as they go down and come up, by their places -- Android's scan codes are Linux's input key codes, so
+`evdev_key_of` (`src/apps/blazie/evdev_linux.c`, the BT Speak's table) names them, and another layout's keyboard chords
+the same; a key with no scan code goes by the character it types. The Braille Lite (and Braille 'n Speak): F D S J K L
+dots 1 to 6, the space bar, ; the advance bar and A the back bar, the chord sent when its last key comes up
+(`chords.c`), the keys held passed to the unit as they move (so i-chord held through a restart is the cold reset). The
+Type 'n Speak: every key its own key event, down and up, Shift, Ctrl and Alt keys of their own (`tns_term.c`); its
+first start shows the setup's seven questions. The Back key leaves the screen; keys the unit has no use for are the
+screen's. A keyboard connected or put away does not restart the unit (`configChanges`). The sound is an AudioTrack
+at 22050 Hz fed 20 ms at a time, beside TalkBack and never in its place. Quick key response is the desktop's.
+
+Whether TalkBack sends the field to a braille display, and how many keys a keyboard reports down at once, are for
+testers. Tested on a Nothing Phone (Android 16) with a keyboard made in software (`test/uhid_keys.c`: real scan codes,
+two keys down at once) and with scrcpy's `--keyboard=uhid` (a PC's keyboard as the phone's): chords reach the unit,
+its options menu opens, its display shows "mini help file".
+
 ## Build
 
     sh build_android.sh                                   # at the repository root
@@ -216,6 +241,9 @@ shipped in the APK. The Setup page's "Licenses and source" shows them all and po
 
 ## Test
 
+    python src/platforms/android/test/test_unit_native.py                 # desktop: the unit screen's C (+ its control)
+    sh build_android.sh --unit-test arm64-v8a                             # ... for the phone: push it and the firmware,
+                                                                          #     run test_unit_native FW_DIR SCRATCH_DIR
     python src/platforms/android/test/test_android_native.py              # desktop: the app's C against the references
     sh build_android.sh --test arm64-v8a
     python src/platforms/android/test/test_android_native.py --adb        # ... and on the attached phone
@@ -362,7 +390,11 @@ and restored after it by the voice itself (`sov_speak`, `amv_speak`), moved at l
 | `app/src/main/cpp/ssa_engine.h`, `ssa_engine.c` | The front end in plain C over `src/csrc/voices.h` (the voices' engines and defaults, units made with `ssv_create_from`): the app's voices and where their files are (the imported ones by path, the Aicom ROMs and driver in memory; the Accent SA a unit per utterance), the settings and the request's rate and pitch, the boot settings, start, pull in chunks, stop (any thread) and cancel; `ssa_accent_pitch`, `ssa_speakout_pitch`; `ssa_probe`, the import's last check; the tests' controls |
 | `app/src/main/cpp/ssa_import.h`, `ssa_import.c` | The import's judgement by content: the Blazie units' (`bl_firmware.h`, each language as the app's voice and back to its state recipe), then the Speak-Out's `SPEAKOUT.HEX` (Intel HEX, the known sha256); the test's control |
 | `app/src/main/cpp/ssa_jni.c` | The thin JNI bridge to `ssa_engine` (the Aicom ROMs and driver handed over), and to the import's native part (`ssa_import.h`, `bl_state.h`) |
+| `app/src/main/cpp/ssa_unit.h`, `ssa_unit.c` | The unit screen's one running unit, portable C: `emu_unit` behind one lock (the sound thread and the keys), the catalog's units present, a release unit's first state, keys.h keys as Braille Lite chords or Type 'n Speak key events, the display, its memory saved (.new, then put in place); the test's control |
+| `app/src/main/cpp/ssa_unit_jni.c` | The thin JNI bridge to `ssa_unit`; a key's scan code named by `evdev_key_of`, else its character |
 | `app/src/main/kotlin/com/ssi263speech/tts/SsiNative.kt` | The JNI declarations |
+| `.../UnitNative.kt` | The unit screen's JNI declarations |
+| `.../UnitActivity.kt` | The Braille Lite unit screen: the units, Switch on and off, quick key response, the keyboard field (the display's braille, the keys down and up), the sound on an AudioTrack thread; a debug build logs the keys (`adb logcat -s SsiUnit`); the adb test hook (`--es unit bl-en --ez autostart true`) |
 | `.../SsiData.kt` | The units' files: the Accents' ROMs and driver from the APK's assets; the Braille Lite's and the Speak-Out's in device-protected storage -- which voices are imported and as what, the import's move into place, removal; a developer build's bundled firmware |
 | `.../FirmwareImport.kt` | What a source holds (no Android in it, so the JVM tests run it): zip layouts, the add-on, update programs, the Speak-Out's HEX, single files; the refusals in words |
 | `.../SsiImport.kt` | The import on the phone: the source's bytes, the native judgement, the Braille Lite's states made and checked, each unit made to speak, the files moved into place |
@@ -387,5 +419,7 @@ and restored after it by the voice itself (`sov_speak`, `amv_speak`), moved at l
 | `test/accent_reference.py` | The Accent SA's reference: the NVDA Accent add-on's driver under the stand-in NVDA, a fresh unit per case |
 | `test/test_volume_headroom.py` | The default engine volume keeps headroom, for every voice, with controls |
 | `test/test_import_native.py` | The import's native part: the list of releases, the refusals, and the states made on the device, against the listed ones, with their progress |
+| `test/test_unit_native.c`, `test_unit_native.py` | The unit screen's native part on real firmware, on the desktop (and the phone: `build_android.sh --unit-test`): keys to the chords and Type 'n Speak events `emu_unit` gets, sample for sample against the unit keyed directly; a chord answered; the others left to the screen; its memory saved and started again; a release unit's first state; the control (dots 1 and 4 swapped) |
+| `test/uhid_keys.c` | A USB keyboard made in software over adb (`/dev/uhid`, the shell user's, no root): a script of keys down and up, real scan codes, several at once -- the device test's keyboard |
 | `test/check_apk_no_firmware.py` | An APK carries no firmware but Aicom's three ROMs and the Accent-mini's driver (by sha256): no Blazie or Speak-Out firmware or state, by content and by name; its controls |
 | `test/test_device_service.py` | The installed app's TTS service on the phone, every voice and their capitals, the Braille Lite with run ahead, its files' PCM against the same references |
