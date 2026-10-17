@@ -1784,6 +1784,15 @@ for brk, marks in (
 # 1.2-3 kHz ring after the latches' zero, Python and C, chunks, skip, and the inactive modes and rates.  Each control must
 # fail for its own reason: slew = 0.7's glide into M (the starts); immediate = preview C's retune into PA while M is
 # still sounding (the note-end click); pa_wait = v0.17's retune at once at the latches' zero (Pinball's faint click)
+# the volume (v0.19, params amp_steps 'smooth'; Tomi's ear on the Accent's ticking): the R3 amplitude reaches the output
+# as its slew -- a reload from 9 to 12 rises smoothly, Python and C, and a held amplitude renders as v0.18.  The control
+# puts back v0.18's whole-code steps: the ramp must fail in both engines
+AMP_STEPS = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_amp_steps.py")
+CHECKS.append(check("volume: the amplitude's slew, not whole-code steps (Python, C)", [PY, AMP_STEPS]))
+CHECKS.append(check("volume CONTROL (v0.18's whole-code steps, must fail)", [PY, AMP_STEPS],
+                    env={"AMP_STEPS_BREAK": "code"}, expect_fail=True,
+                    fail_marks=[r"^FAIL  RAMP py: the volume rises smoothly", r"^FAIL  RAMP C: the volume rises smoothly",
+                                r"^ok    HELD C: one amplitude, smooth = code", r"^amp steps: 2 FAILED$"]))
 TONES = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_tone_tract.py")
 CHECKS.append(check("BASIC tones: clean note starts and ends in mode 1 at rate 15 (chip state and sound; Python, C)",
                     [PY, TONES]))

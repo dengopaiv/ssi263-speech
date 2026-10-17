@@ -578,6 +578,7 @@ class SSI263:
         gain = p["output_gain"]
         clo_va = p["closure_target"] == "va"
         clo_pre_hp = p["closure_point"] == "before_hp"
+        amp_smooth = p["amp_steps"] == "smooth"          # else "code"
         look = p["release_lookahead"]
         lead = p["lookahead_lead_frames"]
         precharge = p["fricative_precharge"]
@@ -827,7 +828,7 @@ class SSI263:
                     x *= self.clo
                 hp = x - self.hp_x1 + hp_r * self.hp_y1
                 self.hp_x1, self.hp_y1 = x, hp
-                amp = round(self.amp_cur) / 15.0
+                amp = (self.amp_cur if amp_smooth else round(self.amp_cur)) / 15.0
                 v = gain * hp * amp * (1.0 if (clo_va or clo_pre_hp) else self.clo)
             if powered or carrier_off:
                 k = self.tick & 7

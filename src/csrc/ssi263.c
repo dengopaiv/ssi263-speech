@@ -873,7 +873,8 @@ static long chip_run(ssi263 *c, long max_out, int stop_on_request, double *out)
             hp = x - c->hp_x1 + c->hp_r * c->hp_y1;
             c->hp_x1 = x;
             c->hp_y1 = hp;
-            amp = rint(c->amp_cur) / 15.0;                   /* round(): half to even */
+            /* amp_steps: the slew itself, or its nearest code (round(): half to even) */
+            amp = (c->p.amp_smooth != 0.0 ? c->amp_cur : rint(c->amp_cur)) / 15.0;
             v = gain * hp * amp * (clo_va ? 1.0 : c->clo);
         }
         if (pw || carrier_off)

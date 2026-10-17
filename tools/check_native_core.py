@@ -48,6 +48,7 @@ SWITCHES = [
     {"mode1_rate15_formants": "immediate"},
     {"mode1_rate15_formants": "slew"},
     {"latch_quantize": "floor"},
+    {"amp_steps": "code"},                                              # v0.18's whole-code volume (v0.19: smooth)
     {"section_numerator": "allpole"},
     {"closure_timing": "frames"},
     {"closure_floor_db": -26.0},

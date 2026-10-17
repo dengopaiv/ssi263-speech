@@ -58,6 +58,7 @@ class _Params(ctypes.Structure):
         ("noise_path_bw45", _c_double * 2), ("noise_path_bilinear", _c_double), ("noise_path_shaper", _c_double),
         ("noise_path_shaper_ratio", _c_double), ("noise_path_shaper_bw", _c_double),
         ("noise_path_route_b02_w", (_c_double * 2) * 2), ("noise_path_gain", _c_double),
+        ("amp_smooth", _c_double),
     ]
 
 
@@ -155,6 +156,7 @@ def params_struct(p):
         for j in range(2):
             s.noise_path_route_b02_w[i][j] = p["noise_path_route_b02"][i][j]
     s.noise_path_gain = float(p["noise_path_gain"])
+    s.amp_smooth = _choice(p, "amp_steps", "smooth", ("code", "smooth"))
     return s
 
 

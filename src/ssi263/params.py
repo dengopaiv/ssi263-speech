@@ -395,6 +395,17 @@ DEFAULTS = {
     # ---- output stage ---------------------------------------------------------------
     "hp_ratio": (0.004, "GUESS", "ISSCC: high-pass removes DC and carries VOL; cutoff / fc"),
     "vol_law": ("linear15", "GUESS", "gain = A / 15"),
+    "amp_steps": ("smooth", "REG+EAR",
+                  "how the R3 amplitude's slew (amp_slew_per_phoneme) reaches the output volume: 'code' = the "
+                  "nearest whole code, rint(amp) / 15 (the release: a gain step in the running waveform at every "
+                  "code); 'smooth' = amp / 15, the slew itself.  Tomi (2026-10-17): the Accent voices tick and "
+                  "rattle as they talk, vowel by vowel (it writes a new amplitude with nearly every load; the "
+                  "Speak-Out and Blazie hold one); with 'smooth' the ticking is gone 'completely', and his chip on "
+                  "the Accent's own writes (accent_dev02, DEV) has none.  Amplitude on the voice only, before the "
+                  "tract, was rejected by ear (the noise unscaled: P and the Z of 'is' too strong), so the volume "
+                  "stays after the tract for voice and noise alike (investigation/accent_tick; Astra, Reply 244).  "
+                  "An ear-approved refinement: it does not measure a physically continuous volume DAC, and the slew "
+                  "speed (amp_slew_per_phoneme) is still a GUESS"),
     "sample_hold": ("zoh", "ISSCC+GUESS",
                     "the S/H BLOCK is ISSCC; the full-period hold at fc is a GUESS "
                     "(what chip.py does; not switchable yet)"),
