@@ -42,15 +42,18 @@ DEFAULTS = {
     "glide_xck_cycles_per_count": (128, "BL",
                                    "field 0: one I count per 128 (16 - R) XCK cycles; "
                                    "slope x (16 - R) = 61-62 ms/s measured (candidate law)"),
-    "glide_field_mult": ((1.000, 0.962, 1.226, 2.462, 2.092, 2.462, 2.462, 2.462), "BL+ACCENT",
-                         "fields 0 1 2 4 5 measured at rate 2 (4.46 4.29 5.47 9.33 10.98 ms/s; "
-                         "direction confounded).  Fields 3 6 7 (only the Accent uses them: field 7 "
-                         "carries 2/3 of its pitch writes) were GUESS extrapolations 1.66 2.85 3.25, "
-                         "which made Tomi's 'wobbly vowels'.  Set to field 5's 2.462 on Accent DEV "
-                         "(tools/accent_glide_variants.py, accent-demo.wav opening): F0 travel inside "
-                         "voiced stretches median 0.17 / 90th 1.42 / max 2.64 st vs the real 0.17 / "
-                         "1.10 / 2.82 (was 0.78 / 6.05 / 8.90); 1.66, 1.0, 0.6, 0.35 all fit worse.  "
-                         "Read: the fast fields top out at field 5's rate"),
+    "glide_field_mult": ((1.0, 8 / 7, 4 / 3, 1.6, 2.0, 8 / 3, 4.0, 8.0), "REG+EAR",
+                         "v0.20: 8 / (8 - G), one I count per 16 (8 - G)(16 - R) XCK cycles -- measured on Tomi's "
+                         "chip by regprog (REG_claude_glide, 2026-10-13: 426 trials, every field up and down, the "
+                         "rate law (16 - R) per field, no direction effect; letter 206) and confirmed independently "
+                         "(Astra, Reply 208).  Through v0.19: (1, 0.962, 1.226, 2.462, 2.092, 2.462, 2.462, 2.462), "
+                         "fields 0-2/4/5 from an older rate-2 fit and 3/6/7 set to 2.462 on the real Accent card's "
+                         "demo (accent-demo.wav, accent_glide_variants.py), after GUESSES up to 3.25 made 'wobbly "
+                         "vowels'.  The law makes field 7 (2/3 of the Accent's pitch writes) about 3.25x faster than "
+                         "that fit; Tomi heard the law on his chip's Accent DEV takes (dev01, dev02) beside the real "
+                         "chip: 'no wobbling returns or regression' (2026-10-17).  The swirl he heard on the law's "
+                         "first previews did not reproduce in local playback (those were heard over a remote-desktop "
+                         "link).  Open: whether the Accent card's own chip (clock) glides as Tomi's does"),
 
     # ---- articulation / transitions ------------------------------------------------
     "art_codes_per_frame": ((1.4, 1.8, 2.3, 2.9, 3.4, 4.0, 4.6, 5.1), "BL",

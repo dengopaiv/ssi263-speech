@@ -49,6 +49,7 @@ SWITCHES = [
     {"mode1_rate15_formants": "slew"},
     {"latch_quantize": "floor"},
     {"amp_steps": "code"},                                              # v0.18's whole-code volume (v0.19: smooth)
+    {"glide_field_mult": (1.0, 0.962, 1.226, 2.462, 2.092, 2.462, 2.462, 2.462)},   # v0.19's glide table (v0.20: 8/(8-G))
     {"section_numerator": "allpole"},
     {"closure_timing": "frames"},
     {"closure_floor_db": -26.0},

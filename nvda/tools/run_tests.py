@@ -1010,8 +1010,9 @@ if os.path.isfile(os.path.join(LIB, "x64", "bl.dll")):
             ("0.7 draft end rule", {"RUN_AHEAD_EQUIV_OLD_SUFFIX": "1"}, ["--selftest"],
              [r"^FAIL the end rule: a missing final spoken load ACCEPTED \(Astra's case\)",
               r"^run ahead vs lockstep \(end rule\): 1 FAILED$"]),
+            # (v0.20: with the measured glide law "Hello."'s tail ends before done; the dialog's still runs past it)
             ("0.7 draft completion", {"RUN_AHEAD_EQUIV_BREAK": "completion"}, ["--cases=1"],
-             [r"^FAIL 1\.1 Hello\. +AUDIO AFTER DONE \(run ahead\): \d+ samples", RA_SUM % 2]),
+             [r"^FAIL 1\.3 Select synthesizer dialog +AUDIO AFTER DONE \(run ahead\): \d+ samples", RA_SUM % 1]),
             ("a spoken load flipped where a setting came mid-line", {"RUN_AHEAD_EQUIV_FLIP": "send_mid"},
              ["--cases=9"], [r"^FAIL case 9 block 1: write values DIFFER at write \d+$", RA_SUM % 2])):
         CHECKS.append(check("run ahead CONTROL (%s, must fail)" % what, [PY, "run_ahead_equiv.py"] + args, env=env,
@@ -1802,6 +1803,13 @@ CHECKS.append(check("volume CONTROL (v0.18's whole-code steps, must fail)", [PY,
                     env={"AMP_STEPS_BREAK": "code"}, expect_fail=True,
                     fail_marks=[r"^FAIL  RAMP py: the volume rises smoothly", r"^FAIL  RAMP C: the volume rises smoothly",
                                 r"^ok    HELD C: one amplitude, smooth = code", r"^amp steps: 2 FAILED$"]))
+# the glide law (v0.20, params glide_field_mult = 8/(8-G); measured on Tomi's chip, letter 206, Astra Reply 208): every
+# field's mode-3 glide rate in the chip's state, Python and C.  The control puts back v0.19's table: fields 1-7 fail
+GLIDE_LAW = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_glide_law.py")
+CHECKS.append(check("glide law: one count per 16 (8 - G)(16 - R) XCK cycles, every field (Python, C)", [PY, GLIDE_LAW]))
+CHECKS.append(check("glide law CONTROL (v0.19's table, must fail)", [PY, GLIDE_LAW], env={"GLIDE_LAW_BREAK": "v019"},
+                    expect_fail=True, fail_marks=[r"^ok    LAW py field 0 down", r"^FAIL  LAW C field 7 up ",
+                                                  r"^glide law: 28 FAILED$"]))
 TONES = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_tone_tract.py")
 CHECKS.append(check("BASIC tones: clean note starts and ends in mode 1 at rate 15 (chip state and sound; Python, C)",
                     [PY, TONES]))

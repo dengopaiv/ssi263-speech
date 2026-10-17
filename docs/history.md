@@ -265,6 +265,7 @@ study the analog side on a real chip.
 | v0.17 | Tomi: fricatives closer to the chip; his ear on Astra's isolated noise-path audition ("judges" regains its grit on the Speak-Out, the Accent unchanged); Astra (OpenAI Codex) built and calibrated it, Claude integrated it | The noise takes F2..F5 sections of its own (Astra's earlier noise fit), the voice's sections none: the voice is v0.16's sample for sample |
 | v0.18 | Tomi: a faint click at the ends of the Pinball lesson's right-side notes; Astra traced it to the tract retuning at once while the filters still rang, and Tomi heard both of Astra's fixes remove it | In the BASIC tones (mode 1, rate 15), PA's tract is slewed to once the sound has stopped, not retuned at once |
 | v0.19 | Tomi: the Accent voices tick and rattle as they talk, a different grain on every vowel, and the Speak-Out and Braille Lite don't; Claude rendered the Accent's own writes with one suspect removed per file, and Tomi heard the ticking go only when the volume stopped stepping; his chip on the same writes has none | The volume follows the amplitude's slew instead of jumping a whole code at a time |
+| v0.20 | Tomi recorded 426 pitch glides on his real chip through register programs; Claude measured the law and Astra (OpenAI Codex) confirmed it independently; Tomi heard it beside his chip on the Accent's sentences | The pitch glides one count per 16 (8 − G)(16 − R) clock cycles in every glide setting, replacing a table partly fitted, partly guessed |
 
 ## Add-on releases at a glance
 
