@@ -82,6 +82,8 @@ ssa_map.c and ssa_import.c, on the same chip, boards, hosts and voices), every c
                              import-dsk           ssa_import_break 2: a disk image never tried (the .dsk cases fail)
                              import-release       ssa_import_break 4: the release table never tried (the release
                                                   voices' imports fail)
+                             import-units         ssa_import_break 5: a release no voice speaks dropped, as before
+                                                  0.8.5 (the unit screen's imports fail: Japanese, the 640s)
 
 SSI263_ANDROID_TEST_ONLY=<blocks>, a comma list of bl (the Braille Lite in lockstep, its Spanish unit and the probe),
 ra (run ahead), lift (the line-start lift), num (the number words), lang (0.8's German, Italian and Slovak units),
@@ -1087,20 +1089,24 @@ def blazie_import_cases(exe, data, firmware):
         bad += not ok
     if not seen:
         print("skip  the release voices' imports: no bl2000/ language updates in the firmware folder")
-    # a release the table lists for the emulator only (no voice: Japanese): to the phone's voices a release it does
-    # not know (UNKNOWN, -4, the apps' own wording), no file left -- never offered, never named
-    mute = os.path.join(firmware, "bl2000", "BL2JPN.BNS")
-    if os.path.isfile(mute):
+    # a release the table lists for the unit screen only (no voice: Japanese, the Braille 'n Speak 640s): never a voice
+    # (never offered, never named to the phone's voices), but kept -- SSA_FW_RELEASE 100 + its row, the file written
+    # as it came, for the app to keep under units/ (0.8.5, as Apple's)
+    for rel in (os.path.join("bl2000", "BL2JPN.BNS"), os.path.join("bns640", "june2003", "BSPENG.BNS"),
+                os.path.join("bns640", "issue15", "BSPENG.BNS")):
+        mute = os.path.join(firmware, rel)
+        if not os.path.isfile(mute):
+            print("skip  import of a release the unit screen's only: no %s in the firmware folder" % rel)
+            continue
         if os.path.exists(out):
             os.remove(out)
         r = subprocess.run([exe, "--import", mute, out], capture_output=True, text=True)
         m = re.match(r"^import (-?\d+) (.*)$", r.stdout.strip())
-        ok = bool(m) and int(m.group(1)) == -4 and not os.path.exists(out)
-        print("%-5s import   bl2000/BL2JPN.BNS (the emulator's only): %s" % ("ok" if ok else "FAIL",
-                                                                      m.group(0) if m else r.stdout + r.stderr))
+        ok = bool(m) and int(m.group(1)) >= 100 and os.path.isfile(out) and \
+            open(out, "rb").read() == open(mute, "rb").read()
+        print("%-5s import   %s (the unit screen's only, kept): %s" % (
+            "ok" if ok else "FAIL", rel.replace(os.sep, "/"), m.group(0) if m else r.stdout + r.stderr))
         bad += not ok
-    else:
-        print("skip  import of a release the emulator's only: no bl2000/BL2JPN.BNS in the firmware folder")
     for f in ("import.in", "import.out"):
         if os.path.exists(os.path.join(data, f)):
             os.remove(os.path.join(data, f))

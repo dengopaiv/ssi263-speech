@@ -81,6 +81,12 @@ def run(exe, env, firmware, brk=None):
     e = dict(env or os.environ)
     if brk:
         e["SSI263_UNIT_TEST_BREAK"] = brk
+    # 0.8.5's import keeps a release no voice speaks as units/<id>.BNS in the unit folder (FirmwareImport.UnitRelease):
+    # a data folder laid out so, with the Braille 'n Speak 640, for the unit screen's "kept release" checks
+    bns640 = os.path.join(firmware, "bns640", "june2003", "BSPENG.BNS")
+    if os.path.isfile(bns640):
+        os.makedirs(os.path.join(scratch, "data", "units"))
+        shutil.copyfile(bns640, os.path.join(scratch, "data", "units", "bns640_en_2003_06.BNS"))
     try:
         r = subprocess.run([exe, firmware, scratch], env=e, capture_output=True, text=True, timeout=600)
     finally:

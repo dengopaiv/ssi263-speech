@@ -59,9 +59,11 @@ int ssa_import_firmware(const unsigned char *data, long n, const char *out, char
    it does not take (BLV_FW_UNKNOWN: no shipped voice, or not on the list) the release table's (bl_firmware.h
    blv_import_release): a row naming a release voice is that voice -- ssa_engine.h's ssa_release_voice, from
    SSA_RELEASE_FIRST: Hungarian, Turkish, ... -- written to out as a .BNS, its label in msg; a row no voice speaks yet
-   (the emulator's alone) stays BLV_FW_UNKNOWN, out removed.  Apple's ssp_import_firmware does the same with its own
-   codes (SSP_FW_RELEASE + the row). */
+   (the Braille Lite unit screen's alone: the Braille 'n Speak 640, Japanese, the betas) is SSA_FW_RELEASE plus its
+   row (blv_release_*), written to out, its label in msg -- the app keeps it under units/ for the unit screen, never
+   offered to the phone's voices.  Apple's ssp_import_firmware does the same (SSP_FW_RELEASE + the row). */
 int ssa_import_voice(const unsigned char *data, long n, const char *out, char *msg, int msglen);
+#define SSA_FW_RELEASE 100             /* + a release table row no voice speaks: kept for the unit screen alone */
 
 /* A Blazie release's language (bl_firmware.h's BLV_FW_*, which is not a voice index: German's 2 would be the Accent
    SA's) as the app's voice, SSA_ENGLISH ... SSA_SLOVAK; -1 for none.  And back: the state recipe a Blazie voice's
@@ -81,7 +83,8 @@ int ssa_blazie_recipe(int voice);
    so the .dsk cases must fail.  3 returns a Blazie release's raw firmware language (bl_firmware.h) instead of the
    app's voice, as before 0.8's table -- German's 2 is the Accent SA's index -- so the German, Italian and Slovak
    imports must fail.  4: ssa_import_voice never tries the release table, so the release voices' imports (Hungarian
-   ...) must fail. */
+   ...) must fail.  5: a release no voice speaks is dropped, as before 0.8.5 (BLV_FW_UNKNOWN, out removed), so the
+   unit screen's imports (the 640, Japanese) must fail. */
 extern int ssa_import_break;
 
 #ifdef __cplusplus

@@ -33,6 +33,18 @@ object FirmwareImport {
     const val OTHER_HEX = -5                // an Intel HEX file, but not the Speak-Out's SPEAKOUT.HEX (damaged, another)
     const val NOT_BUILT = -6                // the Mockingboard's file, but this copy of the app has no Mockingboard
     const val OTHER_DISK = -7               // a 140 KB Apple II disk image, but not one of the two Mockingboard ones
+    const val UNIT_RELEASE = 100            // + a release table row no voice speaks (SsiNative.FW_RELEASE): the 640,
+                                            // Japanese, the betas -- kept for the Braille Lite unit screen alone
+
+    /** A release no voice speaks yet, kept for the unit screen alone (Apple's units/ the same): `id` names its file
+     * there, `name` is the release in English ("Braille 'n Speak 640 (English)"). */
+    class UnitRelease(val id: String, val name: String) {
+        /** Where it is kept in the unit folder: the unit screen's catalog (emu_catalog.c) finds it one folder down;
+         * no state is made -- the unit screen makes its own on first start. */
+        val file get() = "units/$id.BNS"
+    }
+
+    fun isUnitRelease(found: Int) = found >= UNIT_RELEASE
 
     /** The files each imported voice needs, by its index (ssa_engine.c's): a Blazie unit's firmware and the state
      * made from it -- 0.8's under the NVDA add-on's flat names, the German and Italian update disks both calling theirs
@@ -93,7 +105,8 @@ object FirmwareImport {
      * `1` looks at a zip's top only -- no folder down, no add-on layout -- so the layout tests must fail; `state` stops
      * knowing a state file, so the state tests must fail; `speakout` drops what the native side says is the
      * Speak-Out's, so the Speak-Out tests must fail; `mockingboard` the same for the Mockingboard's; `release` leaves
-     * the release voices out of the import, so their tests must fail. */
+     * the release voices out of the import, so their tests must fail; `units` drops a release no voice speaks (the
+     * 640, Japanese) as before 0.8.5, so the unit screen's import tests must fail. */
     private val CONTROL = System.getProperty("ssi263.import.break") ?: ""
 
     const val STATE_SIZE = 786432           // battery-backed RAM + file flash: every state bl_save_state writes
@@ -129,6 +142,9 @@ object FirmwareImport {
 
         /** The releases on the list, by label. */
         fun known(): List<String>
+
+        /** A [UNIT_RELEASE] row, by the release table's words; null for none. */
+        fun unitRelease(row: Int): UnitRelease? = null
     }
 
     fun languageName(language: Int) = release(language)?.language ?: when (language) {
@@ -153,13 +169,15 @@ object FirmwareImport {
         val from: String,                   // where it was: the file's name, or its path in the zip
         val firmware: File,                 // the .BNS or the HEX, written into the staging folder
         val label: String,                  // the release, in words (the native side's list)
+        val unit: UnitRelease? = null,      // a release kept for the unit screen alone ([UNIT_RELEASE]), not a voice
     )
 
     /** Either `refusal` says why nothing can be imported, in words for the person holding the phone, or `found`
      * lists what will be.  `notes` are things worth saying either way. */
     class Plan(val found: List<Found>, val refusal: String?, val notes: List<String> = emptyList())
 
-    private class Candidate(val language: Int, val from: String, val file: File, val label: String)
+    private class Candidate(val language: Int, val from: String, val file: File, val label: String,
+                            val unit: UnitRelease? = null)
 
     /** Everything a source's bytes hold, judged into `staging` (emptied first). */
     fun inspect(name: String, data: ByteArray, staging: File, id: Identify): Plan {
@@ -202,6 +220,12 @@ object FirmwareImport {
                     (CONTROL == "mockingboard" && it.first in BUILT_IN)) NONE to "" else it
             }
             when {
+                isUnitRelease(language) -> {
+                    // the unit screen's alone; the `units` control drops it, as before 0.8.5
+                    val unit = if (CONTROL == "units") null else id.unitRelease(language - UNIT_RELEASE)
+                    if (unit != null) firmware.add(Candidate(language, from, out, text, unit))
+                    else { out.delete(); unknown.add(from) }
+                }
                 language >= 0 -> firmware.add(Candidate(language, from, out, text))
                 language == REFUSED -> refused.add(from)
                 language == UNKNOWN -> unknown.add(from)
@@ -251,6 +275,11 @@ object FirmwareImport {
             for (language in imported()) {
                 val c = firmware.filter { it.language == language }.minByOrNull { rank.indexOf(it.label) } ?: continue
                 found.add(Found(language, c.from, c.file, c.label))
+            }
+            // then the releases no voice speaks, for the unit screen alone: each once
+            for (language in firmware.map { it.language }.filter { isUnitRelease(it) }.distinct()) {
+                val c = firmware.first { it.language == language }
+                found.add(Found(language, c.from, c.file, c.label, c.unit))
             }
             val kept = found.map { it.firmware }.toSet()
             for (c in firmware) if (c.file !in kept) {

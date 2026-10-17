@@ -41,7 +41,7 @@
  * mapping (ssa_map.h), so the "fast" cases must differ; accent-pitch, accent-glide, accent-reuse and accent-step are
  * ssa_engine.h's ssa_accent_break 1, 2, 3 and 4; speakout-pitch, speakout-settings, run-ahead, numbers,
  * mockingboard-pitch, mockingboard-numbers, mockingboard-import-ignored, mockingboard-builtin-ignored and
- * mockingboard-variant its ssa_voice_break 1 to 9; import-hash, import-dsk, import-lang and import-release
+ * mockingboard-variant its ssa_voice_break 1 to 9; import-hash, import-dsk, import-lang, import-release and import-units
  * ssa_import.h's ssa_import_break 1, 2, 3 and 4.
  *
  * Built by the desktop compiler (test_android_native.py) and by build_android.sh --test (static, for a device).
@@ -741,7 +741,8 @@ int main(int argc, char **argv)
                     : !strcmp(brk, "mockingboard-import-ignored") ? 7 : !strcmp(brk, "mockingboard-builtin-ignored") ? 8
                     : !strcmp(brk, "mockingboard-variant") ? 9 : !strcmp(brk, "line-lift") ? 10 : 0;
     ssa_import_break = !brk ? 0 : !strcmp(brk, "import-hash") ? 1 : !strcmp(brk, "import-dsk") ? 2
-                     : !strcmp(brk, "import-lang") ? 3 : !strcmp(brk, "import-release") ? 4 : 0;
+                     : !strcmp(brk, "import-lang") ? 3 : !strcmp(brk, "import-release") ? 4
+                     : !strcmp(brk, "import-units") ? 5 : 0;
     if (argc >= 2 && !strcmp(argv[1], "--texts")) return texts();
     if (argc >= 6 && !strcmp(argv[1], "--level"))
         return level(argv[2], argv[3], atoi(argv[4]), atoi(argv[5]), argc >= 7 ? argv[6] : NULL);

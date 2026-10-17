@@ -380,6 +380,12 @@ class SettingsActivity : Activity() {
 
     private fun confirmImport(plan: FirmwareImport.Plan, confirm: Boolean) {
         val lines = plan.found.map { f ->
+            val unit = f.unit
+            if (unit != null)
+                return@map "Will import ${f.label} (from ${f.from}) for the Braille Lite unit screen: no voice " +
+                    "speaks it yet, so it is kept for the unit screen alone, which prepares it on its first start." +
+                    (if (File(SsiData.dir(this), unit.file).exists()) " The copy already here will be replaced."
+                     else "")
             val name = FirmwareImport.languageName(f.language)
             "Will import ${f.label} (from ${f.from}). " +
                 (when (f.language) {

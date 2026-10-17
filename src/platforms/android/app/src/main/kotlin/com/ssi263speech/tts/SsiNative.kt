@@ -91,6 +91,7 @@ object SsiNative {
     const val FW_OTHER_HEX = -5
     const val FW_NOT_BUILT = -6
     const val FW_OTHER_DISK = -7
+    const val FW_RELEASE = 100              // ssa_import.h's SSA_FW_RELEASE: + a row no voice speaks (the unit screen's)
 
     /** Find the firmware in these bytes by its content: a Blazie ROM image, when it is a release on the list
      * (bl_firmware.c's), written to `out` as a .BNS -- its voice: [ENGLISH], [SPANISH], [GERMAN], [ITALIAN] or [SLOVAK]
@@ -102,8 +103,13 @@ object SsiNative {
      * for), [FW_UNKNOWN] when it is a Braille Lite 2000 release not
      * on the list, [FW_OTHER_HEX] when it is an Intel HEX file but not the Speak-Out's (damaged, or another),
      * [FW_NOT_BUILT] when it is the Mockingboard's in a build without that voice, [FW_OTHER_DISK] when it is a 140 KB
-     * disk image but not the toolkit's -- the reason in [nativeImportError]. */
+     * disk image but not the toolkit's -- the reason in [nativeImportError].  [FW_RELEASE] plus a release table row
+     * no voice speaks (the Braille 'n Speak 640, Japanese, the betas): written to `out`, kept for the unit screen
+     * alone ([nativeReleaseRow] names it). */
     external fun nativeImportFirmware(data: ByteArray, out: String): Int
+
+    /** A release table row: "<id>\t<name>" (its file under units/ is <id>.BNS), or null. */
+    external fun nativeReleaseRow(row: Int): String?
 
     /** The releases on the list, by label: those a voice speaks, the release voices' among them. */
     external fun nativeKnownFirmware(): Array<String>

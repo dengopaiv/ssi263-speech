@@ -121,14 +121,22 @@ object SsiData {
             catch (e: Exception) { "${FirmwareImport.unitName(voice)} (built into this app)" }
     }
 
-    /** Move a finished import's files (`ready`: .BNS, .state, .label) into place, each replacing its namesake --
-     * holding the engine, so no utterance boots a unit from half of them. */
+    /** Move a finished import's files (`ready`: .BNS, .state, .label, and units/ for the unit screen's releases) into
+     * place, each replacing its namesake and a folder's files merged into the one already there -- holding the
+     * engine, so no utterance boots a unit from half of them. */
     fun install(ctx: Context, ready: File) = SsiEngine.withEngine {
         SsiEngine.reload()
-        val dir = dir(ctx)
-        dir.mkdirs()
-        for (f in ready.listFiles()?.sortedBy { it.name } ?: emptyList()) {
-            val live = File(dir, f.name)
+        merge(ready, dir(ctx))
+    }
+
+    private fun merge(from: File, into: File) {
+        into.mkdirs()
+        for (f in from.listFiles()?.sortedBy { it.name } ?: emptyList()) {
+            val live = File(into, f.name)
+            if (f.isDirectory) {
+                merge(f, live)
+                continue
+            }
             if (live.exists()) live.delete()
             if (!f.renameTo(live)) f.copyTo(live, overwrite = true)
         }

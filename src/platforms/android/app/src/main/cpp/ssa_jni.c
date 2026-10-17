@@ -216,7 +216,8 @@ static unsigned char *bytes_of(JNIEnv *env, jbyteArray a, jsize *n)
    .BNS), a release voice from SSA_RELEASE_FIRST 10 (Hungarian ...: the release table's, the same way),
    SSA_HEX_SPEAKOUT 3 (the known SPEAKOUT.HEX,
    written to `out`) or SSA_FW_MOCKINGBOARD 5 / _EARLY 6 (a known Mockingboard file, from itself or a disk image,
-   written to `out`), the label in
+   written to `out`), or SSA_FW_RELEASE 100 + a release table row no voice speaks (the 640, Japanese, the betas:
+   written to `out`, for the unit screen alone -- nativeReleaseRow names it), the label in
    nativeImportError; else negative (_NONE, _REFUSED, _WRITE, _UNKNOWN; SSA_HEX_OTHER -5: an Intel HEX file but not
    the Speak-Out's; SSA_FW_MB_BUILD -6: the Mockingboard's in a build without it), the reason in nativeImportError. */
 JNIEXPORT jint JNICALL FN(nativeImportFirmware)(JNIEnv *env, jclass cls, jbyteArray jdata, jstring jout)
@@ -291,6 +292,19 @@ JNIEXPORT jobjectArray JNICALL FN(nativeReleaseVoices)(JNIEnv *env, jclass cls)
         (*env)->SetObjectArrayElement(env, out, i++, (*env)->NewStringUTF(env, row));
     }
     return out;
+}
+
+/* A release table row, for one the unit screen keeps alone (nativeImportFirmware's SSA_FW_RELEASE + row):
+   "<id>\t<name>", its file under units/ being <id>.BNS; null for no such row. */
+JNIEXPORT jstring JNICALL FN(nativeReleaseRow)(JNIEnv *env, jclass cls, jint k)
+{
+    char row[512];
+    const char *id = blv_release_id(k), *name = blv_release_name(k);
+    (void)cls;
+    if (!id || !name)
+        return NULL;
+    snprintf(row, sizeof row, "%s\t%s", id, name);
+    return (*env)->NewStringUTF(env, row);
 }
 
 static int state_progress(void *ctx, double done)

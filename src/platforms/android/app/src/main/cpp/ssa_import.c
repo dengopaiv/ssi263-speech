@@ -210,12 +210,16 @@ int ssa_import_voice(const unsigned char *data, long n, const char *out, char *m
     if (k < 0)
         return k;
     v = ssa_release_voice(k);
-    if (v < 0) {                       /* a release no voice speaks yet: the emulator's alone */
+    if (v >= 0)
+        return v;
+    if (ssa_import_break == 5) {       /* the control: dropped, as before 0.8.5 */
         if (out) remove(out);
         snprintf(msg, (size_t)msglen, "%s: the emulator's, not yet a voice", blv_firmware_label(k));
         return BLV_FW_UNKNOWN;
     }
-    return v;
+    /* a release no voice speaks yet: kept for the Braille Lite unit screen alone */
+    snprintf(msg, (size_t)msglen, "%s", blv_firmware_label(k));
+    return SSA_FW_RELEASE + k;
 }
 
 int ssa_import_firmware(const unsigned char *data, long n, const char *out, char *msg, int msglen)

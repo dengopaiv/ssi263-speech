@@ -21,6 +21,9 @@ object SsiImport {
         }
 
         override fun known(): List<String> = SsiNative.nativeKnownFirmware().toList()
+
+        override fun unitRelease(row: Int): FirmwareImport.UnitRelease? =
+            SsiNative.nativeReleaseRow(row)?.split("\t")?.let { FirmwareImport.UnitRelease(it[0], it[1]) }
     }
 
     class Source(val name: String, val size: Long, val open: () -> InputStream)
@@ -95,8 +98,9 @@ object SsiImport {
         /** English's state is 150 million instructions, Spanish's 1150 million, German's, Italian's and Slovak's
          * English's runs (150 million), the release voices' too (the table's english shape); the Speak-Out and the
          * Mockingboard have no state to make, only their check. */
-        private fun weight(language: Int) = when (language) {
-            FirmwareImport.SPANISH -> 1150; in FirmwareImport.NO_STATE -> 15; else -> 150 }
+        private fun weight(language: Int) = when {
+            FirmwareImport.isUnitRelease(language) -> 5             // a move: no state, no probe
+            language == FirmwareImport.SPANISH -> 1150; language in FirmwareImport.NO_STATE -> 15; else -> 150 }
 
         fun start(ctx: Context) = Thread({
             result = runCatching { commit(ctx.applicationContext) }
@@ -118,6 +122,19 @@ object SsiImport {
             val labels = ArrayList<String>()
             try {
                 for (f in plan.found) {
+                    val unit = f.unit
+                    if (unit != null) {
+                        // a release no voice speaks: kept under units/ for the unit screen, which makes its state on
+                        // first start (as Apple's) -- no state here, no probe
+                        val kept = File(ready, unit.file)
+                        kept.parentFile?.mkdirs()
+                        if (!f.firmware.renameTo(kept)) f.firmware.copyTo(kept, overwrite = true)
+                        File(ready, unit.file + SsiData.LABEL).writeText(f.label)
+                        labels.add(f.label)
+                        made += weight(f.language)
+                        if (cancelled) throw Cancelled()
+                        continue
+                    }
                     val name = unitName(f.language)
                     val files = FirmwareImport.files(f.language) ?: throw IOException("no files for voice ${f.language}")
                     val firmware = File(ready, files[0])

@@ -64,6 +64,8 @@ class FirmwareImportTest {
         val MOCKINGBOARD_FILE = "SWEETMICRO".toByteArray() + ByteArray(2000) { (it * 5).toByte() }
         val EARLY_FILE = "SWEETEARLY".toByteArray() + ByteArray(1900) { (it * 3).toByte() }
         const val EARLY_LABEL = "Mockingboard, early: Sweet Micro Systems' text-to-speech of Mockingboard disk 1"
+        const val JAPANESE_ROW = 20         // release table rows no voice speaks (the fake's)
+        const val BNS640_ROW = 30
     }
 
     private object Fake : FirmwareImport.Identify {
@@ -111,6 +113,8 @@ class FirmwareImportTest {
                 'K' -> FirmwareImport.SLOVAK to labels[5]
                 'H' -> HUNGARIAN to labels[6]
                 'R' -> TURKISH to labels[7]
+                'J' -> FirmwareImport.UNIT_RELEASE + JAPANESE_ROW to "Braille Lite Japanese (BL2JPN.BNS)"
+                '6' -> FirmwareImport.UNIT_RELEASE + BNS640_ROW to "Braille 'n Speak 640 English June 2003"
                 'U' -> return FirmwareImport.UNKNOWN to "not a release this app knows"
                 else -> return FirmwareImport.REFUSED to "not a release this voice can run"
             }
@@ -119,6 +123,12 @@ class FirmwareImportTest {
         }
 
         override fun known() = labels
+
+        override fun unitRelease(row: Int) = when (row) {
+            JAPANESE_ROW -> FirmwareImport.UnitRelease("bl2_ja_2000_01", "Braille Lite 2000 (Japanese)")
+            BNS640_ROW -> FirmwareImport.UnitRelease("bns640_en_2003_06", "Braille 'n Speak 640 (English)")
+            else -> null
+        }
     }
 
     private fun zip(vararg entries: Pair<String, ByteArray>): ByteArray {
@@ -518,6 +528,30 @@ class FirmwareImportTest {
                                             "BL2HUN.BNS" to bns('H')))
         assertNull(plan.refusal)
         assertEquals(listOf(FirmwareImport.ENGLISH, HUNGARIAN, TURKISH), languages(plan))
+    }
+
+    // ---- the unit screen's releases (0.8.5: no voice speaks them -- the 640, Japanese -- kept under units/) ----------
+
+    @Test fun aReleaseNoVoiceSpeaksIsKeptForTheUnitScreen() {
+        val plan = inspect("BL2JPN.BNS", bns('J'))
+        assertNull(plan.refusal)
+        val f = plan.found.single()
+        assertEquals(FirmwareImport.UNIT_RELEASE + JAPANESE_ROW, f.language)
+        assertEquals("units/bl2_ja_2000_01.BNS", f.unit?.file)
+        assertEquals("Braille Lite Japanese (BL2JPN.BNS)", f.label)
+        assertTrue(f.firmware.isFile)
+        assertNull(FirmwareImport.files(f.language))        // never a voice's files
+    }
+
+    @Test fun unitReleasesComeAfterTheVoicesFromOneZip() {
+        val plan = inspect("units.zip", zip("BSPENG.BNS" to bns('6'), "BL2ENG.BNS" to bns('E'),
+                                            "BL2JPN.BNS" to bns('J'), "again/BSPENG.BNS" to bns('6')))
+        assertNull(plan.refusal)
+        assertEquals(listOf(FirmwareImport.ENGLISH, FirmwareImport.UNIT_RELEASE + BNS640_ROW,
+                            FirmwareImport.UNIT_RELEASE + JAPANESE_ROW), languages(plan))
+        assertEquals("BSPENG.BNS", plan.found[1].from)                  // the same release twice is one
+        assertEquals("units/bns640_en_2003_06.BNS", plan.found[1].unit?.file)
+        assertNull(plan.found[0].unit)
     }
 
     @Test fun theUnifiedAddOnBringsEveryVoiceAtOnce() {

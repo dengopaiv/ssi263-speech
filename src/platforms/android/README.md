@@ -180,7 +180,15 @@ The settings' third button, **Braille Lite unit**, opens a Blazie unit running i
 imported for the voices -- one app, no second firmware picker, as Apple's unit tab. Its units are the emulator's own
 catalog over the data folder (`emc_list`, `src/apps/blazie/emu_catalog.c`, the list every emulator shell reads): every
 unit whose firmware is imported, never one without. A release unit's first start makes its state by its own recipe
-(`emc_make_factory`, with its progress shown). Each unit's memory is the app's own (`files/units/`), saved when it is
+(`emc_make_factory`, with its progress shown).
+
+Since 0.8.5 the same import also keeps a release no voice speaks yet -- the Braille 'n Speak 640, the Japanese Braille
+Lite, the betas (the release table's rows with no voice) -- for this screen alone, as Apple's: the native side
+returns it as `SSA_FW_RELEASE` (100) plus its row (`ssa_import_voice`), the confirmation says it is for the unit
+screen, and it lands as `units/<id>.BNS` with its `.label` in the data folder, with no state and no probe (the screen
+makes its state on first start). It is never offered or named to the phone's voices. The 640's firmware is never
+bundled: only a person's own copy, imported (`check_apk_no_firmware.py` refuses any Blazie image in an APK). The Type
+'n Speak's `.TNS` is not taken, on Apple either: no import identifies one by its content yet. Each unit's memory is the app's own (`files/units/`), saved when it is
 switched off or the screen is left; the voices' states are only read. The screen never runs a unit unseen.
 
 The keyboard field holds the display as Unicode braille (empty for a unit with none) and takes a hardware keyboard's
@@ -271,6 +279,7 @@ shipped in the APK. The Setup page's "Licenses and source" shows them all and po
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=speakout              # control: the Speak-Out cases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=mockingboard          # control: the Mockingboard cases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=release               # control: the release voices' cases must FAIL
+    ./gradlew testDebugUnitTest -Pssi263ImportBreak=units                 # control: the unit screen's releases must FAIL
 
 `test_import_native.py` makes every fixture at test time from the files in the firmware folder (`--firmware`, default
 `$SSI263_FIRMWARE`, else `firmware/blazie`, with `spanish/`, `tns/` and `once2000/` -- ONCE's September 2000
@@ -426,7 +435,7 @@ and restored after it by the voice itself (`sov_speak`, `amv_speak`), moved at l
 | `test/accent_reference.py` | The Accent SA's reference: the NVDA Accent add-on's driver under the stand-in NVDA, a fresh unit per case |
 | `test/test_volume_headroom.py` | The default engine volume keeps headroom, for every voice, with controls |
 | `test/test_import_native.py` | The import's native part: the list of releases, the refusals, and the states made on the device, against the listed ones, with their progress |
-| `test/test_unit_native.c`, `test_unit_native.py` | The unit screen's native part on real firmware, on the desktop (and the phone: `build_android.sh --unit-test`): keys to the chords and Type 'n Speak events `emu_unit` gets, sample for sample against the unit keyed directly; a chord answered; the others left to the screen; its memory saved and started again; files loaded into flash (an existing name asked, replaced on request, the memory before kept, the unit started from the new one); a release unit's first state; the controls (dots 1 and 4 swapped; the files never written) |
+| `test/test_unit_native.c`, `test_unit_native.py` | The unit screen's native part on real firmware, on the desktop (and the phone: `build_android.sh --unit-test`): keys to the chords and Type 'n Speak events `emu_unit` gets, sample for sample against the unit keyed directly; a chord answered; the others left to the screen; its memory saved and started again; files loaded into flash (an existing name asked, replaced on request, the memory before kept, the unit started from the new one); a release unit's first state; a release kept as units/<id>.BNS (the 640) listed and started; the controls (dots 1 and 4 swapped; the files never written) |
 | `test/uhid_keys.c` | A USB keyboard made in software over adb (`/dev/uhid`, the shell user's, no root): a script of keys down and up, real scan codes, several at once -- the device test's keyboard |
 | `test/check_apk_no_firmware.py` | An APK carries no firmware but Aicom's three ROMs and the Accent-mini's driver (by sha256): no Blazie or Speak-Out firmware or state, by content and by name; its controls |
 | `test/test_device_service.py` | The installed app's TTS service on the phone, every voice and their capitals, the Braille Lite with run ahead, its files' PCM against the same references |

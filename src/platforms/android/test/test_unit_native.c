@@ -229,6 +229,38 @@ int main(int argc, char **argv)
     } else
         printf("skip a release unit: none in %s\n", dir);
 
+    /* 0.8.5: a release no voice speaks, kept by the import as units/<id>.BNS in the unit folder (the runner lays out
+       <scratch>/data so with the 640): the unit screen lists it from there and starts it, its state made then */
+    {
+        char data[600], kept_saved[600];
+        emc_unit kept[EMC_MAX];
+        FILE *f;
+        int m, j;
+        snprintf(data, sizeof data, "%s/data/units/bns640_en_2003_06.BNS", scratch);
+        f = fopen(data, "rb");
+        if (f) {
+            ssa_unit *u = NULL;
+            fclose(f);
+            snprintf(data, sizeof data, "%s/data", scratch);
+            m = ssa_unit_list(data, kept, EMC_MAX);
+            for (j = 0; j < m && !(kept[j].release >= 0 && strstr(kept[j].firmware, "units")); j++)
+                ;
+            snprintf(d, sizeof d, "%d listed; %s", m, j < m ? kept[j].name : "no release from units/");
+            check("kept release: the unit screen lists units/<id>.BNS", j < m, d);
+            if (j < m) {
+                snprintf(kept_saved, sizeof kept_saved, "%s/kept", scratch);
+                u = ssa_unit_start(data, kept[j].key, kept_saved, RATE, 0, NULL, NULL, err, sizeof err);
+                if (u)
+                    ssa_unit_render(u, a, 6 * RATE);
+                snprintf(d, sizeof d, "%s: %s, rms %.4f over 6 s", kept[j].key, u ? "its state made, started" : err,
+                         u ? rms(a, 6 * RATE) : 0.0);
+                check("kept release: it starts, its state made on first start", u && rms(a, 6 * RATE) > 0.005, d);
+                ssa_unit_stop(u);
+            }
+        } else
+            printf("skip kept release: no bns640/june2003/BSPENG.BNS in %s\n", dir);
+    }
+
     free(a);
     free(b);
     printf("%s\n", failures ? "unit: FAILED" : "unit: all passed");
