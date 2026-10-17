@@ -172,6 +172,13 @@ def main():
     if not stage_mockingboard(unified):
         os.remove(os.path.join(unified, "mockingboard.py"))
         rm(os.path.join(unified, "_ssi263_mockingboard"))
+    # GW Micro's Sounding Board (0.8.5): its two drivers only in a development build (the tests' voice matrix); a
+    # release carries them only if Tomi decides it should (his call, open: people may add them themselves)
+    if not dev:
+        for name in ("SBLOAD.COM", "SB.COM"):
+            p = os.path.join(unified, "_ssi263_speakout", name)
+            if os.path.isfile(p):
+                os.remove(p)
     shutil.copy2(os.path.join(HERE, "ssi263", "synthDrivers", "ssi263.py"), sd)
     shutil.copytree(os.path.join(HERE, "ssi263", "globalPlugins"), os.path.join(BUILD, "globalPlugins"),
                     ignore=shutil.ignore_patterns("__pycache__"))
