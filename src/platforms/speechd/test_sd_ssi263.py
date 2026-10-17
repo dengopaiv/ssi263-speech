@@ -403,6 +403,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import gen_languages  # noqa: E402
 EXPECTED += [(r["vname"], r["tag"], ("bl2000/" + r["file"], "bl2000/%s.state" % r["id"]))
              for r in gen_languages.rows()[0] if r["voice"].startswith("blazie_")]
+# 0.8.5: then GW Micro's Sounding Board (sd_voices.c, last), its two drivers in the data folder
+EXPECTED += [("Sounding Board (GW Micro)", "en-US", ("gw-micro-sounding-board/SBLOAD.COM",
+                                                     "gw-micro-sounding-board/SB.COM"))]
 want = ["200-%s\t%s\tMALE1" % (n, lang) for n, lang, files in EXPECTED
         if n in BUILT_NAMES and all(os.path.isfile(os.path.join(VDATA, f)) for f in files)] + ["249 OK VOICES LISTED"]
 ok = voices == want and "Accent SA" in listed and set(BUILT_NAMES) <= {e[0] for e in EXPECTED}

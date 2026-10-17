@@ -18,7 +18,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "src"))
 CSRC = os.path.join(ROOT, "src", "csrc")
 SB_DIR = os.path.join(ROOT, "firmware", "gw-micro-sounding-board")
-OUT = os.path.join(ROOT, "build", "sb_host")
+OUT = os.path.join(ROOT, "build", "sb_host", str(os.getpid()))   # its own: the suite runs the check and its control at once
 TEXTS = ["Hello, this is the Sounding Board.", "The quick brown fox jumps over the lazy dog, 1234 times."]
 BREAK = os.environ.get("SB_HOST_BREAK") == "1"
 sys.path.insert(0, ROOT)
@@ -76,8 +76,12 @@ def main():
     if not all(os.path.isfile(p) for p in paths):
         print("skip  the Sounding Board host check: its drivers are not in firmware/gw-micro-sounding-board")
         return 0
-    exe = build()
-    r = subprocess.run([exe] + paths + TEXTS, capture_output=True, text=True, timeout=600)
+    try:
+        exe = build()
+        r = subprocess.run([exe] + paths + TEXTS, capture_output=True, text=True, timeout=600)
+    finally:
+        import shutil
+        shutil.rmtree(OUT, ignore_errors=True)
     c_writes, c_ends, fault = [], [], None
     for ln in r.stdout.splitlines():
         p = ln.split()

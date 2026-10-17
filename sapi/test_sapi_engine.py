@@ -28,7 +28,7 @@ checks first -- SSI263_SAPI_REF_BREAK=dist, the reference on nvda/dist's drivers
     as ssi_voice's fallback would), =setting (the dialog's settings dropped) and =bl-numbers (BrailleLiteNumbers 0
     ignored).
 
-The voices 0.7.0's drivers never had (NATIVE_ONLY: the Mockingboard, 1.1 and early, and the German, Italian and
+The voices 0.7.0's drivers never had (NATIVE_ONLY: the Mockingboard, 1.1 and early, the Sounding Board (0.8.5), and the German, Italian and
 Slovak Braille units, new in 0.8) have no Python server to be held to:
 their reference is the native serve host (ssi263_serve.exe, build/win/x64) on the stage's firmware with the same
 settings on its command line -- the voice as the engine's own mapping makes it (sapi/ssi_native.c), so what is held is
@@ -79,7 +79,10 @@ TEXTS = {"en": TEXT_EN, "es": TEXT_ES, "de": ["Grüß Gott, wie geht's? Zimmer 1
 # longer than the reference that was never cut; a phrase it reads the same either way
 AFTER_ABORT = {"de": "Mein Computer"}
 NATIVE_ONLY = ("mockingboard:mockingboard", "mockingboard:early", "blazie:blazie_de", "blazie:blazie_it",
-               "blazie:blazie_sk")
+               "blazie:blazie_sk",
+               # 0.8.5: GW Micro's Sounding Board (0.7.0's Speak-Out driver has no such voice: it would speak the
+               # Speak-Out); its host is held to soundingboard.py by tools/check_sb_host.py
+               "speakout:soundingboard")
 # 0.8: and the release table's Braille Lite voices (src/csrc/blazie/bl_languages.txt): no Python server for them --
 # held to the native serve host, as the others above
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "csrc", "blazie"))
