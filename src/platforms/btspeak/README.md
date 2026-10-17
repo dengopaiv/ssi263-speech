@@ -30,12 +30,13 @@ frontend or Python ([README-btspeak.md](README-btspeak.md)); it does so too when
 terminal. `./build/linux/blazie_emu_bt` can also be run directly, with the options below. The desktop app,
 `blazie_emu_gtk`, never hands over: the BT devices have no desktop.
 
-The build produces two runtime files:
+The BT frontend uses three runtime files:
 
 - `build/linux/blazie_emu_bt`: the executable Python frontend, bundled as a zipapp by `tools/build_bt_frontend.py`.
-- `build/linux/blazie_bt`: its native worker, sharing `emu_unit.c`, the MAME Z180 core, and the existing Linux audio backend.
+- `build/linux/blazie_bt`: its native worker, sharing `emu_unit.c`, the firmware catalog, the MAME Z180 core, and Linux audio.
+- `build/linux/blazie_files`: the upstream file tool used by the import menu.
 
-Keep both files. The launcher starts the worker; it does not compile it. The frontend requires Python 3.11+
+Keep these files together. The launcher starts the worker; it does not compile it. The frontend requires Python 3.11+
 and the device's installed `BTSpeak` Python package and keyboard service. It uses `dialogs.activity`, which replaced `runActivity` in the runtime inspected here.
 
 Run from a Blazie Mode terminal on the device. Nothing is installed into or changed under `/BTSpeak` or
@@ -53,7 +54,7 @@ installer, run `blazie_emu`.
 That installer also installs/configures speech-dispatcher and requires its existing system configuration;
 it is not needed to run the unpacked BT application. No BT device library is bundled or replaced.
 Firmware is located relative to the executable, so the build and unpacked package can run from any working
-directory. `--firmware` and `--backend` override those defaults. Neither runtime file needs the source tree
+directory. `--firmware` and `--backend` override those defaults. These runtime files do not need the source tree
 when distributed with the firmware folder. Objects and test programs elsewhere in `build/linux` are development
 artifacts, not runtime dependencies. Saved user memory stays in the BT user directory, outside `build/`.
 
@@ -85,7 +86,7 @@ first start; Type 'n Speak uses its own cold setup. An existing saved state take
 | Other panel keys and all routing keys | Unassigned |
 
 The host menu offers Resume, Save memory, Quick key response, Double-speed upgrade installed, Restart the unit,
-Audio settings, Firmware, Keyboard help, and Save and exit.
+Audio settings, Firmware, Import programs and files, Keyboard help, and Save and exit.
 The normal BT dialog controls apply while in the host menu. Menus and submenus share one terminal screen,
 and returning from a submenu keeps the previously selected row. Audio settings opens on Sound buffer.
 Leaving the host menu with Z-chord (Escape) or Resume announces "Menu closed" before the firmware resumes.
@@ -159,11 +160,15 @@ preference write restores the previous audio settings. Use **Back** or cancel to
 
 ## Firmware selection
 
-Open M-chord with Dot 7, then **Firmware**. The menu lists installed, supported firmware with a factory
-state or an existing saved memory. A failed switch leaves the previous unit available; a successful switch
+Open M-chord with Dot 7, then **Firmware**. The menu reads the same native `emu_catalog` as the desktop and terminal emulators. It lists installed, supported
+firmware with a factory state, an existing saved memory, or a supported first-start recipe. A failed switch leaves the previous unit available; a successful switch
 saves it before running the new unit. The choice is remembered, or override it with `--unit bl-en` etc.
 The switch announcement names the selected model and language.
-The same nested and flat firmware-folder layouts as the original terminal emulator are accepted.
+The same nested and flat firmware-folder layouts as the original terminal emulator are accepted. Additional releases
+are discovered by their image content, not their filenames, in the firmware folder or one directory below it.
+Each additional release gets its own `<release-id>.state`; its first start uses the shared catalog recipe to initialize
+and verify that memory. Setup runs under an activity indicator and may take longer than a normal start.
+Firmware language changes the emulated unit's speech and braille, not the host menu language.
 
 | Unit ID | Firmware | Saved memory | Braille |
 | --- | --- | --- | --- |
@@ -173,10 +178,12 @@ The same nested and flat firmware-folder layouts as the original terminal emulat
 | `tns-es` | `tns/TNSSPA.TNS` | `tns_spanish.state` | None |
 | `bns-en` | `bns2000/BS03ENG.BNS` | `bns_english.state` | None |
 | `bns-sk` | `bns2000/BS2SLL.BNS` | `bns_slovak.state` | None |
+| `bl-de` | `german/Lite2000.BNS` | `german.state` | 18 cells |
+| `bl-it` | `italian/Lite2000.BNS` | `italian.state` | 18 cells |
+| Release ID, e.g. `bl2_hu_1999_07` | Recognized language image | `<release-id>.state` | Firmware-controlled |
 
-Braille Lite and Braille 'n Speak use the factory filenames from the original emulator (`main_linux.c` KINDS).
-Type 'n Speak starts cold if there is no saved memory. English and Spanish Braille Lite and Type 'n Speak
-are present on this checkout; Braille 'n Speak appears when its firmware and factory state are supplied.
+The original eight profiles retain their catalog filenames and saved-memory names.
+Type 'n Speak starts cold if there is no saved memory. Only firmware supplied locally or in a release package appears in the menu.
 The firmware controls display length: speech-only models clear the cells. The older Braille Lite 18 and
 40 ROMs are rejected by the existing core; a 40-cell display decoder alone does not make those ROMs runnable.
 
@@ -192,6 +199,30 @@ On a new Type 'n Speak, answer each setup question with `y` (English) or `s` (Sp
 initialize files, confirm, initialize flash, confirm, initialize folders, delete file area, confirm.
 Wait for the next prompt: flash initialization takes about 45 seconds of clicks; the final clear takes
 about 35 seconds of silence. This is the original firmware's setup of its own fresh memory.
+
+## Import programs and files
+
+Open **M-chord with Dot 7 → Import programs and files**. The native BT `dialogs.request_file` picker starts in
+Home. Navigate folders with the normal BT dialog keys, Enter to select a file, Backspace to go up, and Z-chord
+(Escape) to cancel. You can navigate up to `/media` or `/mnt` for mounted USB storage. All file types are visible:
+programs (`.bns`), BASIC (`.bas`), text (`.txt`), and braille documents (`.brl`, `.brf`), including extensionless files.
+
+After selecting a file, choose **Import selected files**, **Add another file**, **Remove a selected file**, or
+**Cancel import**. A batch can contain up to 64 files. The menu asks before replacing existing names, with No as
+the default. Canceling the picker or declining replacement leaves the unit's files unchanged.
+
+The import uses the same `blazie_files add` implementation as the other emulators: one batch, all or nothing,
+with filename normalization, text line-ending conversion, protected/open-file checks, and flash-capacity checks.
+The catalog supplies the filename code page. The worker must be paused and not writing flash; if it is busy,
+resume the unit and try again after it finishes. A staged copy is checked and edited while the worker retains its
+exclusive memory lock. The worker validates the replacement before adopting it, backs up the previous memory as
+`<memory>.before-import`, and restarts the emulated unit with its audio/quick-response/double-speed settings kept.
+An updated firmware bank (`.program`) is carried through the staged import too.
+
+Use the firmware's own commands afterward: on Braille Lite, o-chord x, the program name, e-chord runs a program;
+o-chord f o, the name, e-chord opens a document. No path typing or disk-image preparation is needed in the host menu.
+Older BT software without `dialogs.request_file` reports that the file picker needs an update; it is not replaced
+or modified by this application.
 
 ## Memory and cleanup
 
@@ -211,7 +242,15 @@ driver is terminated with a bounded timeout; this exceptional case cannot guaran
 The native worker starts paused and uses a small private stdin/stdout protocol. Commands are `RESUME`,
 `PAUSE`, `KEY held chord` (decimal firmware bitmasks), `BARS down` (1 forward, 2 back, 3 both, 0 released),
 `BRAILLE`, `TNS key-name`, `QUICK 0` / `QUICK 1`, `DOUBLE 0` / `DOUBLE 1`, `AUDIO`,
-`AUDIO rate buffer idle keep-open pop-click tick`, `SAVE`, and `QUIT`.
+`AUDIO rate buffer idle keep-open pop-click tick`, `SAVE`, `IMPORT_CHECK`, `IMPORT_COMMIT`, and `QUIT`.
+`blazie_bt --catalog FIRMWARE_DIR` emits the shared catalog as JSON without starting a unit. A Braille Lite worker
+with `-` for its factory state creates its first memory from the firmware's recognized release recipe, under the
+same memory lock.
+
+`IMPORT_CHECK` requires a paused unit with no flash write pending, then saves it (`SAVED`). The frontend uses
+`<memory>.import` as a staging copy; `IMPORT_COMMIT` validates and adopts it, replying `SAVED` then `IMPORTED`.
+A resume invalidates import preparation. Failed preparation or commit leaves the previous unit available.
+
 Responses are `READY`, `RUNNING`, `PAUSED`, `OK` (for `QUICK`, `DOUBLE`, `TNS`, and audio changes), `SAVED`, `BYE`, or
 `ERROR reason`.
 `KEY` and `BARS` have no success response. A zero chord updates only held keys. Their "Keyboard queue full" and
@@ -263,19 +302,21 @@ bad states, save and audio failures, shutdown, remembered quick response, and a 
 while quick response is enabled. Deep-escape tests mock the platform helper and check that saving and keyboard/context
 cleanup finish before it is invoked; they do not close the actual device terminal. Native tests use
 temporary state directories and silent pacing; they do not capture the device keyboard. They require a built
-worker and the English firmware. Actual speaker quality, physical typing, and BT Speak hardware still need
-hands-on verification. Display tests cover bus edges, bit order, padding, complete-frame latching, reset,
+worker and the English firmware. Actual speaker quality, physical typing, and new UI behavior need hands-on verification on each device. Display tests cover bus edges, bit order, padding, complete-frame latching, reset,
 malformed transfers, raw output sizing, partial pipe reads, menu restoration, and the real firmware's file list
-and help text. The physical cells still need a user's tactile check.
+and help text. New language profiles still need a user's tactile check on the physical cells.
 
 Navigation tests press and release the real emulated port contacts, verify forward/back help text,
-and check overlapping left/right holds. Profile tests cover all six choices, separate memories,
+and check overlapping left/right holds. Profile tests cover the shared catalog, legacy and release profiles, separate memories,
 remembered selection, successful switching, and recovery from a failed switch. Type 'n Speak tests
 exercise both installed languages, keyboard input, absent braille output, and saving.
 
 Audio tests cover old-preference migration, every menu control, all six native sample rates, all buffer
 modes, memory preservation, cancellation, device/save failures, and rollback after a preference-write failure.
 Hardware listening is still needed to choose the shortest buffer that plays smoothly on a particular device.
+Import tests cover picker cancellation and batch editing, replacement confirmation, failures that leave memory
+unchanged, native staged commit and backup, and continued exclusion of a second worker. A new-language test
+creates and reloads Hungarian memory when that firmware is supplied. Restart is also checked after a failed switch.
 
 `blazie_emu`'s hand-over is tested by `src/apps/blazie/test_bt_handover.py` (in `tools/linux_tests.sh`): the
 detection against a stand-in `BTSpeak` library and keyboard service, either one missing, and the test machine
@@ -293,7 +334,8 @@ with `BLAZIE_TEST_ON_BT_DEVICE=1`, so the test machine's own detection is expect
 | `keymap.py` | Six-dot chords from the device's key events: held keys, the menu and deep-escape chords, dots 7 and 8 ignored. |
 | `tns_keyboard.py` | Six-dot computer braille to the Type 'n Speak's key names (Type 'n Speak only). |
 | `display.py` | Firmware braille frames to the device's cells, padded to its width, sent only when changed. |
-| `profiles.py` | The six firmware profiles: firmware and factory-state names in both folder layouts, each one's saved memory. |
+| `profiles.py` | Read the native shared catalog, including discovered language releases and their saved-memory names. |
+| `file_import.py` | Native file picker, batch selection, replacement confirmation, and staged imports through `blazie_files`. |
 | `preferences.py` | `preferences.json` beside the saved memory: the unit, quick key response, the audio settings. |
 | `audio_options.py`, `audio_menu.py` | The audio settings and their host menu. |
 | `runtime_paths.py` | The worker and firmware beside the launcher: the source tree, `build/linux`, or the package's `bin/`. |

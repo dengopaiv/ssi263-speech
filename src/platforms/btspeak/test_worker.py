@@ -74,6 +74,90 @@ class WorkerTests(unittest.TestCase):
         self.addCleanup(worker.abort)
         return worker
 
+    def test_import_commits_staged_files_keeps_backup_and_lock(self):
+        import shutil
+        worker = self.start()
+        worker.request("IMPORT_CHECK", "SAVED")
+        before = self.saved.read_bytes()
+        stage = Path(str(self.saved) + ".import")
+        shutil.copyfile(self.saved, stage)
+        program = Path(self.tmp.name) / "sample.bns"
+        document = Path(self.tmp.name) / "story.txt"
+        program.write_bytes(b"program\x00\x01\x02\xff")
+        document.write_bytes(b"first line\nsecond line\n")
+        tool = EXE.with_name("blazie_files")
+        subprocess.run([str(tool), "add", str(stage), str(program), str(document)], check=True, capture_output=True)
+        with self.assertRaisesRegex(WorkerError, "busy"):
+            self.start()
+        worker.request("IMPORT_COMMIT", "IMPORTED")
+        self.assertEqual(Path(str(self.saved) + ".before-import").read_bytes(), before)
+        self.assertNotEqual(self.saved.read_bytes(), before)
+        listing = subprocess.run([str(tool), "list", str(self.saved)], check=True, capture_output=True, text=True).stdout
+        self.assertIn("sample.bns", listing)
+        self.assertIn("story.txt", listing)
+        extracted = Path(self.tmp.name) / "extracted"
+        subprocess.run([str(tool), "extract", str(self.saved), str(extracted)], check=True, capture_output=True)
+        self.assertEqual(next(extracted.rglob("sample.bns")).read_bytes(), program.read_bytes())
+        worker.close()
+        worker = self.start()
+        worker.request("BRAILLE", "BRAILLE")
+        listing = subprocess.run([str(tool), "list", str(self.saved)], check=True, capture_output=True, text=True).stdout
+        self.assertIn("sample.bns", listing)
+        worker.close()
+
+    def test_import_rejects_running_unit_and_bad_stage_without_losing_memory(self):
+        worker = self.start()
+        worker.request("RESUME", "RUNNING")
+        with self.assertRaisesRegex(WorkerError, "flash"):
+            worker.request("IMPORT_CHECK", "SAVED")
+        worker.request("PAUSE", "PAUSED")
+        worker.request("IMPORT_CHECK", "SAVED")
+        original = self.saved.read_bytes()
+        Path(str(self.saved) + ".import").write_bytes(b"bad state")
+        with self.assertRaises(WorkerError):
+            worker.request("IMPORT_COMMIT", "IMPORTED")
+        self.assertEqual(self.saved.read_bytes(), original)
+        self.assertFalse(Path(str(self.saved) + ".before-import").exists())
+        worker.request("RESUME", "RUNNING")
+        worker.close()
+
+    def test_import_backup_failure_retains_old_unit(self):
+        import shutil
+        worker = self.start()
+        worker.request("IMPORT_CHECK", "SAVED")
+        original = self.saved.read_bytes()
+        shutil.copyfile(self.saved, Path(str(self.saved) + ".import"))
+        Path(str(self.saved) + ".before-import").mkdir()
+        with self.assertRaisesRegex(WorkerError, "back up"):
+            worker.request("IMPORT_COMMIT", "IMPORTED")
+        self.assertEqual(self.saved.read_bytes(), original)
+        worker.request("RESUME", "RUNNING")
+        worker.close()
+
+    def test_new_language_discovery_setup_and_reload(self):
+        from profiles import discover
+        profiles = discover(EXE, FIRMWARE_DIR)
+        profile = profiles.get("bl2_hu_1999_07")
+        if profile is None:
+            self.skipTest("Supply Hungarian firmware to exercise first-start recipe")
+        self.assertIsNone(profile.factory)
+        saved = Path(self.tmp.name) / profile.saved
+        worker = Worker(EXE, profile.firmware, None, saved, "-")
+        self.addCleanup(worker.abort)
+        self.assertTrue(saved.exists())
+        worker.request("RESUME", "RUNNING")
+        deadline = time.monotonic() + 10
+        while worker.braille is None and time.monotonic() < deadline:
+            worker.request("BRAILLE", "BRAILLE")
+            time.sleep(0.1)
+        self.assertIsNotNone(worker.braille)
+        self.assertEqual(len(worker.braille), 18)
+        worker.close()
+        # An existing state must win even when its factory recipe is no longer supplied.
+        worker = Worker(EXE, profile.firmware, Path(self.tmp.name) / "missing-factory", saved, "-")
+        self.addCleanup(worker.abort)
+        worker.close()
+
     def test_pause_save_resume_reload_and_lock(self):
         worker = self.start()
         with self.assertRaisesRegex(WorkerError, "busy"):
@@ -293,7 +377,8 @@ class WorkerTests(unittest.TestCase):
         worker.close()
 
     def test_spanish_firmware_has_its_own_display_and_saved_memory(self):
-        from profiles import BY_KEY
+        from profiles import discover
+        BY_KEY = discover(EXE, FIRMWARE.parent)
         paths = BY_KEY["bl-es"].paths(FIRMWARE.parent, Path(self.tmp.name))
         if not paths[0].exists() or not paths[1].exists():
             self.skipTest("Spanish firmware not supplied")
@@ -312,7 +397,8 @@ class WorkerTests(unittest.TestCase):
         english.close()
 
     def test_type_n_speak_cold_start_keyboard_and_save(self):
-        from profiles import BY_KEY
+        from profiles import discover
+        BY_KEY = discover(EXE, FIRMWARE.parent)
         for key, yes in (("tns-en", "y"), ("tns-es", "s")):
             with self.subTest(key=key):
                 paths = BY_KEY[key].paths(FIRMWARE.parent, Path(self.tmp.name))

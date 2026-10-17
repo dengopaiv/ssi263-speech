@@ -7,11 +7,11 @@ from types import ModuleType
 
 from audio_options import RATES
 from preferences import Preferences
-from profiles import BY_KEY
 from worker import Worker, WorkerError
 
 
-def audio_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences, *, stdscr: curses.window | None = None) -> None:
+def audio_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences, *, stdscr: curses.window | None = None,
+               kind: str = "bl") -> None:
     buffers = {"auto": _("Automatic (starts at 60 ms, increases if needed)"),
                "medium": _("Medium (100 ms)"), "long": _("Long (250 ms)")}
     idle = {"0": _("Silent"), "1": _("Hiss"), "2": _("Whine"), "3": _("Original unit behavior")}
@@ -24,7 +24,7 @@ def audio_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences, *,
             "b": _("Sound buffer: {value}").format(value=buffers[current.buffer]),
             "r": _("Sample rate: {rate} Hz").format(rate=current.rate),
         }
-        if BY_KEY[preferences.unit].kind != "tns":
+        if kind != "tns":
             choices.update({
                 "i": _("Idle sound: {value}").format(value=idle[str(current.idle)]),
                 "c": _("Keep channel open: {value}").format(value=keep[str(current.keep_open)]),

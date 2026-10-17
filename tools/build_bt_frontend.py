@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = (
     "frontend.py", "worker.py", "keymap.py", "display.py", "preferences.py", "profiles.py",
-    "tns_keyboard.py", "audio_options.py", "audio_menu.py", "runtime_paths.py",
+    "tns_keyboard.py", "audio_options.py", "audio_menu.py", "runtime_paths.py", "file_import.py",
 )
 
 

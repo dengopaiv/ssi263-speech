@@ -1,47 +1,46 @@
-"""The existing emulator's six-dot firmware profiles and separate saved memories."""
+"""Read the same native firmware catalog used by the desktop and terminal shells."""
 
+import json
+import subprocess
 from dataclasses import dataclass
 from gettext import gettext as _
 from pathlib import Path
+
+from worker import WorkerError
 
 
 @dataclass(frozen=True)
 class Profile:
     key: str
     label: str
-    firmware: tuple[str, ...]
-    factory: tuple[str, ...]
+    firmware: Path
+    factory: Path | None
     saved: str
     kind: str = "bl"
+    codepage: int = 850
 
     def paths(self, firmware_dir: Path, state_dir: Path) -> tuple[Path, Path | None, Path]:
-        def find(names: tuple[str, ...]) -> Path:
-            return next((firmware_dir / name for name in names if (firmware_dir / name).is_file()), firmware_dir / names[0])
-        return find(self.firmware), find(self.factory) if self.factory else None, state_dir / self.saved
+        return self.firmware, self.factory, state_dir / self.saved
 
     def available(self, firmware_dir: Path, state_dir: Path) -> bool:
-        firmware, factory, saved = self.paths(firmware_dir, state_dir)
-        return firmware.is_file() and (factory is None or factory.is_file() or saved.is_file())
+        return self.firmware.is_file() and (
+            self.factory is None or self.factory.is_file() or (state_dir / self.saved).is_file()
+        )
 
 
-# Same filenames and layouts as src/apps/blazie/main_linux.c KINDS.
-# Old Braille Lite 18/40 images are not supported by the existing core.
-PROFILES = (
-    Profile("bl-en", _("Braille Lite 2000 (English)"), ("BL2ENG.BNS",), ("bl2_2003_warm.state",), "english.state"),
-    Profile("bl-es", _("Braille Lite 2000 (Spanish)"), ("spanish/BL2SPA.BNS", "BL2SPA.BNS"),
-            ("spanish/bl2spa_fresh.state", "bl2spa_fresh.state"), "spanish.state"),
-    Profile("tns-en", _("Type 'n Speak (English, speech only)"), ("tns/TNSENG.TNS", "TNSENG.TNS"),
-            (), "tns_english.state", "tns"),
-    Profile("tns-es", _("Type 'n Speak (Spanish, speech only)"), ("tns/TNSSPA.TNS", "TNSSPA.TNS"),
-            (), "tns_spanish.state", "tns"),
-    Profile("bns-en", _("Braille 'n Speak 2000 (English, speech only)"), ("bns2000/BS03ENG.BNS", "BS03ENG.BNS"),
-            ("bns2000/bs03eng_fresh.state", "bs03eng_fresh.state"), "bns_english.state"),
-    Profile("bns-sk", _("Braille 'n Speak 2000 (Slovak, speech only)"), ("bns2000/BS2SLL.BNS", "BS2SLL.BNS"),
-            ("bns2000/bs2sll_fresh.state", "bs2sll_fresh.state"), "bns_slovak.state"),
-    # Blazie's September 2000 German and Italian updates (an anonymous donation); flat: the Linux package's names
-    Profile("bl-de", _("Braille Lite 2000 (German)"), ("german/Lite2000.BNS", "Lite2000_de.BNS"),
-            ("german/lite2000_de_fresh.state", "lite2000_de_fresh.state"), "german.state"),
-    Profile("bl-it", _("Braille Lite 2000 (Italian)"), ("italian/Lite2000.BNS", "Lite2000_it.BNS"),
-            ("italian/lite2000_it_fresh.state", "lite2000_it_fresh.state"), "italian.state"),
-)
-BY_KEY = {profile.key: profile for profile in PROFILES}
+def discover(executable: Path, firmware_dir: Path) -> dict[str, Profile]:
+    """Catalog inspection does not open audio, create states, or take the keyboard."""
+    try:
+        result = subprocess.run([str(executable.resolve()), "--catalog", str(firmware_dir.resolve())],
+                                capture_output=True, text=True, check=True, timeout=30)
+        profiles = {}
+        for row in json.loads(result.stdout):
+            profile = Profile(row["key"], _(row["label"]), Path(row["firmware"]),
+                              Path(row["factory"]) if row["factory"] else None,
+                              row["saved"], row["kind"], row["codepage"])
+            if Path(profile.saved).name != profile.saved or profile.kind not in ("bl", "bns", "tns"):
+                raise ValueError("Invalid catalog entry")
+            profiles[profile.key] = profile
+        return profiles
+    except (subprocess.SubprocessError, ValueError, KeyError, TypeError) as exc:
+        raise WorkerError(_("Could not read the firmware catalog. Rebuild the emulator and try again.")) from exc

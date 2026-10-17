@@ -66,7 +66,7 @@ class AudioMenuTests(unittest.TestCase):
     def test_type_n_speak_hides_unsupported_idle_controls(self):
         self.prefs.unit = 'tns-en'
         dialogs = self.dialogs(['x'])
-        audio_menu(self.worker, dialogs, self.prefs)
+        audio_menu(self.worker, dialogs, self.prefs, kind='tns')
         self.assertEqual(set(dialogs.request_choice.call_args.args[0]), {'b', 'r', 'h', 'x'})
 
     def test_migration_and_validation(self):
