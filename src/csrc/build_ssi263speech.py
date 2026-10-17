@@ -54,7 +54,7 @@ def units():
         if not os.path.isfile(os.path.join(SRC, source)):
             raise SystemExit("Required release voice source missing: " + source)
     u = [(CHIP, "ssi263.c"), (CHIP, "ssi263dsp.c"), (MAME, "cpu/z180_mame.cpp"), (MAME, "cpu/z180_asci.cpp")]
-    u += [(BOARD, "blazie/%s.c" % n) for n in ("bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "bl_host",
+    u += [(BOARD, "blazie/%s.c" % n) for n in ("bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "bl_rtc6242", "bl_host",
                                                 "bl_voice", "bl_firmware", "bl_state")]
     u += [(FRONT + inc("blazie"), "blazie/bl_numbers.c"), (FRONT, "numwords.c"), (FRONT, "numwords_es.c")]
     u += [(MAME, "cpu/i8085_mame.cpp")] + [(ACCENT, "accentsa/%s.c" % n) for n in ("as_board", "as_usart", "as_host")]

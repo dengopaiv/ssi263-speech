@@ -18,7 +18,7 @@ OUT = os.path.join(HERE, "bl_languages_table.h")
 OUT_VOICES = os.path.join(HERE, "..", "voices_blazie.h")
 FIRST_SLOT = 9                  # voices.c's hand-written voices use slots 0..8
 
-MODELS = {"bl": "BL_MODEL_BRAILLE_LITE", "bns": "BL_MODEL_BNS2000"}
+MODELS = {"bl": "BL_MODEL_BRAILLE_LITE", "bns": "BL_MODEL_BNS2000", "bns640": "BL_MODEL_BNS640"}
 VOICES = {"english": "BLV_FW_ENGLISH", "spanish": "BLV_FW_SPANISH", "german": "BLV_FW_GERMAN",
           "italian": "BLV_FW_ITALIAN", "slovak": "BLV_FW_SLOVAK", "-": "BLV_FW_NONE"}
 SHAPES = {"english": "BLV_SHAPE_ENGLISH", "slow": "BLV_SHAPE_SLOW"}

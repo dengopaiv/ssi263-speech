@@ -119,7 +119,7 @@ objects() {
     cc --target="$TARGET" $CHIP -c -o "$O/ssi263dsp.o" "$SRC/ssi263dsp.c"
     cxx --target="$TARGET" $Z180CXX -c -o "$O/z180_mame.o" "$SRC/cpu/z180_mame.cpp"
     cxx --target="$TARGET" $Z180CXX -c -o "$O/z180_asci.o" "$SRC/cpu/z180_asci.cpp"
-    for f in bl_board flash29 bl_serial bl_idle bl_clock bl_host bl_voice bl_firmware bl_state; do
+    for f in bl_board flash29 bl_serial bl_idle bl_clock bl_rtc6242 bl_host bl_voice bl_firmware bl_state; do
         cc --target="$TARGET" $BOARD -c -o "$O/$f.o" "$SRC/blazie/$f.c"
     done
     cxx --target="$TARGET" $MAME -c -o "$O/i8085_mame.o" "$SRC/cpu/i8085_mame.cpp"

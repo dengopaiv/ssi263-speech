@@ -11,7 +11,7 @@
  * since a library must never write to a stdout that may be a protocol pipe.
  *
  * The clock controller (bl_clock.c, which the board and the Type 'n Speak board switch on for the emulator) comes
- * along too.
+ * along too, and the Braille 'n Speak 640's clock chip (bl_rtc6242.c).
  *
  * The board's idle-channel sounds (bl_idle.c, which bl_host.c drives for the emulator) come along here, so every build
  * that links the board has them; before the core, like the board.
@@ -20,5 +20,6 @@
 #include "flash29.c"
 #include "bl_serial.c"
 #include "bl_clock.c"
+#include "bl_rtc6242.c"
 #include "bl_idle.c"
 #include "../cpu/z180_legacy.c"

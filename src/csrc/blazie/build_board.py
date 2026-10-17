@@ -45,6 +45,7 @@ def build_mame(gcc, env):
             ("bl_board", os.path.join(HERE, "bl_board.c"), gcc, ["-O3", "-std=gnu89", "-DBL_Z180_MAME"]),
             ("flash29", os.path.join(HERE, "flash29.c"), gcc, ["-O3", "-std=gnu89"]),
             ("bl_clock", os.path.join(HERE, "bl_clock.c"), gcc, ["-O3", "-std=gnu89", "-I" + cpu]),
+            ("bl_rtc6242", os.path.join(HERE, "bl_rtc6242.c"), gcc, ["-O3", "-std=gnu89"]),
             ("bl_serial", os.path.join(HERE, "bl_serial.c"), gcc, ["-O3", "-std=gnu89"]),
             ("bl_live", os.path.join(HERE, "bl_live.c"), gcc, ["-O3", "-std=gnu89"]),
             ("test_bl_board", os.path.join(HERE, "test_bl_board.c"), gcc, ["-O3", "-std=gnu89"]),
@@ -55,7 +56,7 @@ def build_mame(gcc, env):
             ("test_i86_contract", os.path.join(cpu, "test_i86_contract.c"), gcc, ["-O2", "-std=gnu89"])):
         objs[name] = os.path.join(obj, name + ".o")
         subprocess.run([cc] + flags + inc + ["-c", "-o", objs[name], src], env=env, check=True)
-    core = [objs["bl_board"], objs["flash29"], objs["bl_clock"], objs["bl_serial"], objs["z180_mame"], objs["z180_asci"]]
+    core = [objs["bl_board"], objs["flash29"], objs["bl_clock"], objs["bl_rtc6242"], objs["bl_serial"], objs["z180_mame"], objs["z180_asci"]]
     for exe, main_o in (("bl_live_mame.exe", "bl_live"), ("test_bl_board_mame.exe", "test_bl_board")):
         subprocess.run([gxx] + MAME_LINK + ["-o", os.path.join(OUT, exe), objs[main_o]] + core, env=env, check=True)
     # the CPU contract's tests (no board): ../cpu/test_z180_contract.c
@@ -113,7 +114,7 @@ def build_mame_dll(arch, bindir, env, extra, chip_dll):
     os.makedirs(obj, exist_ok=True)
     inc = ["-I" + HERE, "-I" + cpu, "-I" + os.path.dirname(HERE)]
     objects = []
-    for name in ("z180_mame", "z180_asci", "bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock",
+    for name in ("z180_mame", "z180_asci", "bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "bl_rtc6242",
                  "bl_host", "bl_voice", "bl_firmware", "bl_state"):
         cpp = name.startswith("z180_")
         src = os.path.join(cpu if cpp else HERE, name + (".cpp" if cpp else ".c"))
@@ -136,6 +137,10 @@ def main():
         build_legacy_reference(gcc, env)
     subprocess.run([gcc] + FLAGS + ["-Wall", "-I" + HERE, "-o", os.path.join(OUT, "test_run_ahead.exe"),
                                     os.path.join(HERE, "test_run_ahead.c")], env=env, check=True)
+    # the Braille 'n Speak 640's clock chip on its own: test_rtc6242.c
+    subprocess.run([gcc] + FLAGS + ["-Wall", "-I" + HERE, "-o", os.path.join(OUT, "test_rtc6242.exe"),
+                                    os.path.join(HERE, "test_rtc6242.c"), os.path.join(HERE, "bl_rtc6242.c")],
+                   env=env, check=True)
     build_mame(gcc, env)
     # Public names are the release backend. Explicitly named old-core artifacts stay development-only.
     shutil.copy2(os.path.join(OUT, "bl_live_mame.exe"), os.path.join(OUT, "bl_live.exe"))

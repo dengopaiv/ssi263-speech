@@ -30,6 +30,7 @@
 #include "emu_unit.h"
 #include "tns_setup.h"
 #include "../../csrc/blazie/bl_board.h"   /* bl_keys_break */
+#include "../../csrc/blazie/bl_rtc6242.h" /* blr_break */
 
 #define RATE 11025
 #define T2012 1330864440LL          /* 2012-03-04 12:34:00: the PC's clock, a year the tests never set */
@@ -481,8 +482,9 @@ static void year_checks(const char *fw, const char *st)
 
 int main(int argc, char **argv)
 {
-    const char *brk = getenv("TEST_CLOCK_BREAK"), *part;
+    const char *brk = getenv("TEST_CLOCK_BREAK"), *part, *rtc = getenv("TEST_RTC_BREAK");
     blc_break = brk ? atoi(brk) : 0;
+    blr_break = rtc ? atoi(rtc) : 0;   /* the Braille 'n Speak 640's clock chip (bl_rtc6242.h blr_break) */
     if (argc >= 2 && !strcmp(argv[1], "unit"))
         unit_tests();
     else if (argc >= 4 && !strcmp(argv[1], "bl")) {

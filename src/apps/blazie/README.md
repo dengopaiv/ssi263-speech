@@ -252,6 +252,19 @@ apart by the firmware's idle loop.  The Slovak unit speaks Slovak through the sa
 rules: a key's answer takes ~443 ms of chip time, the English ~247); it takes the date in another order than the
 English unit's month, day, year (those digits set October 9).
 
+## The Braille 'n Speak 640
+
+The board again, with an OKI M6242B real-time clock at ports 60h-6Fh in place of the clock controller
+(`../../csrc/blazie/bl_rtc6242.h`, from OKI's data sheet); the board tells it by its firmware's code.  Without the
+chip its firmware waited forever for the clock to stop being busy, right after "Braille 'n Speak ready".  Its
+releases are the emulator's only (`bl_languages.txt`): Blazie's June 2003 English (`bns640.exe`, its BSPENG.BNS), and
+from a 640's flash after its last repair (issue #15) the September 2000 English and the Polish ("gotowy, pomoc
+otwarta"; its keys answer in ~380 ms of chip time, its rules slower, as the Slovak 2000's).  It has no file flash:
+its documents live in its battery RAM (183 pages free from new, as the 2000s say before their "2045 K flash"), so
+the flash half of the file tools does not apply to it.  Its clock starts from this PC's, is set with its own
+commands, and is kept in the saved state with the time the unit was off; it says the year as it is (2027 as twenty
+twenty-seven: its firmware's own century, up to 2099), so the Braille Lite's 28-year mapping (below) is not its.
+
 ## The clock
 
 The time and date come from the units' clock controller, a separate chip the firmware calls over the Z180's clocked

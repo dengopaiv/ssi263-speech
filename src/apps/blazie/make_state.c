@@ -14,6 +14,12 @@
  *
  *   make_state firmware/blazie/german/Lite2000.BNS german firmware/blazie/german/lite2000_de_fresh.state
  *   make_state firmware/blazie/italian/Lite2000.BNS italian firmware/blazie/italian/lite2000_it_fresh.state
+ *
+ * The Braille 'n Speak 640's (firmware/blazie/bns640/, never in git; the Polish answers t):
+ *
+ *   make_state firmware/blazie/bns640/june2003/BSPENG.BNS english firmware/blazie/bns640/june2003/bspeng_fresh.state
+ *   make_state firmware/blazie/bns640/issue15/BSPENG.BNS english firmware/blazie/bns640/issue15/bspeng_2000_fresh.state
+ *   make_state firmware/blazie/bns640/issue15/bsppla.bns yes=t firmware/blazie/bns640/issue15/bsppla_fresh.state
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,7 +84,7 @@ int main(int argc, char **argv)
         blv_sha256(data, n, d);
         free(data);
         printf("%s: a %s state, %ld bytes, sha256 ", argv[3], model == BL_MODEL_BNS2000 ? "Braille 'n Speak 2000"
-               : "Braille Lite 2000", n);
+               : model == BL_MODEL_BNS640 ? "Braille 'n Speak 640" : "Braille Lite 2000", n);
         for (k = 0; k < 32; k++)
             printf("%02x", d[k]);
         printf("\n");

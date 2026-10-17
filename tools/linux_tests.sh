@@ -251,6 +251,24 @@ SPA="$DATA/spanish/BL2SPA.BNS"; SPA_ST="$DATA/spanish/bl2spa_fresh.state"
 BNS="$DATA/bns2000/BS03ENG.BNS"
 [ -f "$BNS" ] && check "emulator: the Braille 'n Speak 2000, no display" ./build/linux/test_emu_unit bl "$BNS" \
     "$DATA/bns2000/bs03eng_fresh.state"
+# the Braille 'n Speak 640 (the OKI M6242B clock, bl_rtc6242.c), as on Windows: the chip on its own with its controls,
+# then each unit whose firmware and factory state are in $DATA/bns640 headless, and the English one's clock (its
+# control: the chip left out of the saved state)
+check "emulator: the Braille 'n Speak 640's clock chip" ./build/linux/test_rtc6242
+control "emulator: 640 clock chip CONTROL 1 (no leap years, must fail)" "^FAIL leap year " "^rtc6242: FAILED$"     -- ./build/linux/test_rtc6242 1
+control "emulator: 640 clock chip CONTROL 2 (HOLD's carry dropped, must fail)" "^FAIL HOLD's carry given after "     "^rtc6242: FAILED$" -- ./build/linux/test_rtc6242 2
+control "emulator: 640 clock chip CONTROL 4 (the time off not counted, must fail)" "^FAIL kept time while off "     "^rtc6242: FAILED$" -- ./build/linux/test_rtc6242 4
+B640="$DATA/bns640"
+unit640() {                          # firmware, state, key-to-sound limit (ms: the Polish rules answer slower)
+    [ -f "$B640/$1" ] && [ -f "$B640/$2" ] && check "emulator: the Braille 'n Speak 640 ($1), headless"         ./build/linux/test_emu_unit bl "$B640/$1" "$B640/$2" "$3"
+}
+unit640 june2003/BSPENG.BNS june2003/bspeng_fresh.state 320
+unit640 issue15/BSPENG.BNS issue15/bspeng_2000_fresh.state 320
+unit640 issue15/bsppla.bns issue15/bsppla_fresh.state 480
+if [ -f "$B640/june2003/BSPENG.BNS" ]; then
+    check "emulator: the Braille 'n Speak 640's clock" ./build/linux/test_clock bl "$B640/june2003/BSPENG.BNS"         "$B640/june2003/bspeng_fresh.state" clock
+    control "emulator: 640 clock CONTROL (the chip not saved, must fail)" "^ok +the clock goes on "         "^FAIL switched off and on +off 120 s" "^FAILED$" -- env TEST_RTC_BREAK=3 ./build/linux/test_clock bl         "$B640/june2003/BSPENG.BNS" "$B640/june2003/bspeng_fresh.state" clock
+fi
 control "emulator: advance bars CONTROL (port 40h bit 7, must fail)" "^ok +braille display" "^FAIL advance bar" \
     "^FAIL back bar" "^FAILED$" -- env TEST_EMU_BARS_BREAK=1 ./build/linux/test_emu_unit bl "$DATA/BL2ENG.BNS" \
     "$DATA/bl2_2003_warm.state"

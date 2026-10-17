@@ -790,6 +790,40 @@ if os.path.isfile(TEST_BNS) and all(os.path.isfile(os.path.join(BNS_DIR, fw)) an
                                     r"^FAIL export: the Slovak unit's folder names +.*: no$", r"^FAILED$"]))
     CHECKS.append(check("Braille 'n Speak 2000 English: file flash", [os.path.join(EMU, "test_flash.exe"), "bl",
                         os.path.join(BNS_DIR, "BS03ENG.BNS"), os.path.join(BNS_DIR, "bs03eng_fresh.state")]))
+# The Braille 'n Speak 640 (the board with the OKI M6242B clock, src/csrc/blazie/bl_rtc6242.c), when
+# firmware/blazie/bns640/ has its images and their factory states (never in the repo; make_state ... english, the
+# Polish yes=t): the chip on its own from its data sheet (the leap year, HOLD's carry, the time off, each with its
+# control), then each unit headless (boot, keys, latency -- the Polish rules answer slower, as the Slovak 2000's --,
+# saved and switched on again, no display) and its serial port; the June 2003 English's clock started from the PC,
+# set by its own commands, read back, going on and kept while off (control: the chip left out of the saved state).
+# The 640 says 2027 as 2027 (its firmware's own century), so the Braille Lite's year checks are not its.
+RTC_TEST = os.path.join(LIB, "test_rtc6242.exe")
+if os.path.isfile(RTC_TEST):
+    CHECKS.append(check("Braille 'n Speak 640: the OKI clock chip", [RTC_TEST]))
+    for arg, mark in (("1", r"^FAIL leap year "), ("2", r"^FAIL HOLD's carry given after "),
+                      ("4", r"^FAIL kept time while off ")):
+        CHECKS.append(check("Braille 'n Speak 640: the OKI clock chip CONTROL %s (must fail)" % arg, [RTC_TEST, arg],
+                            expect_fail=True, fail_marks=[mark, r"^rtc6242: FAILED$"]))
+BNS640_DIR = os.path.join(FW_BLAZIE, "bns640")
+BNS640_UNITS = (("English", os.path.join("june2003", "BSPENG.BNS"), os.path.join("june2003", "bspeng_fresh.state"), []),
+                ("English September 2000", os.path.join("issue15", "BSPENG.BNS"),
+                 os.path.join("issue15", "bspeng_2000_fresh.state"), []),
+                ("Polish", os.path.join("issue15", "bsppla.bns"), os.path.join("issue15", "bsppla_fresh.state"), ["480"]))
+if os.path.isfile(os.path.join(EMU, "test_emu_unit.exe")):
+    for label, fw, st, extra in BNS640_UNITS:
+        FW, ST = os.path.join(BNS640_DIR, fw), os.path.join(BNS640_DIR, st)
+        if not (os.path.isfile(FW) and os.path.isfile(ST)):
+            continue
+        CHECKS.append(check("Braille 'n Speak 640 %s: the unit, headless" % label,
+                            [os.path.join(EMU, "test_emu_unit.exe"), "bl", FW, ST] + extra))
+        CHECKS.append(check("Braille 'n Speak 640 %s: serial port" % label,
+                            [os.path.join(EMU, "test_serial.exe"), "bl", FW, ST]))
+        if label == "English":
+            CHECKS.append(check("Braille 'n Speak 640 English: clock", [CLOCK, "bl", FW, ST, "clock"]))
+            CHECKS.append(check("Braille 'n Speak 640 English: clock CONTROL (the chip not saved, must fail)",
+                                [CLOCK, "bl", FW, ST, "clock"], env={"TEST_RTC_BREAK": "3"}, expect_fail=True,
+                                fail_marks=[r"^ok +the clock goes on ", r"^FAIL switched off and on +off 120 s",
+                                            r"^FAILED$"]))
 # Blazie's games from their disks (src/apps/blazie/test_games.c; RetroBunn, PR #9: Simon locked the unit up at its
 # first tone), when firmware/blazie/games/ has them (simon.bns, hangman.bns: never in the repo; absent, no check):
 # run from the unit's files with its own command on every unit here.  Simon's first tone and its time-out; Hangman a

@@ -292,7 +292,11 @@ int emu_model(const emu_unit *u)
 {
     if (u->tns)
         return EMU_MODEL_TYPE_N_SPEAK;
-    return bh_get_int(u->host, "model") == BL_MODEL_BNS2000 ? EMU_MODEL_BNS2000 : EMU_MODEL_BRAILLE_LITE;
+    switch (bh_get_int(u->host, "model")) {
+    case BL_MODEL_BNS2000: return EMU_MODEL_BNS2000;
+    case BL_MODEL_BNS640: return EMU_MODEL_BNS640;
+    default: return EMU_MODEL_BRAILLE_LITE;
+    }
 }
 
 /* ---- the Type 'n Speak's lockstep (bl_host.c's bh_run, without the driver's turbo and whine) ------------------ */

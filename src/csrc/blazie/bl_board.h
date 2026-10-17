@@ -45,6 +45,8 @@ void bl_destroy(bl_unit *u);
    six, its clock controller's bit alone).  Port 40h bit 7 (the advance bar on the Braille Lite) is never used. */
 #define BL_MODEL_BRAILLE_LITE 0      /* Braille Lite 2000 */
 #define BL_MODEL_BNS2000 1           /* Braille 'n Speak 2000 */
+#define BL_MODEL_BNS640 2            /* Braille 'n Speak 640: no display, an OKI M6242B clock at 60h-6Fh (bl_rtc6242.h)
+                                        instead of the clock controller */
 int  bl_model(const bl_unit *u);
 /* Last complete display latch in standard dot order (dot 1 = bit 0, dot 8 = bit 7), left to right.
    Returns 18 or 40 cells copied, or 0 before the first valid latch, without a display, or if capacity is too small.

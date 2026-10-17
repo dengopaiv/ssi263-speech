@@ -27,7 +27,7 @@ MAME_CXX = ["-O3", "-std=c++17", "-fno-exceptions", "-fno-rtti", "-ffp-contract=
 # (object, source) of the unit's core, the same in every build
 CORE = [("ssi263", os.path.join(CSRC, "ssi263.c"), BOARD), ("ssi263dsp", os.path.join(CSRC, "ssi263dsp.c"), BOARD)]
 CORE += [(n, os.path.join(HERE, n + ".c"), BOARD)
-         for n in ("bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "tns_board", "bl_firmware", "bl_state")]
+         for n in ("bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "bl_rtc6242", "tns_board", "bl_firmware", "bl_state")]
 CORE += [(n, os.path.join(CPU, n + ".cpp"), MAME_CXX) for n in ("z180_mame", "z180_asci")]
 
 # a rule -> (its file under src/csrc/blazie, its code, the code with the rule undone, the checks that must then fail)

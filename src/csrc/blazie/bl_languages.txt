@@ -9,7 +9,7 @@
 #
 # Columns, separated by |:
 #   id      the release's own name, stable once shipped (a state file or a voice may carry it)
-#   model   bl = Braille Lite 2000, bns = Braille 'n Speak 2000 (bl_model)
+#   model   bl = Braille Lite 2000, bns = Braille 'n Speak 2000, bns640 = Braille 'n Speak 640 (bl_model)
 #   tag     its language (BCP 47)
 #   voice   the voice it is: a shipped voice's language (english, spanish, german, italian, slovak:
 #           bl_firmware.h BLV_FW_*), a new voice's key (blazie_hu: the voice id blazie:blazie_hu, a
@@ -90,3 +90,13 @@ bl2_es_1999_12     | bl  | es    | -       | english | s | 850 | 850  | slow | y
 bl2_sv_1999_07     | bl  | sv    | blazie_sv    | english | j | -   | 850sv | slow | yes | yes | 262097 | bd7fdc9ba44ad3ed151bc4ca2f3366ff659505660d6662dc7063023f017907a5 | da4a1fad1a86e8d1649072e75c612ad18559344627106b7a72f7f357799982d3 | Braille Lite 2000 (Swedish) | Braille Lite 2000 (Swedish) | BL2SWE.BNS | Braille Lite Swedish (BL2SWE.BNS): the July 1, 1999 revision
 bl2_tr_1998_12     | bl  | tr    | blazie_tr    | english | e | -   | 857tr | slow | no  | yes | 262021 | 5794fd2b6821bf279fa42714bd29a115d20288664a2084c5c760552acf30a617 | d5e6a39d7612db2bc075fd7139226185a08fd016d088e9ad21c8efd9d8b83175 | Braille Lite 2000 (Turkish) | Braille Lite 2000 (Turkish) | BL2TUR.BNS | Braille Lite Turkish (BL2TUR.BNS): the December 28, 1998 revision
 bl2_ru_1998_12     | bl  | ru    | blazie_ru    | english | d | -   | 866ru | slow | no  | yes | 261999 | 9b7bd374ae5574bc84beac2d43aefbd8f4341830ce6f851922cf1bdd770475fe | 0b24ba60ba749214688bac563279c88dc82c67595a9d8dc47e889d63b8f95416 | Braille Lite 2000 (Russian) | Braille Lite 2000 (Russian) | BL2RUS.BNS | Braille Lite Russian (BL2RUS.BNS): the December 28, 1998 revision
+# The Braille 'n Speak 640 (the board with the OKI M6242B clock: bl_rtc6242.h), the emulator's only: Blazie's June
+# 2003 update (bns640.exe, a zip behind its code: BSPENG.BNS), and the images from a 640's flash after its last repair
+# (issue #15), the September 20, 2000 English (another build than ONCE's of that release) and the Polish ("wersja 20
+# Wrzesien, 2000 ver.a", the first Polish Braille 'n Speak firmware we have; its text is ISO-8859-2, so cp and text
+# are not yet read).  Each set up by the English recipe with its own answer (the Polish t), its state hashed, and heard:
+# "Braille 'n Speak ready, help", "... gotowy, pomoc otwarta".  boot, echo and speaks are the voice path's, which the
+# 640 is not (a voice only if its rules differ from the 2000's, Tomi 2026-10-16).
+bns640_en_2003_06  | bns640 | en | - | english | y | -   | -    | fast | no  | no  | 261927 | be3b382b61559deea3f3e2c7f7bb3434af4825b76b63a7b7994159d2071ddcf4 | f9987f05ead89ff88849bceb25f23b258ef6a8f50aa2f1af87d53602d700813d | Braille 'n Speak 640 (English) | - | BSPENG.BNS | Braille 'n Speak 640 English: the June 5, 2003 revision
+bns640_en_2000_09  | bns640 | en | - | english | y | -   | -    | fast | no  | no  | 261920 | f688bc913d4f8d82298d54aa408a3d776d1d172978fc2d79ba4dba2a0b5be71f | ada323ad7d97ff383a0c3d17567eed3ccffad90dd848fe498824e02ae4710b93 | Braille 'n Speak 640 (English, September 2000) | - | BSPENG.BNS | Braille 'n Speak 640 English: the September 20, 2000 revision
+bns640_pl_2000_09  | bns640 | pl | - | english | t | -   | -    | fast | no  | no  | 261994 | 57508a66664a25293690fa59f8882b7ab62819d28ddaeb84c24ad4325ae27d3f | f3cb8f9abbb82246163350256843715e1a3cea209969969d128de23a0c733fa6 | Braille 'n Speak 640 (Polish) | - | BSPPLA.BNS | Braille 'n Speak 640 Polish: the September 20, 2000 revision

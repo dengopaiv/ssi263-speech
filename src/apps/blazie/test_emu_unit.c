@@ -336,7 +336,7 @@ int main(int argc, char **argv)
         emu_bars_break = 0;
         for (i = 0; i < EMU_CELLS; i++)
             cells += back[0][i] != 0;
-        if (model == EMU_MODEL_BNS2000) {
+        if (model == EMU_MODEL_BNS2000 || model == EMU_MODEL_BNS640) {
             snprintf(d, sizeof d, "%d cells", n);
             check("no display (BnS)", n == 0, d);
         } else {

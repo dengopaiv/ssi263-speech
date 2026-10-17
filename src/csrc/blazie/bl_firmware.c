@@ -177,10 +177,12 @@ static int import_image(const unsigned char *data, long n, const char *out_bns, 
         return BLV_FW_WRITE;
     }
     /* the voice's own check: bl_create refuses an image whose sites it cannot find (another Blazie unit); of the
-       Braille 'n Speak 2000's, which the board runs (the emulator's), only the Slovak release is a voice (0.8) */
+       Braille 'n Speak 2000's, which the board runs (the emulator's), only the Slovak release is a voice (0.8); the
+       Braille 'n Speak 640's listed releases are the emulator's (the voices' import then says so: BLV_FW_NO_VOICE) */
     u = bl_create(out_bns, NULL, 20.0, NULL, NULL, 0, msg, msglen);
     if (!u || (bl_model(u) != BL_MODEL_BRAILLE_LITE
-               && !(bl_model(u) == BL_MODEL_BNS2000 && k >= 0 && (unit || KNOWN[k].language != BLV_FW_NONE)))) {
+               && !(bl_model(u) == BL_MODEL_BNS2000 && k >= 0 && (unit || KNOWN[k].language != BLV_FW_NONE))
+               && !(bl_model(u) == BL_MODEL_BNS640 && k >= 0))) {
         bl_destroy(u);
         remove(out_bns);
         snprintf(msg, msglen, "Braille Lite firmware, but not a release this voice can run");

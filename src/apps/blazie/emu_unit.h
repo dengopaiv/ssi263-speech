@@ -31,8 +31,10 @@ int emu_kind(const emu_unit *u);
 /* The unit the firmware is for.  EMU_BRAILLE_LITE also runs the Braille 'n Speak 2000's firmware (BS03ENG.BNS,
    BS2SLL.BNS: its factory states from make_state.c): the Braille Lite 2000's board without the braille display
    (../../csrc/blazie/bl_board.h bl_model), the same six keys and space bar as chords; it has no advance bar (the
-   firmware never reads that bit).  Its idle channel is the Braille Lite's (measured on Tomi's Braille Lite only). */
-enum { EMU_MODEL_BRAILLE_LITE, EMU_MODEL_BNS2000, EMU_MODEL_TYPE_N_SPEAK };
+   firmware never reads that bit).  Its idle channel is the Braille Lite's (measured on Tomi's Braille Lite only).
+   EMU_MODEL_BNS640 is the Braille 'n Speak 640 (BSPENG.BNS): the same board, with an OKI M6242B clock in place of
+   the clock controller (../../csrc/blazie/bl_rtc6242.h). */
+enum { EMU_MODEL_BRAILLE_LITE, EMU_MODEL_BNS2000, EMU_MODEL_TYPE_N_SPEAK, EMU_MODEL_BNS640 };
 int emu_model(const emu_unit *u);
 /* Raw display cells (up to 40), left to right in standard eight-dot order; 0 when unavailable.
    Copy of the last complete hardware latch, including any cursor dots set by the firmware. */

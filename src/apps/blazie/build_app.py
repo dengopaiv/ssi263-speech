@@ -51,7 +51,7 @@ APP = ["-O2", "-std=c99", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-for
 LINK = ["-static", "-static-libstdc++", "-static-libgcc", "-s"]
 
 # the board's files (each its own object, as bl.dll's) and the define each control puts on just the file reading it
-BOARD_FILES = ("bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "bl_host", "tns_board")
+BOARD_FILES = ("bl_board", "flash29", "bl_serial", "bl_idle", "bl_clock", "bl_rtc6242", "bl_host", "tns_board")
 CONTROLS = {
     "flash_break": {"bl_board": "BLAZIE_FLASH_BREAK", "tns_board": "BLAZIE_FLASH_BREAK"},
     "cut_rx": {"bl_serial": "BL_SERIAL_CUT_RX"},

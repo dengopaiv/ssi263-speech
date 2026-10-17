@@ -185,7 +185,8 @@ int emc_list(const char *firmware_dir, emc_unit *out, int cap)
     for (i = 0; found && i < nf && n < cap; i++) {
         emc_unit *u = &out[n];
         int k = found[i].release;
-        if (covered(k) || (blv_release_model(k) != BL_MODEL_BRAILLE_LITE && blv_release_model(k) != BL_MODEL_BNS2000))
+        if (covered(k) || (blv_release_model(k) != BL_MODEL_BRAILLE_LITE && blv_release_model(k) != BL_MODEL_BNS2000
+                           && blv_release_model(k) != BL_MODEL_BNS640))
             continue;
         memset(u, 0, sizeof *u);
         u->name = blv_release_name(k);

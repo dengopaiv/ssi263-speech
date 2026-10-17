@@ -35,6 +35,8 @@
 #include "bl_serial.h"
 #include "bl_clock.h"
 #include "bl_display.h"
+#include "bl_rtc6242.h"
+typedef char bl_tails_alike[BLR_SAVE_SIZE == BLC_SAVE_SIZE ? 1 : -1];   /* a state's four sizes */
 #include "flash29.h"
 
 #ifdef BH_TRACE                              /* a scratch build's trace (never in a release build) */
@@ -94,6 +96,8 @@ struct bl_unit {
     int has_clk_tail;
     long long clk_wall;                      /* bl_clock_wall: the host's time for the next save */
     int model;                               /* bl_model */
+    blr_rtc rtc;                             /* the BNS 640's OKI M6242B (bl_rtc6242.h), at 60h-6Fh */
+    int rtc_on;                              /* bl_clock_on came: a saved state carries the chip */
     bld_display display;                    /* Latched dots, independent of RAM/text translation. */
     int braille_bars;                        /* Forward/back contacts on PPI B6/B7, active low. */
     /* Double speed (bl_set_double_speed, off by default): with it on, the firmware's own switch (CCR bit 7, PHI =
@@ -240,6 +244,9 @@ static uint8_t io_read(void *ctx, uint16_t Port)
        unit locked up at the first key.  Inferred from the game playing on the units, not measured on one. */
     if (p < 0x40 && (Port >> 8) && !bl_bus_break)
         return (unsigned char)p;
+    /* the BNS 640's clock drives D0-D3 only; the upper lines hold what the bus last carried, the port number */
+    if (u->model == BL_MODEL_BNS640 && (p & 0xF0) == BLR_PORT)
+        return (unsigned char)((p & 0xF0) | blr_read(&u->rtc, p & 0x0F, now_t(u)));
     v = p == 0x40 ? 0x00 : 0xFF;
     if (p == 0x81 && u->model == BL_MODEL_BRAILLE_LITE)
         v &= (unsigned char)~((u->braille_bars & 3) << 6);
@@ -313,6 +320,8 @@ static void io_write(void *ctx, uint16_t Port, uint8_t V)
     int p = Port & 0xFF;
     if (p == 0xE0)
         u->port_e0 = V;
+    if (u->model == BL_MODEL_BNS640 && (p & 0xF0) == BLR_PORT)
+        blr_write(&u->rtc, p & 0x0F, V, now_t(u));
     if (p == 0x83) {
         unsigned char before = u->ppi_c;
         blc_ppi_control(&u->ppi_c, V);       /* the 8255's control word: port C bit 4 calls the clock controller */
@@ -530,7 +539,8 @@ bl_unit *bl_create(const char *firmware, const char *state, double phon_ms,
             bl_destroy(u);
             return NULL;
         }
-        u->has_clk_tail = tail && blc_read_tail(s, u->clk_tail);
+        /* the clock controller's tail or the 640's chip (the same size; each loader knows its own) */
+        u->has_clk_tail = tail && (blc_read_tail(s, u->clk_tail) || !memcmp(u->clk_tail, "BLR6242", 7));
         fclose(s);
     }
     f = fopen(firmware, "rb");
@@ -544,13 +554,24 @@ bl_unit *bl_create(const char *firmware, const char *state, double phon_ms,
         unsigned prime = find_sig(u, "F6 E0 D3 C4 CD ?? ?? 3E C0 D3 C0", 9, n);
         unsigned fetch = find_sig(u, "2A 17 D6 7E 23 22 17 D6", 3, n);
         unsigned halt = find_sig(u, "21 ?? ?? 7E B7 20 06 76 CD", 7, n);
+        int bns640 = 0;
+        if (!fetch) {                        /* the Braille 'n Speak 640 (Blazie's 2000 and 2003 images): the same
+                                                fetch with its pointer at D616h */
+            fetch = find_sig(u, "2A 16 D6 7E 23 22 16 D6", 3, n);
+            bns640 = fetch != 0;
+        }
         if (!halt) {                         /* the idle loop of Blazie's other units: with the sites above, only the
-                                                Braille 'n Speak 2000's images on Tomi's disks have it (the Braille
-                                                Lite 18 and 40, the BNS 640 and the Type 'n Speak lack the others) */
+                                                Braille 'n Speak 2000's and 640's images have it (the Braille Lite 18
+                                                and 40 and the Type 'n Speak lack the others; the 640 has its fetch and
+                                                key-release sites in the forms below) */
             halt = find_sig(u, "21 ?? ?? 7E B7 20 09 3A ?? ?? 76 CD", 10, n);
             u->model = BL_MODEL_BNS2000;
         }
         u->site_release = find_sig(u, "DB 40 D3 20 E6 7F 20 F8", 0, n);
+        if (bns640) {                        /* its key-release wait has no OUT (20h),A */
+            u->site_release = find_sig(u, "DB 40 E6 7F 20 FA DB 40 E6 7F 20 F4", 0, n);
+            u->model = BL_MODEL_BNS640;
+        }
         if (!(send && prime && fetch && halt && u->site_release)) {
             snprintf(err, errlen, "could not locate the firmware sites in %s", firmware);
             bl_destroy(u);
@@ -569,6 +590,7 @@ bl_unit *bl_create(const char *firmware, const char *state, double phon_ms,
     bus.boundary = boundary;
     u->cpu = z180_create(&bus, u->clock_hz);
     if (!u->cpu) { snprintf(err, errlen, "cannot create the Z180"); bl_destroy(u); return NULL; }
+    blr_init(&u->rtc, u->clock_hz, 0);       /* the 640's clock: a set-up clock at 2000-01-01 until bl_clock_on */
     return u;
 }
 
@@ -711,6 +733,12 @@ int bl_save_state(const bl_unit *u, const char *path)
     ok = fwrite(u->ram + 0x40000, 1, 0x40000, s) == 0x40000 && fwrite(u->fflash, 1, n, s) == n;
     if (ok && u->clk)
         ok = blc_write_tail(s, u->clk, u->clk_wall);
+    if (ok && u->rtc_on && blr_break != 3) { /* the 640's chip, brought up to now (on a copy: the unit runs on) */
+        unsigned char buf[BLR_SAVE_SIZE];
+        blr_rtc copy = u->rtc;
+        blr_save(&copy, u->clk_wall, now_t(u), buf);
+        ok = fwrite(buf, 1, sizeof buf, s) == sizeof buf;
+    }
     return fclose(s) == 0 && ok;
 }
 
@@ -786,6 +814,19 @@ void bl_keys_down(bl_unit *u, int bits)
 int bl_clock_on(bl_unit *u, const blc_time *now, long long unix_now)
 {
     long long saved_at = -1;
+    if (u->model == BL_MODEL_BNS640) {       /* its OKI clock (it has no clock controller): as saved, on by the time
+                                                it was off, else from the host's time */
+        if (u->rtc_on)
+            return 1;
+        if (u->has_clk_tail && blr_load(&u->rtc, u->clk_tail, &saved_at, now_t(u))) {
+            if (saved_at >= 0 && unix_now >= 0)
+                blr_advance_off(&u->rtc, unix_now - saved_at);
+        } else if (now)
+            blr_set(&u->rtc, now, now_t(u));
+        u->rtc_on = 1;
+        u->clk_wall = unix_now;
+        return 1;
+    }
     if (u->clk)
         return 1;
     u->clk = (blc_clock *)malloc(sizeof(blc_clock));
@@ -804,6 +845,13 @@ int bl_clock_on(bl_unit *u, const blc_time *now, long long unix_now)
 
 int bl_clock_time(const bl_unit *u, int alarm, blc_time *t)
 {
+    if (u->model == BL_MODEL_BNS640) {       /* its OKI clock (no alarm), read on a copy: reading brings time up */
+        blr_rtc copy = u->rtc;
+        if (alarm)
+            return 0;
+        blr_get(&copy, t, now_t(u));
+        return 1;
+    }
     if (!u->clk)
         return 0;
     blc_get(u->clk, alarm, t);
