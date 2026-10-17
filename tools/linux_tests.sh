@@ -104,14 +104,15 @@ check "unit letters: each unit says its accented letters" python3 src/csrc/blazi
 control "unit letters CONTROL (the encodings before, must fail)" "^FAIL letter +bns2_sk U\+00F4: S PA UH3 PA S PA" \
     "^unit letters: [0-9]+ FAILED$" \
     -- env SSI263_LETTERS_BREAK=1 python3 src/csrc/blazie/test_unit_letters.py --lib "$LIB" --firmware "$DATA"
-# the trillion guard (bl_numbers.c bl_trillions, for the units that fold a trillion into billions): its text, the
-# Hungarian unit's billion word said once at most, voices.c giving it to the Hungarian voice and not the Russian; the
-# control leaves every number as it is
+# the trillion guard (bl_numbers.c bl_trillions, for the units that fold a trillion into billions): its text and the
+# Hungarian unit's billion word said once at most; voices.c's voice cases are Windows' (libssi263speech.so has no
+# voice table: it is built into sd_ssi263 alone), so they are skipped here and said so; the control leaves every
+# number as it is
 check "trillions: a folding unit's long numbers a digit at a time" python3 src/csrc/blazie/test_trillions.py \
     --lib "$LIB" --firmware "$DATA"
 control "trillions CONTROL (every number left as it is, must fail)" "^FAIL text +'1001000000000' -> '1001000000000'" \
-    "^FAIL unit +the Hungarian unit's billion word .* said 2 times" "^ok +voice +bl2_ru_1998_12 \(reads trillions\)" \
-    "^trillions: 8 FAILED$" \
+    "^FAIL unit +the Hungarian unit's billion word .* said 2 times" "^skip voice +this library has no voice table" \
+    "^trillions: 7 FAILED$" \
     -- env SSI263_TRILLIONS_BREAK=1 python3 src/csrc/blazie/test_trillions.py --lib "$LIB" --firmware "$DATA"
 # issue #8: the Accent SA's text done only when said (as_voice's settle between clauses), on the module's own engine
 # objects (libsd_voices_ref.so: libssi263speech.so has no Accent SA); its control is the settle off (0.7.5's done)

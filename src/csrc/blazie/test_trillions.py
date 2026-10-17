@@ -49,6 +49,15 @@ def load(path):
     lib = ctypes.CDLL(path)
     lib.bl_trillions.restype = ctypes.c_void_p
     lib.bl_trillions.argtypes = [ctypes.c_char_p, ctypes.c_int]
+    lib.blv_set_numbers.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    lib.blv_make_release_state.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, test_releases.PROGRESS,
+                                           ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    ctypes.c_int.in_dll(lib, "bl_trillions_break").value = 1 if BREAK else 0
+    # the voice table (voices.c): in the Windows library; on Linux it is built into the speech-dispatcher module
+    # (sd_ssi263) alone, so libssi263speech.so has none and the voice cases are skipped there (the unit's are not)
+    lib.has_voices = hasattr(lib, "ssv_find")
+    if not lib.has_voices:
+        return lib
     lib.ssv_find.argtypes = [ctypes.c_char_p]
     lib.ssv_create.restype = ctypes.c_void_p
     lib.ssv_create.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
@@ -57,10 +66,6 @@ def load(path):
     lib.ssv_render.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(ctypes.c_short)),
                                ctypes.POINTER(ctypes.c_int)]
     lib.ssv_destroy.argtypes = [ctypes.c_void_p]
-    lib.blv_set_numbers.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    lib.blv_make_release_state.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, test_releases.PROGRESS,
-                                           ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
-    ctypes.c_int.in_dll(lib, "bl_trillions_break").value = 1 if BREAK else 0
     return lib
 
 
@@ -147,8 +152,11 @@ def main():
                    "1,001,000,000,000 with the guard" % (" ".join(word), n, "" if n == 1 else "s"))
             ll.blv_destroy(v)
 
+        if not lib.has_voices:
+            print("skip voice    this library has no voice table (on Linux voices.c is the speech-dispatcher "
+                  "module's alone)")
         for rid, folds in (("bl2_hu_1999_07", True), ("bl2_ru_1998_12", False)):
-            if rid not in have:
+            if rid not in have or not lib.has_voices:
                 continue
             i = lib.ssv_find(("blazie:" + table[have[rid][0]]["voice"]).encode())
             guarded = voice_pcm(lib, i, tmp, 1, "1001000000000.")
