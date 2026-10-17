@@ -94,6 +94,12 @@ It takes:
 - one file: the Speak-Out's `SPEAKOUT.HEX`; a Mockingboard's `mockingboard-tts-1.1.bin` or
   `mockingboard-tts-early.bin`, or the disk image it comes from; a `.BNS`, or an update
   program (`.exe`/`.com`) holding the image, raw or as a zip behind its code (`blt2000.exe`), also inside a zip.
+- GW Micro's Sounding Board (0.8.5): its two DOS drivers, `SBLOAD.COM` and `SB.COM` version 2.7, each known by its
+  sha256 (`ssa_import_soundingboard`), imported only together -- `sb.zip` as GW Micro gave it out (the drivers at its
+  top; its manual, viewer and the rest left out), or the two files picked at once. One alone is refused with why. The
+  voice, **GW Micro Sounding Board (English)**, is the Speak-Out's voice on the card's own drivers (`sb_host.h` on the
+  Accent-mini's 8086), listed only once both are imported. It sits right after the release voices
+  (`SSA_SOUNDINGBOARD`, 27), so no voice saved before it moves; a release voice added to the table later would move it.
 
 ### The Mockingboards: Sweet Micro's text-to-speech, one file each
 
@@ -280,6 +286,7 @@ shipped in the APK. The Setup page's "Licenses and source" shows them all and po
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=mockingboard          # control: the Mockingboard cases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=release               # control: the release voices' cases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=units                 # control: the unit screen's releases must FAIL
+    ./gradlew testDebugUnitTest -Pssi263ImportBreak=soundingboard         # control: the Sounding Board's cases must FAIL
 
 `test_import_native.py` makes every fixture at test time from the files in the firmware folder (`--firmware`, default
 `$SSI263_FIRMWARE`, else `firmware/blazie`, with `spanish/`, `tns/` and `once2000/` -- ONCE's September 2000

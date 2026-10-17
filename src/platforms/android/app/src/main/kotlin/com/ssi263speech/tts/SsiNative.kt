@@ -30,7 +30,10 @@ object SsiNative {
     const val ITALIAN = 8                   // the Braille Lite, Italian (imported)
     const val SLOVAK = 9                    // the Braille 'n Speak 2000, Slovak (imported)
     const val RELEASE_FIRST = 10            // ssa_engine.h's SSA_RELEASE_FIRST: the release voices (Hungarian ...) on
-    const val VOICES = 27                   // ssa_engine.h's SSA_VOICES: every index is below it (10 + 17 release voices)
+    const val VOICES = 27                   // ssa_engine.h's SSA_VOICES: the release voices end below it (10 + 17)
+    const val SOUNDINGBOARD = 27            // ssa_engine.h's SSA_SOUNDINGBOARD: GW Micro's Sounding Board (imported;
+                                            // 0.8.5), after the release voices so no saved voice moves
+    const val ALL_VOICES = 28               // ssa_engine.h's SSA_ALL_VOICES: every index is below it
 
     /** Open the engine on the folder holding the unit's files (once per process; later calls keep it). */
     external fun nativeOpen(dataDir: String): Boolean

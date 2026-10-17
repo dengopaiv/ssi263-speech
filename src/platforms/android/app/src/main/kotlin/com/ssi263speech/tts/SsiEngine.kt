@@ -40,7 +40,11 @@ object SsiEngine {
         get() = SHIPPED + FirmwareImport.releases.map { r ->
             val locale = SsiLanguages.locale(r.tag)
             VoiceInfo(r.voice, SsiLanguages.voiceTag(locale) + "-braillelite", "Braille Lite 2000 (${r.language})", locale)
-        }
+        } + AFTER_RELEASES
+
+    /** The voices after the release table's (0.8.5): GW Micro's Sounding Board, imported only (its two drivers). */
+    private val AFTER_RELEASES = listOf(
+        VoiceInfo(SsiNative.SOUNDINGBOARD, "en-US-soundingboard", "GW Micro Sounding Board (English)", Locale("en", "US")))
 
     /** Every voice this app has, whether or not it can speak now (SsiLanguages: a language whose firmware is not here
      * is missing data, not unsupported). */

@@ -84,7 +84,10 @@ if MOCKINGBOARD:
     LICENSES.update({"Fake6502-6502-core.txt": os.path.join("src", "csrc", "cpu", "fake6502", "PINNED.txt"),
                      "EchoTalk-BSD-3-Clause.txt": os.path.join("src", "csrc", "cpu", "fake6502",
                                                                "LICENSE-EchoTalk-BSD-3-Clause.txt")})
-REFUSED = {"1c6930c8c6aed0550bc267c14032f9195b450ed95de606f2fa9727e2b7eb1eb1": "the Speak-Out's SPEAKOUT.HEX"}
+REFUSED = {"1c6930c8c6aed0550bc267c14032f9195b450ed95de606f2fa9727e2b7eb1eb1": "the Speak-Out's SPEAKOUT.HEX",
+           # the Sounding Board's two drivers (0.8.5, imported only; .COM files no name rule here catches)
+           "f821c9c28180cfcecc0e5b422bb30b1b8a97d37bac7188405f066baa56cd7b72": "the Sounding Board's SBLOAD.COM",
+           "0946a2f2caa5acad54ef2113d1ebb5f40f686219eea0b3697e478dce19c9158e": "the Sounding Board's SB.COM"}
 # the Mockingboards' files (Sweet Micro's: the GitHub APK carries them, Tomi 2026-10-10), in SWEET_DIR only, with
 # Sweet Micro's notice; build_android.sh takes them from FIRMWARE_MB (local copies, never committed)
 SWEET_DIR = "assets/sweet-micro/"

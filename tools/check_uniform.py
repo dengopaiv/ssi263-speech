@@ -447,6 +447,10 @@ def android(voices, p):
         if len(ids) != defines.get("VOICES"):
             p.errors.append("ssa_engine.c's voices and the release table's come to %d, SSA_VOICES is %s" % (
                 len(ids), defines.get("VOICES")))
+        # then those after the release table's (0.8.5: the Sounding Board), from SSA_VOICES
+        after = re.search(r"static const voice_def AFTER_RELEASES\[[^\]]*\]\s*=\s*\{(.*?)\n\};", engine_c, re.S)
+        if after:
+            ids += re.findall(r'\{\s*"([^"]+)",\s*\{', after.group(1))
     built = built_from_sources(voices, os.path.join(REPO, "build_android.sh"), "HAVE")
     index_name = {}
     for const, name in re.findall(r'VoiceInfo\(SsiNative\.(\w+),\s*"([^"]+)"', engine_kt):

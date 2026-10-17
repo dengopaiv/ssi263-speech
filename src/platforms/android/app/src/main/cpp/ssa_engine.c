@@ -46,10 +46,17 @@ static const voice_def VOICES[SSA_RELEASE_FIRST] = {
     {"blazie:blazie_it", {"Lite2000_it.BNS", "lite2000_it_fresh.state", NULL}},
     {"blazie:blazie_sk", {"BS2SLL.BNS", "bs2sll_fresh.state", NULL}},
 };
+/* the voices after the release table's (ssa_engine.h, 0.8.5), from SSA_VOICES */
+static const voice_def AFTER_RELEASES[SSA_ALL_VOICES - SSA_VOICES] = {
+    {"speakout:soundingboard", {SSA_SBLOAD_FILE, SSA_SB_FILE, NULL}},
+};
 static const size_t ROM_SIZES[3] = {0x10000, 0x8000, 0x8000};
 
-/* ssa_engine.h's count of the release voices is the generated table's */
+/* ssa_engine.h's count of the release voices is the generated table's, and the Sounding Board comes right after them */
 typedef char release_voices_match[SSA_RELEASE_VOICES == SSV_BLAZIE_RELEASE_VOICES ? 1 : -1];
+typedef char soundingboard_after_releases[SSA_SOUNDINGBOARD == SSA_VOICES ? 1 : -1];
+
+static int after_releases(int voice) { return voice >= SSA_VOICES && voice < SSA_ALL_VOICES; }
 
 int ssa_voice_release(int voice)
 {
@@ -75,6 +82,8 @@ int ssa_voice_file(int voice, int i, char *out, int cap)
     const char *name = NULL;
     if (voice >= 0 && voice < SSA_RELEASE_FIRST && i >= 0 && i < 3)
         name = VOICES[voice].files[i];
+    else if (after_releases(voice) && i >= 0 && i < 3)
+        name = AFTER_RELEASES[voice - SSA_VOICES].files[i];
     else if (k >= 0 && i == 0)
         name = blv_release_file(k);
     else if (k >= 0 && i == 1) {
@@ -91,6 +100,7 @@ static int ssv_of(int voice)
     char id[80];
     int k = ssa_voice_release(voice);
     if (voice >= 0 && voice < SSA_RELEASE_FIRST) return ssv_find(VOICES[voice].id);
+    if (after_releases(voice)) return ssv_find(AFTER_RELEASES[voice - SSA_VOICES].id);
     if (k < 0) return -1;
     snprintf(id, sizeof id, "blazie:%s", blv_release_voice_key(k));
     return ssv_find(id);
@@ -99,7 +109,7 @@ static int ssv_of(int voice)
 struct ssa_engine {
     char *datadir;
     int sample_rate, inflection, whine;
-    ssv_voice *units[SSA_VOICES];      /* the kept units (every voice but the Accent SA) */
+    ssv_voice *units[SSA_ALL_VOICES];  /* the kept units (every voice but the Accent SA) */
     unsigned char *rom[3];             /* the Accent SA's u2, u3, u4 */
     unsigned char *mini;               /* the Accent-mini's SPKEMS.DVC */
     size_t mini_n;
@@ -232,6 +242,7 @@ static void settings_for(const ssa_engine *e, int voice, const ssa_settings *s, 
         o->run_ahead = 0;
         break;
     case SSA_SPEAKOUT:                 /* the slider's pitch as the setting, the request's as a capital's offset */
+    case SSA_SOUNDINGBOARD:            /* (its drivers' front end is the Speak-Out's: the same voice) */
         o->pitch = clamp100(s->pitch);
         *offset = ssa_speakout_pitch(s->pitch, ssa_voice_break == 1 ? 100 : request_pitch) - o->pitch;
         if (ssa_voice_break != 2) {    /* the control: its own settings dropped, the driver's defaults sent */
@@ -299,7 +310,7 @@ ssa_engine *ssa_new(const char *datadir)
 static void shut_down(ssa_engine *e)
 {
     int i;
-    for (i = 0; i < SSA_VOICES; i++) {
+    for (i = 0; i < SSA_ALL_VOICES; i++) {
         ssv_destroy(e->units[i]);
         e->units[i] = NULL;
     }

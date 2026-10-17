@@ -65,6 +65,13 @@ int ssa_import_firmware(const unsigned char *data, long n, const char *out, char
 int ssa_import_voice(const unsigned char *data, long n, const char *out, char *msg, int msglen);
 #define SSA_FW_RELEASE 100             /* + a release table row no voice speaks: kept for the unit screen alone */
 
+/* GW Micro's Sounding Board (0.8.5): its two DOS drivers, version 2.7, each known by its sha256 (sb_host.h's), written
+   to out as it is with its label in msg -- one of the pair that makes the voice SSA_SOUNDINGBOARD (ssa_engine.h): the
+   app imports it only with both (sb.zip holds them at its top, beside documentation never taken).  Else BLV_FW_NONE. */
+#define SSA_FW_SBLOAD 90               /* SBLOAD.COM, "Text-To-Speech in DOS": the rules */
+#define SSA_FW_SB 91                   /* SB.COM, the card driver */
+int ssa_import_soundingboard(const unsigned char *data, long n, const char *out, char *msg, int msglen);
+
 /* A Blazie release's language (bl_firmware.h's BLV_FW_*, which is not a voice index: German's 2 would be the Accent
    SA's) as the app's voice, SSA_ENGLISH ... SSA_SLOVAK; -1 for none.  And back: the state recipe a Blazie voice's
    unit is made with (blv_firmware_recipe of its language, for blv_make_state: the Slovak unit's is the English
@@ -74,6 +81,8 @@ int ssa_blazie_recipe(int voice);
 
 /* The labels of an imported Speak-Out and Mockingboard. */
 #define SSA_SPEAKOUT_LABEL "GW Micro Speak-Out: SPEAKOUT.HEX"
+#define SSA_SBLOAD_LABEL "GW Micro Sounding Board 2.7: SBLOAD.COM"
+#define SSA_SB_LABEL "GW Micro Sounding Board 2.7: SB.COM"
 #define SSA_MOCKINGBOARD_LABEL "Mockingboard: Sweet Micro Systems' text-to-speech 1.1"
 #define SSA_MOCKINGBOARD_EARLY_LABEL "Mockingboard, early: Sweet Micro Systems' text-to-speech of Mockingboard disk 1"
 
@@ -84,7 +93,8 @@ int ssa_blazie_recipe(int voice);
    app's voice, as before 0.8's table -- German's 2 is the Accent SA's index -- so the German, Italian and Slovak
    imports must fail.  4: ssa_import_voice never tries the release table, so the release voices' imports (Hungarian
    ...) must fail.  5: a release no voice speaks is dropped, as before 0.8.5 (BLV_FW_UNKNOWN, out removed), so the
-   unit screen's imports (the 640, Japanese) must fail. */
+   unit screen's imports (the 640, Japanese) must fail.  6: the Sounding Board's drivers are never known, so its
+   imports must fail. */
 extern int ssa_import_break;
 
 #ifdef __cplusplus

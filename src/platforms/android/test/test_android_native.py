@@ -84,6 +84,8 @@ ssa_map.c and ssa_import.c, on the same chip, boards, hosts and voices), every c
                                                   voices' imports fail)
                              import-units         ssa_import_break 5: a release no voice speaks dropped, as before
                                                   0.8.5 (the unit screen's imports fail: Japanese, the 640s)
+                             import-sb            ssa_import_break 6: the Sounding Board's drivers never known (its
+                                                  imports fail)
 
 SSI263_ANDROID_TEST_ONLY=<blocks>, a comma list of bl (the Braille Lite in lockstep, its Spanish unit and the probe),
 ra (run ahead), lift (the line-start lift), num (the number words), lang (0.8's German, Italian and Slovak units),
@@ -697,6 +699,33 @@ def mb_import_cases(exe, tmp):
 
 
 # ---- the import: GW Micro's SPEAKOUT.HEX by content -----------------------------------------------------------------
+SB_DIR = os.path.join(REPO, "firmware", "gw-micro-sounding-board")
+
+
+def sb_import_cases(exe, tmp):
+    """GW Micro's Sounding Board (0.8.5): its two drivers each known by sha256 (SSA_FW_SBLOAD 90, SSA_FW_SB 91) and
+    written as they came; one byte changed, neither"""
+    bad = 0
+    out = os.path.join(tmp, "sb.out")
+    for name, want in (("SBLOAD.COM", 90), ("SB.COM", 91)):
+        data = open(os.path.join(SB_DIR, name), "rb").read()
+        for label, b, code in ((name, data, want), (name + ", one byte changed", data[:100] + bytes([data[100] ^ 1]) +
+                                                    data[101:], None)):
+            src = os.path.join(tmp, "sb.in")
+            open(src, "wb").write(b)
+            if os.path.exists(out):
+                os.remove(out)
+            r = subprocess.run([exe, "--import", src, out], capture_output=True, text=True)
+            m = re.match(r"^import (-?\d+) (.*)$", r.stdout.strip())
+            got = int(m.group(1)) if m else None
+            ok = got == code and open(out, "rb").read() == data if code is not None else \
+                bool(m) and got not in (90, 91)
+            print("%-5s import   %s (the Sounding Board's): %s" % ("ok" if ok else "FAIL", label,
+                                                                m.group(0) if m else r.stdout + r.stderr))
+            bad += not ok
+    return bad
+
+
 def import_cases(exe, tmp):
     """(name, bytes, the code wanted, the bytes wanted in out or None): what a user may bring."""
     import hashlib
@@ -861,6 +890,11 @@ def build_into(exe):
         am = accent + ["-I" + os.path.join(SRC, "pc86")]
         units += [(mame, os.path.join(SRC, "cpu", "i86_mame.cpp")), (am, os.path.join(SRC, "pc86", "pc86.c")),
                   (am, os.path.join(SRC, "accentmini", "am_host.c")), (am, os.path.join(SRC, "accentmini", "am_voice.c"))]
+        if os.path.isfile(os.path.join(SRC, "soundingboard", "sb_host.c")):   # the Sounding Board (0.8.5), on pc86
+            have += ["-DSSV_HAVE_SOUNDINGBOARD", "-DSO_HAVE_SOUNDINGBOARD"]
+            units += [(am, os.path.join(SRC, "soundingboard", "sb_host.c"))]
+            units = [(flags + ["-DSO_HAVE_SOUNDINGBOARD"], s) if s.endswith(os.path.join("speakout", "so_voice.c"))
+                     else (flags, s) for flags, s in units]
     if os.path.isfile(os.path.join(SRC, "mockingboard", "mb_voice.c")):
         have.append("-DSSV_HAVE_MOCKINGBOARD")
         mb = ["-O2", "-std=gnu99", "-ffp-contract=off", "-w", "-I" + os.path.join(SRC, "cpu"),
@@ -1204,6 +1238,8 @@ def main():
             bad += blazie_import_cases(exe, data, a.firmware)
         if speakout and block("import"):
             bad += import_cases(exe, data)
+        if all(os.path.isfile(os.path.join(SB_DIR, f)) for f in ("SBLOAD.COM", "SB.COM")) and block("import"):
+            bad += sb_import_cases(exe, data)
         if (mb or any(mb_disks())) and block("import"):
             bad += mb_import_cases(exe, data)
         if a.adb:

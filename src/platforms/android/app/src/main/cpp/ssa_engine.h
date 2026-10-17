@@ -73,6 +73,11 @@ typedef struct ssa_engine ssa_engine;
 #define SSA_RELEASE_FIRST 10
 #define SSA_RELEASE_VOICES 17          /* = voices_blazie.h's SSV_BLAZIE_RELEASE_VOICES (checked when compiled) */
 #define SSA_VOICES (SSA_RELEASE_FIRST + SSA_RELEASE_VOICES)
+/* Then the voices after the release table's (0.8.5), so no voice saved before them moves (SsiSettings keeps the
+   index): GW Micro's Sounding Board, the Speak-Out's voice on the card's DOS drivers SBLOAD.COM and SB.COM (2.7),
+   imported.  Its index is SSA_VOICES (checked when compiled): a release voice added to the table moves it. */
+#define SSA_SOUNDINGBOARD 27
+#define SSA_ALL_VOICES (SSA_SOUNDINGBOARD + 1)
 /* A release voice's row in the release table (bl_firmware.h blv_release_*), or -1; and back: a row's voice, or -1
    (a release that names no new voice: a shipped voice's, or the emulator's only). */
 int ssa_voice_release(int voice);
@@ -84,6 +89,8 @@ int ssa_voice_file(int voice, int i, char *out, int cap);
 /* The imported files' names in the data folder (the Speak-Out's and the Mockingboard's: SsiImport writes them there;
    the Mockingboard's is mb_host.h's MB_FILE). */
 #define SSA_SPEAKOUT_FILE "SPEAKOUT.HEX"
+#define SSA_SBLOAD_FILE "SBLOAD.COM"           /* the Sounding Board's two drivers (0.8.5) */
+#define SSA_SB_FILE "SB.COM"
 #define SSA_MOCKINGBOARD_FILE "mockingboard-tts-1.1.bin"
 #define SSA_MOCKINGBOARD_EARLY_FILE "mockingboard-tts-early.bin"
 

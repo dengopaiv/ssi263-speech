@@ -1205,6 +1205,9 @@ if os.path.isfile(ANDROID_TEST):
                                                        "bl2000", r["file"]))
                            for r in gen_languages.rows()[0] if r["voice"].startswith("blazie_"))
     # ... and the releases the unit screen alone keeps (0.8.5: Japanese, the two 640s), when their files are here
+    # ... and the Sounding Board's two drivers (0.8.5), when they are here
+    ANDROID_SB = all(os.path.isfile(os.path.join(os.path.dirname(os.path.dirname(HERE)), "firmware",
+                                                 "gw-micro-sounding-board", f)) for f in ("SBLOAD.COM", "SB.COM"))
     ANDROID_UNITS = sum(os.path.isfile(os.path.join(os.path.dirname(os.path.dirname(HERE)), "firmware", "blazie", *p))
                         for p in (("bl2000", "BL2JPN.BNS"), ("bns640", "june2003", "BSPENG.BNS"),
                                   ("bns640", "issue15", "BSPENG.BNS")))
@@ -1243,6 +1246,12 @@ if os.path.isfile(ANDROID_TEST):
              [r"^FAIL +import +bl2000/BL2JPN\.BNS \(the unit screen's only, kept\): import -4 ",
               r"^ok +import +bl2000/BL2HUN\.BNS \(blazie_hu, voice \d+\): import \d+ ",
               r"^FAILED: %d case\(s\) differ$" % ANDROID_UNITS]),) if ANDROID_UNITS and ANDROID_RELEASES else ()) + ((
+            # 0.8.5: the Sounding Board's two drivers never known -- both imports fail, the changed copies stay refused
+            ("import-sb", "Sounding Board import: its drivers never known",
+             [r"^FAIL +import +SBLOAD\.COM \(the Sounding Board's\): import -1 ",
+              r"^FAIL +import +SB\.COM \(the Sounding Board's\): import -1 ",
+              r"^ok +import +SB\.COM, one byte changed \(the Sounding Board's\)",
+              r"^FAILED: 2 case\(s\) differ$"]),) if ANDROID_SB else ()) + ((
             ("numbers", "Braille Lite: number words dropped",
              [r"^FAIL +desktop +num-en +got ", r"^FAIL +desktop +num-es +got ", r"^ok +desktop +num-en-off ",
               r"^FAIL +desktop +num-en differs from num-en-off", r"^FAILED: 4 case\(s\) differ$"]),) if ANDROID_NUM
@@ -1286,7 +1295,7 @@ if os.path.isfile(ANDROID_TEST):
         only = {"1": "bl,accent", "accent-pitch": "accent,mini", "run-ahead": "bl,ra", "line-lift": "bl,lift",
                 "numbers": "num",
                 "speakout-pitch": "so", "speakout-settings": "so", "import-hash": "import", "import-dsk": "import",
-                "import-lang": "import", "import-release": "import", "import-units": "import"}.get(
+                "import-lang": "import", "import-release": "import", "import-units": "import", "import-sb": "import"}.get(
                     brk, "mb" if brk.startswith("mockingboard-") else "accent")
         CHECKS.append(check("Android engine CONTROL (%s, must fail)" % what, [PY, ANDROID_TEST],
                             env={"SSI263_ANDROID_TEST_BREAK": brk, "SSI263_ANDROID_TEST_ONLY": only}, expect_fail=True,
@@ -1408,7 +1417,19 @@ if os.path.isfile(os.path.join(SO_LIB, "test_v40_contract.exe")):
             CHECKS.append(check("Sounding Board CONTROL (each sentence without its last word, must fail)",
                                 [PY, SB_CHECK], env={"SB_CHECK_BREAK": "1"}, expect_fail=True,
                                 fail_marks=[r"^FAIL  Hello, this is the Sounding Board\. ",
-                                            r"^sounding board: 3 FAILED$"]))
+                                            r"^sounding board: 5 FAILED$"]))
+            # its host in C (sb_host.c) = the Python reference, write for write; the control runs the reference's
+            # chip 1 % fast.  And the voice (voices.c speakout:soundingboard) through the voice API every platform uses
+            SB_HOST = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_sb_host.py")
+            SB_VOICE = os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "check_sb_voice.py")
+            CHECKS.append(check("Sounding Board host in C = soundingboard.py, write for write", [PY, SB_HOST]))
+            CHECKS.append(check("Sounding Board host CONTROL (the reference's chip 1 % fast, must fail)", [PY, SB_HOST],
+                                env={"SB_HOST_BREAK": "1"}, expect_fail=True,
+                                fail_marks=[r"^FAIL  every chip write: ", r"^sb host: 2 FAILED$"]))
+            CHECKS.append(check("Sounding Board voice: listed, available, speaks (voice API)", [PY, SB_VOICE]))
+            CHECKS.append(check("Sounding Board voice CONTROL (SB.COM missing, must fail)", [PY, SB_VOICE],
+                                env={"SB_VOICE_BREAK": "1"}, expect_fail=True,
+                                fail_marks=[r"^FAIL  available with SBLOAD\.COM and SB\.COM ", r"^sb voice: 4 FAILED$"]))
         CHECKS.append(check("Speak-Out: MAME V40 core CONTROL (a value flipped, must fail)",
                             [PY, "speakout_core_compare.py"], env={"SPEAKOUT_COMPARE_FLIP": "1"}, expect_fail=True,
                             fail_marks=[r"^mame-steps: write values DIFFER from Unicorn's at write \d+ of",

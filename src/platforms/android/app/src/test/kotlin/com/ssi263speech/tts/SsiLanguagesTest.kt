@@ -92,9 +92,15 @@ class SsiLanguagesTest {
     }
 
     @Test fun everyVoiceIsListedOnceWithAnIndexBelowVoices() {
-        assertEquals(SsiNative.RELEASE_FIRST + RELEASES.size, known.size)
-        assertEquals((0 until known.size).toSet(), known.map { it.index }.toSet())
-        assertTrue(known.all { it.index < SsiNative.VOICES })
+        // the shipped ones and the release voices from 0, then the Sounding Board (0.8.5) at SSA_VOICES -- right after
+        // the library's release voices (ssa_engine.c checks that when compiled; this fake lists fewer): no index moved
+        assertEquals(SsiNative.RELEASE_FIRST + RELEASES.size + 1, known.size)
+        val before = known.filter { it.index != SsiNative.SOUNDINGBOARD }
+        assertEquals((0 until SsiNative.RELEASE_FIRST + RELEASES.size).toSet(), before.map { it.index }.toSet())
+        assertTrue(known.all { it.index < SsiNative.ALL_VOICES })
+        assertEquals(SsiNative.VOICES, SsiNative.SOUNDINGBOARD)
+        assertEquals(SsiNative.SOUNDINGBOARD + 1, SsiNative.ALL_VOICES)
+        assertEquals("en-US-soundingboard", known.single { it.index == SsiNative.SOUNDINGBOARD }.name)
         assertEquals(known.size, known.map { it.name }.toSet().size)
     }
 

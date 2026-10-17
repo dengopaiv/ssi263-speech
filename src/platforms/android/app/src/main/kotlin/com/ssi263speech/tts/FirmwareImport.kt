@@ -27,6 +27,9 @@ object FirmwareImport {
     const val GERMAN = 7                    // the Braille Lite, German (SsiNative.GERMAN; 0.8)
     const val ITALIAN = 8                   // the Braille Lite, Italian (SsiNative.ITALIAN)
     const val SLOVAK = 9                    // the Braille 'n Speak 2000, Slovak (SsiNative.SLOVAK)
+    const val SOUNDINGBOARD = 27            // GW Micro's Sounding Board (SsiNative.SOUNDINGBOARD; 0.8.5): two files --
+    const val SB_LOAD = 90                  // ... SBLOAD.COM (ssa_import.h SSA_FW_SBLOAD), and
+    const val SB_COM = 91                   // ... SB.COM (SSA_FW_SB): found apart, imported only together
     const val NONE = -1                     // no firmware in the bytes
     const val REFUSED = -2                  // Blazie firmware, but another unit's: not one the voice can run
     const val UNKNOWN = -4                  // Braille Lite 2000 firmware, but not a release on the list
@@ -56,13 +59,18 @@ object FirmwareImport {
                       SLOVAK to listOf("BS2SLL.BNS", "bs2sll_fresh.state"),
                       SPEAKOUT to listOf("SPEAKOUT.HEX"),
                       MOCKINGBOARD to listOf("mockingboard-tts-1.1.bin"),
-                      MOCKINGBOARD_EARLY to listOf("mockingboard-tts-early.bin"))
+                      MOCKINGBOARD_EARLY to listOf("mockingboard-tts-early.bin"),
+                      SOUNDINGBOARD to listOf("SBLOAD.COM", "SB.COM"))
     /** The imported voices, in the order an import takes them. */
-    val IMPORTED = listOf(ENGLISH, SPANISH, GERMAN, ITALIAN, SLOVAK, SPEAKOUT, MOCKINGBOARD, MOCKINGBOARD_EARLY)
+    val IMPORTED = listOf(ENGLISH, SPANISH, GERMAN, ITALIAN, SLOVAK, SPEAKOUT, MOCKINGBOARD, MOCKINGBOARD_EARLY,
+                          SOUNDINGBOARD)
     /** The Blazie units: a state made from each one's firmware. */
     val BLAZIE = setOf(ENGLISH, SPANISH, GERMAN, ITALIAN, SLOVAK)
     /** The voices whose firmware is taken as it is, with no state to make. */
-    val NO_STATE = setOf(SPEAKOUT, MOCKINGBOARD, MOCKINGBOARD_EARLY)
+    val NO_STATE = setOf(SPEAKOUT, MOCKINGBOARD, MOCKINGBOARD_EARLY, SOUNDINGBOARD)
+    /** A voice of two files (the Sounding Board's drivers): each file's code, in [FILES]' order. */
+    val PARTS = mapOf(SOUNDINGBOARD to listOf(SB_LOAD, SB_COM))
+    const val SOUNDINGBOARD_LABEL = "GW Micro Sounding Board 2.7: SBLOAD.COM and SB.COM"
     /** The voices the APK also carries a copy of (assets/sweet-micro): an import replaces it. */
     val BUILT_IN = setOf(MOCKINGBOARD, MOCKINGBOARD_EARLY)
 
@@ -91,7 +99,8 @@ object FirmwareImport {
     private val BRING = mapOf(ENGLISH to "BL2ENG.BNS", SPANISH to "BL2SPA.BNS", GERMAN to "Lite2000.BNS (German)",
                               ITALIAN to "Lite2000.BNS (Italian)", SLOVAK to "BS2SLL.BNS", SPEAKOUT to "SPEAKOUT.HEX",
                               MOCKINGBOARD to "the Mockingboard Developers Toolkit disk",
-                              MOCKINGBOARD_EARLY to "Mockingboard disk 1")
+                              MOCKINGBOARD_EARLY to "Mockingboard disk 1",
+                              SOUNDINGBOARD to "GW Micro's sb.zip (SBLOAD.COM and SB.COM)")
 
     fun bring(voice: Int): String? = release(voice)?.file ?: BRING[voice]
 
@@ -106,7 +115,8 @@ object FirmwareImport {
      * knowing a state file, so the state tests must fail; `speakout` drops what the native side says is the
      * Speak-Out's, so the Speak-Out tests must fail; `mockingboard` the same for the Mockingboard's; `release` leaves
      * the release voices out of the import, so their tests must fail; `units` drops a release no voice speaks (the
-     * 640, Japanese) as before 0.8.5, so the unit screen's import tests must fail. */
+     * 640, Japanese) as before 0.8.5, so the unit screen's import tests must fail; `soundingboard` drops what the native
+     * side says are the Sounding Board's two drivers, so its tests must fail. */
     private val CONTROL = System.getProperty("ssi263.import.break") ?: ""
 
     const val STATE_SIZE = 786432           // battery-backed RAM + file flash: every state bl_save_state writes
@@ -150,7 +160,7 @@ object FirmwareImport {
     fun languageName(language: Int) = release(language)?.language ?: when (language) {
         SPANISH -> "Spanish"; GERMAN -> "German"; ITALIAN -> "Italian"; SLOVAK -> "Slovak"
         SPEAKOUT -> "Speak-Out"; MOCKINGBOARD -> "Mockingboard"
-        MOCKINGBOARD_EARLY -> "early Mockingboard"; else -> "English" }
+        MOCKINGBOARD_EARLY -> "early Mockingboard"; SOUNDINGBOARD -> "Sounding Board"; else -> "English" }
 
     /** The unit's name in words: "German Braille Lite", "Slovak Braille 'n Speak 2000", a release voice's as the
      * table names it ("Braille Lite 2000 (Hungarian)"); the Speak-Out and the Mockingboards by their own. */
@@ -170,6 +180,7 @@ object FirmwareImport {
         val firmware: File,                 // the .BNS or the HEX, written into the staging folder
         val label: String,                  // the release, in words (the native side's list)
         val unit: UnitRelease? = null,      // a release kept for the unit screen alone ([UNIT_RELEASE]), not a voice
+        val parts: List<File> = emptyList(),  // a two-file voice's other files, in [FILES]' order (the Sounding Board)
     )
 
     /** Either `refusal` says why nothing can be imported, in words for the person holding the phone, or `found`
@@ -217,7 +228,8 @@ object FirmwareImport {
             val out = File(staging, "candidate${n++}.bin")
             val (language, text) = id.firmware(bytes, out).let {
                 if ((CONTROL == "speakout" && it.first == SPEAKOUT) ||
-                    (CONTROL == "mockingboard" && it.first in BUILT_IN)) NONE to "" else it
+                    (CONTROL == "mockingboard" && it.first in BUILT_IN) ||
+                    (CONTROL == "soundingboard" && it.first in PARTS.getValue(SOUNDINGBOARD))) NONE to "" else it
             }
             when {
                 isUnitRelease(language) -> {
@@ -273,6 +285,20 @@ object FirmwareImport {
             // One release per language: the list's first (the newest) when a source holds two.
             val rank = id.known()
             for (language in imported()) {
+                val codes = PARTS[language]
+                if (codes != null) {                // a two-file voice: each file once, imported only with both
+                    val parts = codes.map { code -> firmware.firstOrNull { it.language == code } }
+                    val have = parts.filterNotNull()
+                    if (have.size == parts.size)
+                        found.add(Found(language, have.joinToString(" and ") { it.from }, have[0].file,
+                                        SOUNDINGBOARD_LABEL, parts = have.drop(1).map { it.file }))
+                    else for (c in have) {
+                        val missing = FILES.getValue(language)[parts.indexOf(null)]
+                        withReason.add(c.from to "the ${languageName(language)}'s ${FILES.getValue(language)[
+                            parts.indexOf(c)]}, but its $missing is needed too (both are in GW Micro's sb.zip)")
+                    }
+                    continue
+                }
                 val c = firmware.filter { it.language == language }.minByOrNull { rank.indexOf(it.label) } ?: continue
                 found.add(Found(language, c.from, c.file, c.label))
             }
@@ -281,10 +307,10 @@ object FirmwareImport {
                 val c = firmware.first { it.language == language }
                 found.add(Found(language, c.from, c.file, c.label, c.unit))
             }
-            val kept = found.map { it.firmware }.toSet()
+            val kept = found.flatMap { listOf(it.firmware) + it.parts }.toSet()
             for (c in firmware) if (c.file !in kept) {
                 c.file.delete()
-                val f = found.first { it.language == c.language }
+                val f = found.firstOrNull { it.language == c.language } ?: continue   // a two-file voice's part
                 if (c.label != f.label)             // the same release twice (an update program and its .BNS) is one
                     notes.add("${c.from} is another ${languageName(c.language)} release (${c.label}); only " +
                         "${f.from} (${f.label}) is imported, as the unit holds one ${languageName(c.language)} " +

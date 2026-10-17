@@ -96,6 +96,14 @@ class FirmwareImportTest {
                 out.writeBytes(data)
                 return FirmwareImport.MOCKINGBOARD_EARLY to EARLY_LABEL
             }
+            if (String(data, 0, minOf(10, data.size), Charsets.ISO_8859_1) == "SBLOAD.COM") {   // by sha256 there
+                out.writeBytes(data)
+                return FirmwareImport.SB_LOAD to "GW Micro Sounding Board 2.7: SBLOAD.COM"
+            }
+            if (String(data, 0, minOf(10, data.size), Charsets.ISO_8859_1) == "SBDRIVER.C") {
+                out.writeBytes(data)
+                return FirmwareImport.SB_COM to "GW Micro Sounding Board 2.7: SB.COM"
+            }
             if (String(data, 0, minOf(10, data.size), Charsets.ISO_8859_1) == "SWEETMICRO") {
                 out.writeBytes(data)
                 return FirmwareImport.MOCKINGBOARD to "Mockingboard: Sweet Micro Systems' text-to-speech 1.1"
@@ -528,6 +536,33 @@ class FirmwareImportTest {
                                             "BL2HUN.BNS" to bns('H')))
         assertNull(plan.refusal)
         assertEquals(listOf(FirmwareImport.ENGLISH, HUNGARIAN, TURKISH), languages(plan))
+    }
+
+    // ---- GW Micro's Sounding Board (0.8.5): two drivers, imported only together, the rest of sb.zip left out ----------
+
+    private val sbLoad = "SBLOAD.COM".toByteArray() + ByteArray(3000) { (it * 7).toByte() }
+    private val sbCom = "SBDRIVER.C".toByteArray() + ByteArray(2000) { (it * 11).toByte() }
+
+    @Test fun sbZipBringsTheSoundingBoardAsOneVoiceOfTwoFiles() {
+        // GW Micro's sb.zip as it came: the two drivers at its top beside the manual and its viewer
+        val plan = inspect("sb.zip", zip("README" to "The Sounding Board".toByteArray(), "SBLOAD.COM" to sbLoad,
+                                         "SECT1.TXT" to ByteArray(500), "SB.COM" to sbCom,
+                                         "VIEW.EXE" to "MZ".toByteArray() + ByteArray(800)))
+        assertNull(plan.refusal)
+        val f = plan.found.single()
+        assertEquals(FirmwareImport.SOUNDINGBOARD, f.language)
+        assertEquals("SBLOAD.COM and SB.COM", f.from)
+        assertEquals(sbLoad.toList(), f.firmware.readBytes().toList())
+        assertEquals(sbCom.toList(), f.parts.single().readBytes().toList())
+        assertEquals(listOf("SBLOAD.COM", "SB.COM"), FirmwareImport.files(f.language))
+        assertTrue(plan.notes.isEmpty())
+    }
+
+    @Test fun oneSoundingBoardDriverAloneIsRefusedWithWhy() {
+        val plan = inspect("SB.COM", sbCom)
+        assertTrue(plan.found.isEmpty())
+        assertTrue(plan.refusal!!, plan.refusal!!.contains("the Sounding Board's SB.COM, but its SBLOAD.COM is needed " +
+                                                           "too (both are in GW Micro's sb.zip)"))
     }
 
     // ---- the unit screen's releases (0.8.5: no voice speaks them -- the 640, Japanese -- kept under units/) ----------

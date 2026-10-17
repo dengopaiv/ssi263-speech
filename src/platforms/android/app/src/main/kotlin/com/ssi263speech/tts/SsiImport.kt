@@ -139,6 +139,10 @@ object SsiImport {
                     val files = FirmwareImport.files(f.language) ?: throw IOException("no files for voice ${f.language}")
                     val firmware = File(ready, files[0])
                     if (!f.firmware.renameTo(firmware)) f.firmware.copyTo(firmware, overwrite = true)
+                    f.parts.forEachIndexed { k, part ->      // a two-file voice's others (the Sounding Board's SB.COM)
+                        val dest = File(ready, files[k + 1])
+                        if (!part.renameTo(dest)) part.copyTo(dest, overwrite = true)
+                    }
                     val w = weight(f.language).toDouble()
                     if (f.language !in FirmwareImport.NO_STATE) {
                         val state = File(ready, files[1])
