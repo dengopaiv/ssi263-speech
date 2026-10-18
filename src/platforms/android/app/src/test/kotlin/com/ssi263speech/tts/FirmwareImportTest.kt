@@ -616,6 +616,18 @@ class FirmwareImportTest {
         assertTrue(deep.found.isEmpty())
     }
 
+    @Test fun the085AddOnBringsTheSoundingBoardItCarries() {
+        // 0.8.5's add-on carries GW Micro's two drivers beside SPEAKOUT.HEX (Tomi, 2026-10-18): one import, both voices
+        val s = "synthDrivers/_ssi263_unified/_ssi263_speakout/"
+        val plan = inspect("ssi263-speech-0.8.5.nvda-addon", zip("manifest.ini" to "name = ssi263".toByteArray(),
+            s + "SPEAKOUT.HEX" to hex(true), s + "SBLOAD.COM" to sbLoad, s + "SB.COM" to sbCom))
+        assertNull(plan.refusal)
+        assertEquals(setOf(FirmwareImport.SPEAKOUT, FirmwareImport.SOUNDINGBOARD), languages(plan).toSet())
+        val sb = plan.found.single { it.language == FirmwareImport.SOUNDINGBOARD }
+        assertEquals(sbLoad.toList(), sb.firmware.readBytes().toList())
+        assertEquals(sbCom.toList(), sb.parts.single().readBytes().toList())
+    }
+
     @Test fun aReleaseVoiceHasItsFilesAndNames() {
         FirmwareImport.releases = RELEASES
         assertEquals(listOf("BL2HUN.BNS", "bl2_hu_1999_07.state"), FirmwareImport.files(HUNGARIAN))

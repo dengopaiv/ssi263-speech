@@ -218,12 +218,14 @@ class SettingsActivity : Activity() {
             "\nTo add: the Blazie Braille Lite 2000 in speech-box mode, its own firmware on an emulated Z180, " +
             "in English, Spanish, German and Italian, and with its language updates in many more (the list below); " +
             "the Blazie Braille 'n Speak 2000 the same way, in Slovak; and " +
-            "the GW Micro Speak-Out, its own firmware on an emulated V40, in English. Each language is offered to " +
+            "the GW Micro Speak-Out, its own firmware on an emulated V40, in English; and GW Micro's Sounding " +
+            "Board, the same voice on the card's own DOS drivers. Each language is offered to " +
             "TalkBack and the system once its unit is imported."))
 
         root.addView(ui.heading("Firmware to import"))
         root.addView(ui.body(
-            "The Braille Lite's and the Braille 'n Speak's firmware is Blazie's, and the Speak-Out's GW Micro's: " +
+            "The Braille Lite's and the Braille 'n Speak's firmware is Blazie's, and the Speak-Out's and the " +
+            "Sounding Board's GW Micro's: " +
             "none can come with this app, so import your own copy. One button takes any of them; the app tells them " +
             "apart by what is in the file. " +
             "For the Braille Lite, choose the Braille Lite 2000's update program (such as blt2000.exe), the " +
@@ -234,7 +236,9 @@ class SettingsActivity : Activity() {
             "Speak 2000, its BS2SLL.BNS. This phone then prepares the unit once, as the add-on's was prepared: a " +
             "few seconds for English, German, Italian and Slovak, about a minute for Spanish. For the Speak-Out, " +
             "choose GW Micro's " +
-            "SPEAKOUT.HEX, or the speakout.zip holding it; it is checked and ready in a moment. The Mockingboards " +
+            "SPEAKOUT.HEX, or the speakout.zip holding it; it is checked and ready in a moment. For the Sounding " +
+            "Board, choose GW Micro's sb.zip, or its SBLOAD.COM and SB.COM together: the voice needs both, and the " +
+            "rest of the zip is its documentation. The Mockingboards " +
             "can be imported too, in place of the copies built in, or when this copy of the app has none: the " +
             "Mockingboard Developers Toolkit's disk image (.dsk) or the mockingboard-tts-1.1.bin made from it, and " +
             "Mockingboard disk 1's image or mockingboard-tts-early.bin for the early one; each is checked and ready " +
