@@ -96,6 +96,9 @@ well. External speech stays running. Nothing is installed as a boot service, and
 Keep keys released during the brief handoff. If setup fails, the service journal contains the helper's error:
 `journalctl -u blazie-bt-keyboard.service`. For recovery from another terminal, use
 `sudo systemctl stop blazie-bt-keyboard.service`.
+If recovery itself fails and the keyboard remains unavailable, restart the BT Speak using its normal
+power controls. The temporary bridge does not persist across a restart, so the normal keyboard setup returns;
+you do not need a working keyboard to type a recovery command.
 
 The original six-dot firmware mapping, saved-memory paths, launcher name, language catalog, and audio
 settings are shared with the native route. Linux with Python's pidfd support, systemd, uinput, and
