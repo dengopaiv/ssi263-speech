@@ -2,7 +2,8 @@
 
 This frontend runs the existing emulator's Braille Lite 2000, Braille 'n Speak 2000, and Type 'n Speak firmware
 using the shared emulator core and SSI-263 voice.
-The device's keyboard server supplies the original dot keys, before BRLTTY translates them. Host menus use
+The device's keyboard server supplies the original dot keys, before BRLTTY translates them. On older
+speech-only BT Speak releases without that server, a temporary evdev/uinput bridge supplies the same raw keys. Host menus use
 the installed `BTSpeak.dialogs` library. The firmware handles editing, commands, speech settings, and files.
 
 Speech, keyboard access, and the firmware's own braille output are supported. The English Braille Lite 2000's
@@ -22,7 +23,8 @@ On the device, `blazie_emu` says "BT Speak or BT Braille detected: using its key
 and hands over to `blazie_emu_bt` beside it (`src/apps/blazie/bt_handover.c`), passing on `--unit`, `--firmware`,
 `--config` (as `--state-dir`) and `--rate`; its terminal-only options have no equivalent here and are left behind.
 The device is recognised when the system's `python3` imports the device's `BTSpeak` library and its keyboard service
-answers (`kb_client.server_available()`), which is what this frontend needs to run; an ordinary PC or Raspberry Pi
+answers (`kb_client.server_available()`), or the bundled frontend recognizes the older `4x3braille` keypad
+and its BRLTTY services. This probe is read-only. An ordinary PC or Raspberry Pi
 has no `BTSpeak` library, so `blazie_emu` stays in the terminal there. `blazie_emu --bt-probe` says what it finds.
 `blazie_emu --no-bt`, or `bt = off` under `[input]` in its `blazie_emu.ini`, keeps the terminal emulator on the
 device. `bt = native` keeps `blazie_emu` itself, using the device's keyboard and braille display without this
@@ -37,10 +39,13 @@ The BT frontend uses three runtime files:
 - `build/linux/blazie_files`: the upstream file tool used by the import menu.
 
 Keep these files together. The launcher starts the worker; it does not compile it. The frontend requires Python 3.11+
-and the device's installed `BTSpeak` Python package and keyboard service. It uses `dialogs.activity`, which replaced `runActivity` in the runtime inspected here.
+and the device's installed `BTSpeak` Python package. Older dialog signatures are adapted at runtime;
+menus use their own native curses wrappers where shared-screen dialogs are unavailable. The import menu is
+shown only when the installed runtime supplies a native file picker.
 
 Run from a Blazie Mode terminal on the device. Nothing is installed into or changed under `/BTSpeak` or
-`/BTBraille`; no menu registration, service restart, or driver configuration is needed.
+`/BTBraille`; no menu registration or driver configuration is needed. The native keyboard-server route
+needs no service changes. The older-device fallback briefly restarts its BRLTTY instance at setup and exit.
 
 The original `./src/platforms/btspeak/blazie` convenience launcher still works for source development,
 using the same compiled worker in `build/linux`. Rebuild the normal launcher after Python edits with
@@ -70,6 +75,31 @@ The initial default is 22050 Hz with the automatic audio buffer (starting at 60 
 `--rate` overrides and saves the sample rate for this and later runs. Sound-device
 failure is reported; it does not silently continue without a voice. Braille Lite and Braille 'n Speak require a factory state on the
 first start; Type 'n Speak uses its own cold setup. An existing saved state takes precedence; a damaged state is reported instead of reset.
+
+## Older BT Speak keyboards
+
+The frontend prefers the existing keyboard server. If it is absent, it checks for exactly one `4x3braille`
+keypad, `/dev/uinput`, and the supported active BRLTTY path, instance, and external-speech services. A server
+that is installed but unavailable, a busy native connection, or an unrecognized setup does not trigger the
+fallback. Setup failures are reported without silently changing input methods.
+
+The fallback starts `blazie-bt-keyboard.service` as a temporary systemd service through passwordless `sudo`.
+It briefly stops the BRLTTY instance, exclusively grabs the physical keypad, creates a virtual keypad,
+and restarts BRLTTY against it. Firmware input goes to the emulator; host-menu input goes to BRLTTY.
+Both directions switch only after the complete chord and its final input frame have been released.
+The helper accepts only its owning frontend as a capture client. A stalled or disconnected client cannot
+silently lose individual key events or block the helper's event loop.
+
+Normal exit stops the helper. A pidfd also watches the frontend, so a frontend crash releases the keyboard.
+The independent systemd `ExecStopPost` restores BRLTTY against the physical device after helper failure as
+well. External speech stays running. Nothing is installed as a boot service, and sessions have no time limit.
+Keep keys released during the brief handoff. If setup fails, the service journal contains the helper's error:
+`journalctl -u blazie-bt-keyboard.service`. For recovery from another terminal, use
+`sudo systemctl stop blazie-bt-keyboard.service`.
+
+The original six-dot firmware mapping, saved-memory paths, launcher name, language catalog, and audio
+settings are shared with the native route. Linux with Python's pidfd support, systemd, uinput, and
+noninteractive sudo is required for the fallback.
 
 ## Keyboard
 
@@ -318,6 +348,10 @@ Import tests cover picker cancellation and batch editing, replacement confirmati
 unchanged, native staged commit and backup, and continued exclusion of a second worker. A new-language test
 creates and reloads Hungarian memory when that firmware is supplied. Restart is also checked after a failed switch.
 
+Legacy keyboard tests cover backend selection, complete-chord handoff, exclusive capture, slow and disconnected
+consumers, bounded release, concurrent-launch ownership, supervised recovery, and older dialog signatures.
+These tests simulate device operations and do not restart the machine's keyboard services.
+
 `blazie_emu`'s hand-over is tested by `src/apps/blazie/test_bt_handover.py` (in `tools/linux_tests.sh`): the
 detection against a stand-in `BTSpeak` library and keyboard service, either one missing, and the test machine
 itself; the options passed to a stand-in `blazie_emu_bt`; `--no-bt`, `bt = off`, no device and a missing frontend
@@ -329,6 +363,10 @@ with `BLAZIE_TEST_ON_BT_DEVICE=1`, so the test machine's own detection is expect
 | File | What it does |
 | --- | --- |
 | `frontend.py` | The frontend: arguments, start-up checks, the capture loop (keyboard service events to the worker, braille polling), the host menu, firmware switching, deep escape, and the final save. |
+| `keyboard_backend.py`, `bt_runtime.py` | Native-first keyboard selection and compatibility with older installed dialog APIs. |
+| `legacy_keyboard.py` | Client connection and lifetime of the temporary keyboard service. |
+| `legacy_bridge.py`, `legacy_protocol.py` | Supervised physical/virtual keypad handoff, recovery, and raw event routing. |
+| `entrypoint.py` | Shared entry point for the frontend and its private supervised helper. |
 | `worker.py` | The native worker's pipe protocol: start, bounded requests and replies, `BRAILLE` frames, logged queue-full warnings, close and abort. No BT UI imports. |
 | `backend.c` | The native worker (`build/linux/blazie_bt`): one unit from `src/apps/blazie/emu_unit.c` with the Linux audio code, its commands on stdin, saves to a flushed temporary file renamed over the state. |
 | `keymap.py` | Six-dot chords from the device's key events: held keys, the menu and deep-escape chords, dots 7 and 8 ignored. |

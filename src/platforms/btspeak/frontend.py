@@ -2,6 +2,7 @@
 
 import argparse
 import curses
+from contextlib import ExitStack
 import os
 import select
 import signal
@@ -22,6 +23,8 @@ from tns_keyboard import key_name as tns_key_name
 from audio_menu import audio_menu
 from audio_options import RATES
 from runtime_paths import default_paths
+from keyboard_backend import select_keyboard
+from bt_runtime import Dialogs, say
 
 
 def capture(worker: Worker, kb_client: ModuleType, display: BrailleOutput | None = None, *, tns: bool = False) -> str:
@@ -94,7 +97,7 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
             "h": _("Keyboard help"),
             "q": _("Save and exit"),
         }
-        if profile is not None and files_tool is not None:
+        if profile is not None and files_tool is not None and callable(getattr(dialogs, "request_file", None)):
             choices["p"] = _("Import programs and files")
         if units:
             choices["f"] = _("Firmware: {name}").format(name=units[preferences.unit])
@@ -194,6 +197,8 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
 def menu_session(worker: Worker, dialogs: ModuleType, preferences: Preferences, units: dict[str, str], *,
                  profile: Profile | None = None, files_tool: Path | None = None) -> str:
     """Keep one terminal screen across host menus; return it before capturing firmware keys."""
+    if not getattr(dialogs, "shared_screen", True):
+        return host_menu(worker, dialogs, preferences, units, profile=profile, files_tool=files_tool)
     result = "resume"
     error: Exception | None = None
 
@@ -247,10 +252,13 @@ def main() -> int:
     args = parser.parse_args()
 
     # Deferred so --help works even on a development machine without the BT runtime.
-    from BTSpeak import brl, dialogs, host, kb_client, script
+    import BTSpeak
+    from BTSpeak import brl, dialogs, host, script
+    dialogs = Dialogs(dialogs, host)
 
     log = script.start_log()
     worker = None
+    keyboard_session = ExitStack()
     result = 0
     exit_to_editor = False
 
@@ -262,8 +270,7 @@ def main() -> int:
     try:
         if not args.backend.is_file():
             raise WorkerError(_("Build the emulator first by running ./build_linux.sh in the repository."))
-        if not kb_client.server_available():
-            raise WorkerError(_("The device keyboard service is unavailable."))
+        kb_client = keyboard_session.enter_context(select_keyboard(BTSpeak))
         state_dir = args.state_dir or Path(script.getUserSubdirectory("blazie-emulator"))
         state_dir.mkdir(parents=True, exist_ok=True)
         preferences = Preferences.load(state_dir / "preferences.json")
@@ -324,7 +331,7 @@ def main() -> int:
             action = menu_session(worker, dialogs, preferences, units, profile=profiles[preferences.unit],
                                   files_tool=args.backend.resolve().with_name("blazie_files"))
             if action == "resume":
-                host.say(_("Menu closed"), immediate=True, wait=True, as_ui=True)
+                say(host, _("Menu closed"))
             if action == "quit":
                 break
             if action == "restart":
@@ -334,7 +341,7 @@ def main() -> int:
                     worker.close()
                     worker = None
                     worker = start_unit(preferences.unit)
-                host.say(_("Unit restarted"), immediate=True, wait=True, as_ui=True)
+                say(host, _("Unit restarted"))
                 continue
             if action.startswith("unit:"):
                 requested = action[5:]
@@ -355,7 +362,7 @@ def main() -> int:
                 first_start_notice(selected)
     except KeyboardInterrupt:
         pass
-    except (OSError, EOFError, ValueError, WorkerError) as exc:
+    except (OSError, EOFError, ValueError, WorkerError, subprocess.SubprocessError) as exc:
         log.exception("Blazie emulator failed")
         dialogs.show_message(_("Emulator error: {error}").format(error=exc))
         result = 1
@@ -373,6 +380,12 @@ def main() -> int:
                     worker.abort()
         finally:
             try:
+                try:
+                    keyboard_session.close()
+                except (OSError, subprocess.SubprocessError) as exc:
+                    log.exception("Legacy keyboard cleanup failed")
+                    dialogs.show_message(_("Could not restore keyboard access: {error}").format(error=exc))
+                    result = 1
                 brl.write("")
             finally:
                 try:
