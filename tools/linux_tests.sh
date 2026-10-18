@@ -556,6 +556,13 @@ if ./build/linux/sd_ssi263 --voices | grep -q '^speakout'; then
         grep -c -E '/(share/ssi263-speech/gw-micro-speakout/SPEAKOUT\.HEX|licenses/MAME-V40-core-BSD-3-Clause\.txt|licenses/Speak-Out-firmware-notice\.txt)\$' | \
         grep -qx 3 && echo 'SPEAKOUT.HEX, its notice, MAME V40 BSD-3-Clause: in the package'"
 fi
+# GW Micro's Sounding Board drivers, bundled as the Speak-Out's firmware is (Tomi, 2026-10-18), when this build host
+# has them (firmware/gw-micro-sounding-board, never in the repository)
+if ./build/linux/sd_ssi263 --voices | grep -q '^soundingboard' && [ -f "$ROOT/firmware/gw-micro-sounding-board/SB.COM" ]; then
+    check "the Sounding Board in the package, with its notices" sh -c "tar -tzf build/ssi263-speech-*-linux-$(uname -m).tar.gz | \
+        grep -c -E '/(share/ssi263-speech/gw-micro-sounding-board/(SBLOAD|SB)\.COM|licenses/MAME-8086-core-BSD-3-Clause\.txt|licenses/Sounding-Board-drivers-notice\.txt)\$' | \
+        grep -qx 4 && echo 'SBLOAD.COM, SB.COM, their notice, MAME 8086 BSD-3-Clause: in the package'"
+fi
 check "no-GPL audit: comments and MAME compatibility names are not evidence" python3 tools/check_no_gpl.py \
     --clean-sample
 check "no build path in what ships" sh -c "! grep -a -q -F '$ROOT' '$LIB' build/linux/sd_ssi263 build/linux/blazie_emu \

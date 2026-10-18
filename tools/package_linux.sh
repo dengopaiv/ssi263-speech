@@ -13,6 +13,8 @@
 #     engine folder has them);
 #   the Accents' (Aicom's, in the repository with firmware/AICOM.txt): firmware/aicom-accent-sa, and
 #     firmware/aicom-accent-mini when the module has the Accent-mini;
+#   the Sounding Board's drivers (GW Micro's, SBLOAD.COM and SB.COM, never in the repository) from the firmware
+#     folder's gw-micro-sounding-board/ or firmware/gw-micro-sounding-board/, with their notice;
 #   the Speak-Out's (GW Micro's, never in the repository), when the module has the Speak-Out: SPEAKOUT.HEX from the
 #     firmware folder, its gw-micro-speakout/ or ../speakout-firmware/, or firmware/gw-micro-speakout/;
 #   the Mockingboard's (Sweet Micro Systems', never in the repository), when the module has the Mockingboard:
@@ -92,6 +94,28 @@ will be removed if its rights holders ask. It is not covered by this package's M
 EOF
     else
         echo "note: the module has the Speak-Out, but no SPEAKOUT.HEX was found, so the voice is not packaged"
+    fi
+fi
+# GW Micro's Sounding Board (SBLOAD.COM, SB.COM 2.7): with the Speak-Out's firmware, the same terms (Tomi, 2026-10-18)
+if has soundingboard; then
+    SB=""
+    for src in "$FW/gw-micro-sounding-board" "$ROOT/firmware/gw-micro-sounding-board"; do
+        [ -f "$src/SBLOAD.COM" ] && [ -f "$src/SB.COM" ] && { SB="$src"; break; }
+    done
+    if [ -n "$SB" ]; then
+        mkdir -p "$STAGE/share/ssi263-speech/gw-micro-sounding-board"
+        cp "$SB/SBLOAD.COM" "$SB/SB.COM" "$STAGE/share/ssi263-speech/gw-micro-sounding-board/"
+        cp "$ROOT/src/csrc/cpu/mame_i86/LICENSE-BSD-3-Clause.txt" "$STAGE/licenses/MAME-8086-core-BSD-3-Clause.txt"
+        cat > "$STAGE/licenses/Sounding-Board-drivers-notice.txt" <<'EOF'
+The Sounding Board's drivers -- notice
+
+This package carries GW Micro's DOS drivers for the Sounding Board, version 2.7
+(share/ssi263-speech/gw-micro-sounding-board/SBLOAD.COM and SB.COM; software Douglas Geoffray, GW Micro). They are
+not ours; they are here so the card can speak again, and they will be removed if their rights holders ask. They are
+not covered by this package's MIT license.
+EOF
+    else
+        echo "note: the module has the Sounding Board, but its drivers were not found, so the voice is not packaged"
     fi
 fi
 if has mockingboard; then

@@ -6,9 +6,10 @@ their staged synthDrivers (each driver and its engine package) are moved whole i
 synthDrivers/_ssi263_unified -- so each unit here is that add-on's, file for file.  The Mockingboard's driver
 (nvda/mockingboard) is staged beside them with its engine: the shared binding, the library, its firmware file when
 the local firmware folder has it (firmware/sweet-micro-mockingboard, never in the repository; without it the voice is
-not staged) and its notices.
+not staged) and its notices.  GW Micro's Sounding Board drivers (SBLOAD.COM, SB.COM 2.7) go with the Speak-Out's unit,
+as its SPEAKOUT.HEX does (Tomi, 2026-10-18: bundled on the desktop, imported on the phones).
 
-    python nvda/build_ssi263.py                # a release: every unit built fresh, all seven voices required
+    python nvda/build_ssi263.py                # a release: every unit built fresh, every voice required
     python nvda/build_ssi263.py --dev [--reuse] # development: a missing Mockingboard file allowed; --reuse takes
                                                 # dist/<name>-build as built instead of running the builders
 
@@ -36,6 +37,7 @@ OUT = os.path.join(HERE, "dist", "ssi263-speech-%s.nvda-addon" % VERSION)
 UNITS = ("blazie", "speakout", "accent")
 MB_FILE = os.path.join(REPO, "firmware", "sweet-micro-mockingboard", "mockingboard-tts-1.1.bin")
 MB_FILE_EARLY = os.path.join(REPO, "firmware", "sweet-micro-mockingboard", "mockingboard-tts-early.bin")
+SB_FILES = [os.path.join(REPO, "firmware", "gw-micro-sounding-board", n) for n in ("SBLOAD.COM", "SB.COM")]
 # Apple II disk images are never shipped (Tomi, 2026-10-09): the toolkit's disk also carries Apple's DOS 3.3 and
 # Sweet Micro's other programs; only the voice's own file is staged
 DISK_IMAGES = (".dsk", ".do", ".po", ".nib", ".woz", ".2mg")
@@ -89,6 +91,8 @@ def expected_files():
         U + "_ssi263_blazie/BL2ENG.BNS": os.path.join(fw, "blazie", "BL2ENG.BNS"),
         U + "_ssi263_blazie/bl2_2003_warm.state": os.path.join(fw, "blazie", "bl2_2003_warm.state"),
         U + "_ssi263_speakout/SPEAKOUT.HEX": os.path.join(fw, "gw-micro-speakout", "SPEAKOUT.HEX"),
+        U + "_ssi263_speakout/SBLOAD.COM": os.path.join(fw, "gw-micro-sounding-board", "SBLOAD.COM"),
+        U + "_ssi263_speakout/SB.COM": os.path.join(fw, "gw-micro-sounding-board", "SB.COM"),
         U + "_ssi263_accent/SPKEMS.DVC": os.path.join(fw, "aicom-accent-mini", "SPKEMS.DVC"),
         U + "_ssi263_accent/AICOM.txt": os.path.join(fw, "AICOM.txt"),
         U + "_ssi263_mockingboard/mockingboard-tts-1.1.bin": MB_SHA256,
@@ -149,6 +153,10 @@ def main():
         if not dev and not os.path.isfile(f):
             sys.exit("a release needs the Mockingboard's firmware file: %s (or --dev to build without it)"
                      % os.path.relpath(f, REPO))
+    for f in SB_FILES:
+        if not dev and not os.path.isfile(f):
+            sys.exit("a release needs the Sounding Board's driver: %s (or --dev to build without it)"
+                     % os.path.relpath(f, REPO))
     for unit in UNITS:
         built = os.path.join(HERE, "dist", "%s-build" % unit, "synthDrivers")
         if not (reuse and os.path.isdir(built)):
@@ -172,13 +180,6 @@ def main():
     if not stage_mockingboard(unified):
         os.remove(os.path.join(unified, "mockingboard.py"))
         rm(os.path.join(unified, "_ssi263_mockingboard"))
-    # GW Micro's Sounding Board (0.8.5): its two drivers only in a development build (the tests' voice matrix); a
-    # release carries them only if Tomi decides it should (his call, open: people may add them themselves)
-    if not dev:
-        for name in ("SBLOAD.COM", "SB.COM"):
-            p = os.path.join(unified, "_ssi263_speakout", name)
-            if os.path.isfile(p):
-                os.remove(p)
     shutil.copy2(os.path.join(HERE, "ssi263", "synthDrivers", "ssi263.py"), sd)
     shutil.copytree(os.path.join(HERE, "ssi263", "globalPlugins"), os.path.join(BUILD, "globalPlugins"),
                     ignore=shutil.ignore_patterns("__pycache__"))
@@ -194,7 +195,7 @@ def main():
         if problems:
             os.remove(OUT)
             sys.exit("the archive is not what was built, removed:\n  " + "\n  ".join(problems))
-        print("checked: %s holds the seven voices' files, each as its source" % os.path.basename(OUT))
+        print("checked: %s holds every voice's files, each as its source" % os.path.basename(OUT))
 
 
 if __name__ == "__main__":

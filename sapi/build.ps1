@@ -83,7 +83,7 @@ foreach ($rel in $files) {
   New-Item -ItemType Directory -Force (Split-Path -Parent $dst) | Out-Null
   Copy-Item (Join-Path $fwSrc $rel) $dst
 }
-foreach ($rel in "AICOM.txt", "blazie/README.txt", "gw-micro-speakout/README.txt") {   # beside the files they speak of
+foreach ($rel in "AICOM.txt", "blazie/README.txt", "gw-micro-speakout/README.txt", "gw-micro-sounding-board/README.txt") {   # beside the files they speak of
   $src = Join-Path $fwSrc $rel
   $dst = Join-Path $fw $rel
   if ((Test-Path $src) -and ($rel -ne "AICOM.txt" -or (Test-Path (Join-Path $fw "aicom-*"))) -and (Test-Path (Split-Path -Parent $dst))) {

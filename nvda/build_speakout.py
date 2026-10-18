@@ -27,8 +27,8 @@ def main():
     shutil.copy2(os.path.join(HERE, "speakout", "synthDrivers", "speakout.py"), sd)
     copy_native_binding(eng)
     shutil.copy2(FIRMWARE, eng)
-    # GW Micro's Sounding Board (0.8.5): its two DOS drivers, when the local firmware folder has them -- optional, the
-    # driver's second voice (whether a release carries them is decided for the release, never by default here)
+    # GW Micro's Sounding Board (0.8.5): its two DOS drivers, when the local firmware folder has them -- the driver's
+    # second voice; a release of the unified add-on requires them (build_ssi263.py), as it carries SPEAKOUT.HEX
     for name in SOUNDINGBOARD:
         if os.path.isfile(os.path.join(SB_DIR, name)):
             shutil.copy2(os.path.join(SB_DIR, name), eng)
