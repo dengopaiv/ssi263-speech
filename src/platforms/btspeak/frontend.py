@@ -27,6 +27,10 @@ from keyboard_backend import select_keyboard
 from bt_runtime import Dialogs, say
 
 
+# the unit switched on with these keys held (chords.h bits): the Braille Lite's and Braille 'n Speaks' one-handed mode
+ONE_HAND = {"one-hand": 0x20, "two-hand": 0x04}
+
+
 def capture(worker: Worker, kb_client: ModuleType, display: BrailleOutput | None = None, *, tns: bool = False) -> str:
     """Return a host action after its chord is released. ACK before doing any work."""
     keys = {kb_client.BTB_DOT1 + dot: 1 << dot for dot in range(8)}
@@ -103,6 +107,10 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
             choices["f"] = _("Firmware: {name}").format(name=units[preferences.unit])
         if kind == "tns":
             choices["t"] = _("Send Type 'n Speak key")
+        else:
+            # one-handed mode, the braille keyboard's: the unit switched on with dot 6 held (dot 3 leaves it)
+            choices["n"] = _("Restart in one-handed mode (dot 6 held as it starts)")
+            choices["w"] = _("Restart in two-handed mode (dot 3 held as it starts)")
         choice = dialogs.request_choice(choices, prompt=_("Blazie emulator"), default=selected_key, stdscr=stdscr)
         if choice is None or choice.key == "r":
             return "resume"
@@ -160,6 +168,8 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
             continue
         if choice.key == "e":
             return "restart"
+        if choice.key in ("n", "w") and kind != "tns":
+            return "restart:" + ("one-hand" if choice.key == "n" else "two-hand")
         if choice.key == "s":
             with dialogs.activity(_("Saving memory"), stdscr=stdscr):
                 worker.request("SAVE", "SAVED")
@@ -189,6 +199,8 @@ def host_menu(worker: Worker, dialogs: ModuleType, preferences: Preferences,
                 "Quick key response reduces the delay before speech by speeding up firmware processing.\n"
                 "It is optional, remembered between runs, and off by default for original timing.\n"
                 "Restart the unit switches it off and on, its files kept, for a unit that has stopped answering.\n"
+                "Restart in one-handed mode does the same with dot 6 held, as the unit's own manual says;\n"
+                "two-handed mode, with dot 3, leaves it. The unit remembers it until then.\n"
                 "Choose Firmware to switch units; each keeps its own saved memory.\n"
                 "Braille follows the selected firmware; unused cells are blank."
             ).format(display_help=display_help), stdscr=stdscr)
@@ -334,13 +346,16 @@ def main() -> int:
                 say(host, _("Menu closed"))
             if action == "quit":
                 break
-            if action == "restart":
+            if action == "restart" or action.startswith("restart:"):
                 # As switching the unit off and on: the worker saves its memory as it closes (the emulated unit may
-                # have stopped answering, the worker never does), and a new one starts from what it saved.
+                # have stopped answering, the worker never does), and a new one starts from what it saved -- with
+                # dot 6 (one-handed) or dot 3 (two-handed) held from its first instant, while it is still paused.
                 with dialogs.activity(_("Restarting the unit")):
                     worker.close()
                     worker = None
                     worker = start_unit(preferences.unit)
+                    if action != "restart":
+                        worker.request("HOLDSTART {keys}".format(keys=ONE_HAND[action[8:]]), "OK")
                 say(host, _("Unit restarted"))
                 continue
             if action.startswith("unit:"):

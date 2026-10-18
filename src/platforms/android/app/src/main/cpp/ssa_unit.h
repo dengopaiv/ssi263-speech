@@ -52,6 +52,9 @@ int ssa_unit_kind(const ssa_unit *u);          /* emu_unit.h EMU_BRAILLE_LITE / 
 int ssa_unit_model(ssa_unit *u);               /* emu_unit.h EMU_MODEL_* */
 void ssa_unit_set_volume(ssa_unit *u, int volume);
 void ssa_unit_set_quick(ssa_unit *u, int on);
+/* emu_hold_at_start: keys held as the unit is switched on -- call before its first ssa_unit_render; one-handed mode's
+   EMU_ONE_HAND_ON (dot 6) or EMU_ONE_HAND_OFF (dot 3).  No effect on the Type 'n Speak. */
+void ssa_unit_hold_at_start(ssa_unit *u, int bits);
 /* emu_set_idle: the idle channel (0 silent, 1 hiss, 2 whine, 3 as the unit), how long it stays open (0 off, 1 until
    the unit clicks off, 2 always), the pop and click, the 10 Hz tick */
 void ssa_unit_set_idle(ssa_unit *u, int sound, int keep_open, int pop_click, int tick);

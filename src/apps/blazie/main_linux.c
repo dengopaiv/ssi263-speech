@@ -509,6 +509,9 @@ static int offer_setup(int kind, const char *fw, const char *st)
     return 1;
 }
 
+/* keys the next start_unit holds as the unit is switched on (emu_hold_at_start): one-handed mode's dot 6 or dot 3 */
+static int g_hold_at_start;
+
 static int start_unit(int kind, const char *state_given)
 {
     char fw[PATH_MAX], st[PATH_MAX], err[300];
@@ -561,6 +564,8 @@ static int start_unit(int kind, const char *state_given)
     emu_set_idle(u, g_whine, g_keep_open, g_popclick, g_tick);
     emu_set_quick(u, g_quick);
     emu_set_double_speed(u, g_double);
+    emu_hold_at_start(u, g_hold_at_start);      /* before the sound thread runs it: held from its first instant */
+    g_hold_at_start = 0;
     release_keys();
     pthread_mutex_lock(&g_lock);
     old = g_unit;
@@ -1222,6 +1227,10 @@ static void menu(void)
         say("  14 Keys (help)");
         say("  p Load programs and files into flash: programs and games (.bns), BASIC, text, braille; several at once");
         say("  r Restart the unit (keeps its files)");
+        if (g_units[g_kind].kind != EMU_TYPE_N_SPEAK) {     /* the braille keyboard's: the Type 'n Speak has none */
+            say("  o Restart in one-handed mode (dot 6 held as it starts)");
+            say("  t Restart in two-handed mode (dot 3 held as it starts)");
+        }
         say("  d Double-speed upgrade installed (Braille Lite: its status menu's switch then works): %s",
             g_double ? "on" : "off");
         for (k = N_FIRST_KINDS; k < g_n_units; k++) /* in number order: 15, 16, the sound buffer's 17, 18 on */
@@ -1247,6 +1256,12 @@ chosen:
         if ((line[0] == 'r' || line[0] == 'R') && !line[1]) {   /* saved, then started from it: a power cycle */
             start_unit(g_kind, NULL);
             say("The %s was restarted.", g_units[g_kind].name);
+            goto done;
+        }
+        if ((line[0] == 'o' || line[0] == 'O' || line[0] == 't' || line[0] == 'T') && !line[1]
+            && g_units[g_kind].kind != EMU_TYPE_N_SPEAK) {   /* the same power cycle, dot 6 (on) or dot 3 (off) held */
+            g_hold_at_start = line[0] == 'o' || line[0] == 'O' ? EMU_ONE_HAND_ON : EMU_ONE_HAND_OFF;
+            start_unit(g_kind, NULL);
             goto done;
         }
         if ((line[0] == 'd' || line[0] == 'D') && !line[1]) {

@@ -160,6 +160,12 @@ JNIEXPORT void JNICALL FN(nativeUnitQuick)(JNIEnv *env, jclass cls, jlong h, jbo
     ssa_unit_set_quick(UNIT(h), on == JNI_TRUE);
 }
 
+JNIEXPORT void JNICALL FN(nativeUnitHoldAtStart)(JNIEnv *env, jclass cls, jlong h, jint bits)
+{
+    (void)env; (void)cls;
+    ssa_unit_hold_at_start(UNIT(h), bits);
+}
+
 /* "Load programs and files into flash" on a switched-off unit's saved memory (ssa_unit_add_files): its result as
    "1\tadded\treplaced", "-1\tthe names it has already, one a line" or "0\tthe reason". */
 JNIEXPORT jstring JNICALL FN(nativeUnitAddFiles)(JNIEnv *env, jclass cls, jstring jstate, jint codepage,

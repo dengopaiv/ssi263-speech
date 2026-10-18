@@ -155,6 +155,7 @@ struct emu_unit {
     double bars_down_at[2];         /* chip time each bar went down */
     int bars_up_wanted;             /* let go by the hand, still down until EMU_BAR_MIN_S has passed */
     int bar_chord;                  /* a chord typed with a bar: given once the firmware has the bar */
+    double hold_until;              /* emu_hold_at_start: its keys let up at this chip time (0: none held) */
 };
 
 /* the board's bars (bl_board.h bl_braille_bars): bit 0 forward (the advance bar), bit 1 back */
@@ -391,6 +392,10 @@ void emu_render(emu_unit *u, short *out, int n)
             double sec = (double)n / u->out_rate;
             hurry_check(u);
             bars_tick(u);
+            if (u->hold_until > 0 && ssi263_time(u->chip) >= u->hold_until) {
+                u->hold_until = 0;
+                bh_keys_down(u->host, 0);
+            }
             u->n_pend = u->tns ? tns_render(u, sec, &u->pend) : bh_run(u->host, sec, STEP_S, &u->pend);
             if (u->host)
                 bh_clear_tx(u->host);   /* unplugged, what the unit sends goes nowhere (plugged, it never lands here) */
@@ -516,8 +521,19 @@ void emu_keys_down(emu_unit *u, int bits)
 {
     if (!u->host)
         return;
+    u->hold_until = 0;              /* the hand has the keys now: emu_hold_at_start's are not let up under it */
     bh_keys_down(u->host, bits & 0x7F);
     bars_hold(u, bars_of(bits));
+}
+
+int emu_hold_break = 0;
+
+void emu_hold_at_start(emu_unit *u, int bits)
+{
+    if (!u->host || !(bits & 0x7F))
+        return;
+    bh_keys_down(u->host, emu_hold_break ? 0 : bits & 0x7F);
+    u->hold_until = ssi263_time(u->chip) + EMU_HOLD_START_S;
 }
 
 int emu_memory(const emu_unit *u, const unsigned char **ram)

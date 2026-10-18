@@ -10,6 +10,8 @@
  *   - the Type 'n Speak (when tns/TNSENG.TNS is there): its keys as its own key events, down and up, Shift a key of
  *     its own, against emu_key with tns_keys.h's codes written out by hand;
  *   - its memory saved, the unit switched on again from it;
+ *   - one-handed mode: dot 6 held as it is switched on (ssa_unit_hold_at_start), sample for sample as emu_unit's
+ *     emu_hold_at_start, and not as the unit switched on with nothing held;
  *   - a release unit (the first one the folder has), its first state made by its own recipe.
  *
  * SSI263_UNIT_TEST_BREAK=1 swaps dots 1 and 4 in ssa_unit (ssa_unit_break): the keys' check must fail.
@@ -137,6 +139,43 @@ int main(int argc, char **argv)
         all_present &= units[i].present;
     snprintf(d, sizeof d, "%d units, the first %s", n, n ? units[0].name : "-");
     check("the list: only units with their firmware", n > 0 && all_present, d);
+
+    {   /* one-handed mode: the hold reaches the unit before its first render */
+        ssa_unit *u;
+        emu_unit *e = NULL, *plain = NULL;
+        short *c = (short *)malloc((size_t)400 * BLOCK * sizeof *c);
+        int k;
+        snprintf(saved_dir, sizeof saved_dir, "%s/onehand", scratch);
+        u = ssa_unit_start(dir, "bl-en", saved_dir, RATE, 0, NULL, NULL, err, sizeof err);
+        for (k = 0; k < n; k++)
+            if (!strcmp(units[k].key, "bl-en")) {
+                const char *st = units[k].factory[0] ? units[k].factory : NULL;
+                e = emu_create(units[k].kind, units[k].firmware, st, RATE, 0, err, sizeof err);
+                plain = emu_create(units[k].kind, units[k].firmware, st, RATE, 0, err, sizeof err);
+            }
+        if (!u || !e || !plain || !c) {
+            check("one-handed: dot 6 held at the start", 0, err);
+        } else {
+            emu_set_idle(e, 0, 1, 1, 1);
+            emu_set_idle(plain, 0, 1, 1, 1);
+            ssa_unit_hold_at_start(u, EMU_ONE_HAND_ON);
+            emu_hold_at_start(e, EMU_ONE_HAND_ON);
+            for (k = 0; k < 400; k++) {
+                ssa_unit_render(u, a + (long)k * BLOCK, BLOCK);
+                emu_render(e, b + (long)k * BLOCK, BLOCK);
+                emu_render(plain, c + (long)k * BLOCK, BLOCK);
+            }
+            snprintf(d, sizeof d, "as emu_hold_at_start: %s; as nothing held: %s",
+                     memcmp(a, b, (size_t)400 * BLOCK * sizeof *a) ? "differs" : "the same",
+                     memcmp(a, c, (size_t)400 * BLOCK * sizeof *a) ? "differs" : "the same");
+            check("one-handed: dot 6 held at the start", !memcmp(a, b, (size_t)400 * BLOCK * sizeof *a)
+                  && memcmp(a, c, (size_t)400 * BLOCK * sizeof *a), d);
+        }
+        if (u) ssa_unit_stop(u);
+        if (e) emu_destroy(e);
+        if (plain) emu_destroy(plain);
+        free(c);
+    }
 
     snprintf(saved_dir, sizeof saved_dir, "%s/keys", scratch);
     {

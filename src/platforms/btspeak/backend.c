@@ -285,6 +285,15 @@ static void command(const char *line)
                 bars_last = bars;
             }
         }
+    } else if (sscanf(line, "HOLDSTART %d %c", &held, &extra) == 1 && held > 0 && held <= 127) {
+        /* keys held as the unit is switched on (emu_hold_at_start): sent to a new, still paused worker, so they are
+           down from its first instant -- one-handed mode's dot 6 or dot 3 */
+        if (!paused || emu_kind(unit) != EMU_BRAILLE_LITE) {
+            puts("ERROR Keys are held at the start only by a paused Braille Lite or Braille 'n Speak.");
+        } else {
+            emu_hold_at_start(unit, held);
+            puts("OK");
+        }
     } else if (sscanf(line, "QUICK %d %c", &quick, &extra) == 1 && (quick == 0 || quick == 1)) {
         emu_set_quick(unit, quick);
         quick_keys = quick;

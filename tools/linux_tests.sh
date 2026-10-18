@@ -259,6 +259,12 @@ control "emulator: clock alarm CONTROL (a dated alarm left on the old year, must
 control "emulator: held keys CONTROL (never reported held, must fail)" "^FAIL i-chord held through the restart" \
     "^FAILED$" -- env TEST_CLOCK_HOLD_BREAK=1 ./build/linux/test_clock bl "$DATA/BL2ENG.BNS" \
     "$DATA/bl2_2003_warm.state" restart
+# one-handed mode (dot 6 held as the unit is switched on, dot 3 leaves it: every shell's emu_hold_at_start); its
+# control lets the keys up at once
+control "emulator: one-handed mode CONTROL (keys let up at once, must fail)" \
+    "^ok +switched on, no key held: two-handed " "^FAIL switched on with dot 6 held: one-handed " \
+    "^FAIL saved one-handed, switched on again: still one-handed " "^FAILED$" \
+    -- env TEST_CLOCK_HOLD_BREAK=4 ./build/linux/test_clock bl "$DATA/BL2ENG.BNS" "$DATA/bl2_2003_warm.state" onehand
 # the Braille Lite's braille display and its two advance bars (bl_board.h bl_display, bl_bars; test_emu_unit checks
 # them in every Braille Lite run above): the Spanish unit too, and the Braille 'n Speak 2000 has no display -- each when
 # its firmware is there.  The control sends the bars as port 40h bit 7, where the shells used to (the firmware never
@@ -291,6 +297,8 @@ unit640 issue15/bsppla.bns issue15/bsppla_fresh.state 480
 if [ -f "$B640/june2003/BSPENG.BNS" ]; then
     check "emulator: the Braille 'n Speak 640's clock" ./build/linux/test_clock bl "$B640/june2003/BSPENG.BNS" \
         "$B640/june2003/bspeng_fresh.state" clock
+    check "emulator: the Braille 'n Speak 640's one-handed mode" ./build/linux/test_clock bl \
+        "$B640/june2003/BSPENG.BNS" "$B640/june2003/bspeng_fresh.state" onehand
     control "emulator: 640 clock CONTROL (the chip not saved, must fail)" "^ok +the clock goes on " \
         "^FAIL switched off and on +off 120 s" "^FAILED$" -- env TEST_RTC_BREAK=3 ./build/linux/test_clock bl \
         "$B640/june2003/BSPENG.BNS" "$B640/june2003/bspeng_fresh.state" clock

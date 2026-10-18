@@ -160,6 +160,7 @@ static GtkWidget *g_win, *g_area, *g_status, *g_bar, *g_firmware_item;
 static GtkWidget *g_kind_items[EMC_MAX], *g_idle_items[4], *g_open_items[3], *g_rate_items[N_RATES];
 static GtkWidget *g_buffer_items[AP_N_MODES];
 static GtkWidget *g_popclick_item, *g_tick_item, *g_quick_item, *g_double_item, *g_serial_menu;
+static GtkWidget *g_onehand_items[2];           /* Restart in one-handed / two-handed mode: not the Type 'n Speak's */
 static GtkWidget *g_brl, *g_brl_box, *g_brl_item; /* the braille display field, its row (label and field), its item */
 static int g_braille;                           /* the field shown (Settings > Braille display): [braille] display */
 static int g_bars;                              /* the bars held from Alt+Shift+Right, Left (emu_braille_bars) */
@@ -653,6 +654,9 @@ static int offer_setup(int kind, const char *fw, const char *st)
 
 static void sync_menu(void);
 
+/* keys the next start_unit holds as the unit is switched on (emu_hold_at_start): one-handed mode's dot 6 or dot 3 */
+static int g_hold_at_start;
+
 static int start_unit(int kind)
 {
     char fw[PATH_MAX], st[PATH_MAX], err[300];
@@ -701,6 +705,8 @@ static int start_unit(int kind)
     emu_set_idle(u, g_whine, g_keep_open, g_popclick, g_tick);
     emu_set_quick(u, g_quick);
     emu_set_double_speed(u, g_double);
+    emu_hold_at_start(u, g_hold_at_start);      /* before the sound thread runs it: held from its first instant */
+    g_hold_at_start = 0;
     pthread_mutex_lock(&g_lock);
     old = g_unit;
     g_unit = u;
@@ -1589,6 +1595,8 @@ static void sync_menu(void)
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_quick_item), g_quick);
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_double_item), g_double);
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_brl_item), g_braille);
+    for (k = 0; k < 2; k++)                     /* one-handed mode is the braille keyboard's */
+        gtk_widget_set_sensitive(g_onehand_items[k], g_units[g_kind].kind != EMU_TYPE_N_SPEAK);
     for (k = 0; k < N_RATES; k++)
         if (RATES[k] == g_rate)
             gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(g_rate_items[k]), TRUE);
@@ -1666,6 +1674,19 @@ static void do_restart(int unused)
     if (start_unit(g_kind))
         set_status(1, "The %s was restarted.", g_units[g_kind].name);
 }
+
+/* the same power cycle, dot 6 (on) or dot 3 (off) held as it starts: the firmware's one-handed mode */
+static void do_one_hand(int on)
+{
+    if (g_units[g_kind].kind == EMU_TYPE_N_SPEAK)
+        return;
+    release_keys();
+    g_hold_at_start = on ? EMU_ONE_HAND_ON : EMU_ONE_HAND_OFF;
+    if (start_unit(g_kind))
+        set_status(1, "The %s was restarted in %s-handed mode.", g_units[g_kind].name, on ? "one" : "two");
+}
+static void do_one_hand_on(int unused) { (void)unused; do_one_hand(1); }
+static void do_one_hand_off(int unused) { (void)unused; do_one_hand(0); }
 
 static void do_export(int unused) { (void)unused; release_keys(); export_files(); }
 static void do_import(int unused) { (void)unused; release_keys(); import_files(); }
@@ -1958,6 +1979,10 @@ static GtkWidget *make_menu(GtkAccelGroup *accel)
     add_item(fw, "_Load programs and files into flash...", G_CALLBACK(on_plain_item), (gpointer)do_addprog);
     add_separator(fw);
     add_item(fw, "_Restart the unit (keeps its files)", G_CALLBACK(on_plain_item), (gpointer)do_restart);
+    g_onehand_items[0] = add_item(fw, "Restart in o_ne-handed mode (dot 6 held as it starts)",
+                                  G_CALLBACK(on_plain_item), (gpointer)do_one_hand_on);
+    g_onehand_items[1] = add_item(fw, "Restart in t_wo-handed mode (dot 3 held as it starts)",
+                                  G_CALLBACK(on_plain_item), (gpointer)do_one_hand_off);
     add_item(fw, "Back to the _factory state (erases this unit's files)...", G_CALLBACK(on_plain_item),
              (gpointer)do_factory);
     item = add_item(fw, "E_xit", G_CALLBACK(on_exit_item), NULL);

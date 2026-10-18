@@ -55,7 +55,7 @@ enum { ID_EN = 100, ID_ES, ID_TNS_EN, ID_TNS_ES, ID_BNS_EN, ID_BNS_SK, ID_DE, ID
        ID_OPEN_OFF = 210, ID_OPEN_UNTIL, ID_OPEN_ALWAYS, ID_POPCLICK = 215, ID_TICK, ID_QUICK = 218, ID_BRAILLE,
        ID_RATE = 220,
        ID_BUFFER = 230,                     /* ID_BUFFER + AP_AUTO .. AP_LONG: Sound buffer */
-       ID_DOUBLE = 240, ID_RESTART,
+       ID_DOUBLE = 240, ID_RESTART, ID_ONEHAND_ON, ID_ONEHAND_OFF,
        ID_KEYS = 300, ID_ABOUT,
        ID_SERIAL_NONE = 400, ID_SERIAL_PORT };   /* ID_SERIAL_PORT + k: g_ports[k] */
 
@@ -277,6 +277,9 @@ static int offer_setup(int kind, const char *fw, const char *st)
     return 1;
 }
 
+/* keys the next start_unit holds as the unit is switched on (emu_hold_at_start): one-handed mode's dot 6 or dot 3 */
+static int g_hold_at_start;
+
 static int start_unit(int kind)
 {
     char fw[MAX_PATH], st[MAX_PATH], err[256];
@@ -319,6 +322,8 @@ static int start_unit(int kind)
     emu_set_idle(u, g_whine, g_keep_open, g_popclick, g_tick);
     emu_set_quick(u, g_quick);
     emu_set_double_speed(u, g_double);
+    emu_hold_at_start(u, g_hold_at_start);  /* before the sound thread runs it: held from its first instant */
+    g_hold_at_start = 0;
     EnterCriticalSection(&g_lock);
     emu_destroy(g_unit);
     g_unit = u;
@@ -331,6 +336,10 @@ static int start_unit(int kind)
         for (k = 0; k < g_n_units; k++)
             CheckMenuItem(GetMenu(g_wnd), unit_id(k), MF_BYCOMMAND | MF_UNCHECKED);
         CheckMenuRadioItem(GetMenu(g_wnd), unit_id(kind), unit_id(kind), unit_id(kind), MF_BYCOMMAND);
+        /* one-handed mode is the braille keyboard's: the Type 'n Speak's manual has none */
+        for (k = ID_ONEHAND_ON; k <= ID_ONEHAND_OFF; k++)
+            EnableMenuItem(GetMenu(g_wnd), k, MF_BYCOMMAND |
+                           (g_units[kind].kind == EMU_TYPE_N_SPEAK ? MF_GRAYED : MF_ENABLED));
     }
     WritePrivateProfileStringA("unit", "kind", g_units[kind].ini, g_ini);
     return 1;
@@ -1050,6 +1059,8 @@ static HMENU make_menu(void)
     AppendMenuA(unit, MF_STRING, ID_ADDPROG, "&Load programs and files into flash...");
     AppendMenuA(unit, MF_SEPARATOR, 0, NULL);
     AppendMenuA(unit, MF_STRING, ID_RESTART, "&Restart the unit (keeps its files)");
+    AppendMenuA(unit, MF_STRING, ID_ONEHAND_ON, "Restart in o&ne-handed mode (dot 6 held as it starts)");
+    AppendMenuA(unit, MF_STRING, ID_ONEHAND_OFF, "Restart in t&wo-handed mode (dot 3 held as it starts)");
     AppendMenuA(unit, MF_STRING, ID_FACTORY, "Back to the &factory state (erases this unit's files)...");
     AppendMenuA(unit, MF_STRING, ID_EXIT, "E&xit");
     AppendMenuA(sound, MF_STRING, ID_UNITSOUND, "Idle channel: as the &unit (hiss at even volumes, whine at odd)");
@@ -1327,6 +1338,13 @@ static LRESULT CALLBACK wndproc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
             tns_release_all();
             start_unit(g_kind);             /* saved first, then started from it: a power cycle, files kept */
             return 0;
+        case ID_ONEHAND_ON:
+        case ID_ONEHAND_OFF:                /* the same power cycle, dot 6 (on) or dot 3 (off) held as it starts */
+            if (g_units[g_kind].kind == EMU_TYPE_N_SPEAK)
+                return 0;
+            g_hold_at_start = LOWORD(wp) == ID_ONEHAND_ON ? EMU_ONE_HAND_ON : EMU_ONE_HAND_OFF;
+            start_unit(g_kind);
+            return 0;
         case ID_BRAILLE:
             if (!g_braille)
                 MessageBoxA(w, "The unit's braille display is shown in a field in this window, which your screen "
@@ -1371,6 +1389,8 @@ static LRESULT CALLBACK wndproc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
                         "Press the keys of a chord together; it goes to the unit when you let go of them.\n"
                         "Keys held while the unit starts are read as it starts: p-chord, l restarts it; "
                         "hold i-chord at once for the cold reset.\n"
+                        "One-handed mode: Firmware > Restart in one-handed mode (dot 6 held as it starts); "
+                        "Restart in two-handed mode (dot 3) leaves it. The unit keeps it until then.\n"
                         "If the unit stops answering, Firmware > Restart the unit starts it again, its files kept.\n"
                         "The keys can be changed in blazie_emu.ini, section [keys].\n"
                         "Alt opens this program's menu; Alt+F4 closes it.\n\n"

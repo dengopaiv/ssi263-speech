@@ -119,7 +119,8 @@ noninteractive sudo is required for the fallback.
 | Other panel keys and all routing keys | Unassigned |
 
 The host menu offers Resume, Save memory, Quick key response, Double-speed upgrade installed, Restart the unit,
-Audio settings, Firmware, Import programs and files, Keyboard help, and Save and exit.
+Restart in one-handed mode and Restart in two-handed mode (not for the Type 'n Speak), Audio settings, Firmware,
+Import programs and files, Keyboard help, and Save and exit.
 The normal BT dialog controls apply while in the host menu. Menus and submenus share one terminal screen,
 and returning from a submenu keeps the previously selected row. Audio settings opens on Sound buffer.
 Leaving the host menu with Z-chord (Escape) or Resume announces "Menu closed" before the firmware resumes.
@@ -157,6 +158,12 @@ double speed off for programs that play sounds. The choice is kept in `preferenc
 **Restart the unit (keeps its files)** does what switching a unit off and on does: the worker saves its memory as it
 closes -- it answers even when the emulated unit has stopped -- and a new one starts from what it saved. It announces
 "Unit restarted".
+
+**Restart in one-handed mode (dot 6 held as it starts)** and **Restart in two-handed mode (dot 3)** (Leo's idea) are
+the same restart with that key held from the new unit's first instant: the new worker, still paused, is sent
+`HOLDSTART 32` or `HOLDSTART 4` before it runs (`emu_hold_at_start`). The firmware does the rest, as the manuals say:
+it says "One-hand mode on" and keeps the mode in its memory until a two-handed restart. The BT Speak's own one-handed
+setting cannot reach it: the emulator takes the raw dot keys. Not offered for the Type 'n Speak (its manual has none).
 
 Six-dot keyboard chords accumulate until the last key is released. Keys physically held are also passed to the firmware,
 so restart gestures such as holding I-chord after P-chord, L work. Automatic key-repeat does not produce
@@ -274,7 +281,8 @@ driver is terminated with a bounded timeout; this exceptional case cannot guaran
 
 The native worker starts paused and uses a small private stdin/stdout protocol. Commands are `RESUME`,
 `PAUSE`, `KEY held chord` (decimal firmware bitmasks), `BARS down` (1 forward, 2 back, 3 both, 0 released),
-`BRAILLE`, `TNS key-name`, `QUICK 0` / `QUICK 1`, `DOUBLE 0` / `DOUBLE 1`, `AUDIO`,
+`BRAILLE`, `TNS key-name`, `QUICK 0` / `QUICK 1`, `DOUBLE 0` / `DOUBLE 1`, `HOLDSTART held` (keys held as a
+paused, not yet run unit starts), `AUDIO`,
 `AUDIO rate buffer idle keep-open pop-click tick`, `SAVE`, `IMPORT_CHECK`, `IMPORT_COMMIT`, and `QUIT`.
 `blazie_bt --catalog FIRMWARE_DIR` emits the shared catalog as JSON without starting a unit. A Braille Lite worker
 with `-` for its factory state creates its first memory from the firmware's recognized release recipe, under the

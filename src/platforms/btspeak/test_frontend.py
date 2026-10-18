@@ -422,6 +422,53 @@ class FrontendTests(unittest.TestCase):
             self.assertIn(("second", "close"), events)
             self.assertIn("Unit restarted", said)
 
+    def test_one_handed_restart_holds_dot_6_from_the_new_units_first_instant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("backend", "BL2ENG.BNS", "bl2_2003_warm.state"):
+                (root / name).touch()
+            events = []
+
+            def unit(name):
+                return SimpleNamespace(braille=bytes(18),
+                    request=lambda cmd, reply: events.append((name, cmd)),
+                    close=lambda: events.append((name, "close")),
+                    abort=lambda: events.append((name, "abort")))
+
+            runtime = ModuleType("BTSpeak")
+            runtime.kb_client = SimpleNamespace(server_available=lambda: True)
+            runtime.brl = SimpleNamespace(has_display=lambda: False, write=lambda text: None)
+            runtime.host = SimpleNamespace(push_self_voice=Mock(), pop_self_voice=Mock(), say=Mock())
+            runtime.dialogs = SimpleNamespace(activity=lambda text, **kwargs: contextlib.nullcontext(), show_message=Mock(),
+                                              curses_wrapper_low_level2=lambda fn: fn(object()))
+            runtime.script = SimpleNamespace(start_log=lambda: Mock())
+            with (patch.dict(sys.modules, {"BTSpeak": runtime}),
+                  patch("frontend.Worker", side_effect=[unit("first"), unit("second"), unit("third")]),
+                  patch("frontend.capture", return_value="menu"),
+                  patch("frontend.host_menu", side_effect=["restart:one-hand", "restart:two-hand", "quit"]),
+                  patch.object(sys, "argv", ["blazie", "--backend", str(root / "backend"),
+                                            "--firmware", tmp, "--state-dir", tmp])):
+                self.assertEqual(main(), 0)
+            # held while the new worker is still paused: before it ever runs
+            self.assertLess(events.index(("second", "HOLDSTART 32")), events.index(("second", "RESUME")))
+            self.assertLess(events.index(("third", "HOLDSTART 4")), events.index(("third", "RESUME")))
+            self.assertLess(events.index(("first", "close")), events.index(("second", "HOLDSTART 32")))
+            self.assertNotIn(("first", "HOLDSTART 32"), events)
+
+    def test_one_handed_mode_is_offered_for_braille_keyboards_only(self):
+        offered = {}
+
+        def choice(choices, **kwargs):
+            offered.setdefault(kind, set(choices))
+            return SimpleNamespace(key="n") if kind != "tns" else None
+
+        prefs = SimpleNamespace(quick_keys=False, double_speed=False)
+        for kind in ("bl", "bns", "tns"):
+            result = host_menu(Mock(), SimpleNamespace(request_choice=choice), prefs, profile=SimpleNamespace(kind=kind))
+            self.assertEqual(result, "restart:one-hand" if kind != "tns" else "resume")
+        self.assertTrue({"n", "w"} <= offered["bl"] & offered["bns"])
+        self.assertFalse({"n", "w"} & offered["tns"])
+
     def test_restart_after_failed_switch_keeps_the_active_profile(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

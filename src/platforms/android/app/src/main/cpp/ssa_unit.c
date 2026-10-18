@@ -250,6 +250,13 @@ void ssa_unit_set_quick(ssa_unit *u, int on)
     pthread_mutex_unlock(&u->lock);
 }
 
+void ssa_unit_hold_at_start(ssa_unit *u, int bits)
+{
+    pthread_mutex_lock(&u->lock);
+    emu_hold_at_start(u->emu, bits);
+    pthread_mutex_unlock(&u->lock);
+}
+
 void ssa_unit_set_idle(ssa_unit *u, int sound, int keep_open, int pop_click, int tick)
 {
     pthread_mutex_lock(&u->lock);

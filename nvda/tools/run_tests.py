@@ -570,6 +570,13 @@ if os.path.isfile(CLOCK):
                         [CLOCK, "bl"] + BL_ENG + ["restart"], env={"TEST_CLOCK_HOLD_BREAK": "3"}, expect_fail=True,
                         fail_marks=[r"^ok +i-chord held through the restart ",
                                     r"^FAIL held through the restart, quick "]))
+    # one-handed mode (Leo; the manuals: dot 6 held as the unit is switched on, dot 3 leaves it), every shell's
+    # emu_hold_at_start: on, kept through a save, off; the control lets the keys up at once
+    CHECKS.append(check("Blazie emulator: one-handed mode CONTROL (keys let up at once, must fail)",
+                        [CLOCK, "bl"] + BL_ENG + ["onehand"], env={"TEST_CLOCK_HOLD_BREAK": "4"}, expect_fail=True,
+                        fail_marks=[r"^ok +switched on, no key held: two-handed ",
+                                    r"^FAIL switched on with dot 6 held: one-handed ",
+                                    r"^FAIL saved one-handed, switched on again: still one-handed ", r"^FAILED$"]))
     CHECKS.append(check("Blazie emulator: clock controller CONTROL (never moves, must fail)", [CLOCK, "unit"],
                         env={"TEST_CLOCK_BREAK": "1"}, expect_fail=True,
                         fail_marks=[r"^FAIL time passes \(a leap day\) ", r"^ok +set and read over its bytes "]))
@@ -837,6 +844,7 @@ if os.path.isfile(os.path.join(EMU, "test_emu_unit.exe")):
                             [os.path.join(EMU, "test_serial.exe"), "bl", FW, ST]))
         if label == "English":
             CHECKS.append(check("Braille 'n Speak 640 English: clock", [CLOCK, "bl", FW, ST, "clock"]))
+            CHECKS.append(check("Braille 'n Speak 640 English: one-handed mode", [CLOCK, "bl", FW, ST, "onehand"]))
             CHECKS.append(check("Braille 'n Speak 640 English: clock CONTROL (the chip not saved, must fail)",
                                 [CLOCK, "bl", FW, ST, "clock"], env={"TEST_RTC_BREAK": "3"}, expect_fail=True,
                                 fail_marks=[r"^ok +the clock goes on ", r"^FAIL switched off and on +off 120 s",

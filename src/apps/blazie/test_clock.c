@@ -5,8 +5,10 @@
  *   test_clock bl FIRMWARE STATE [PART]  the English Braille Lite through its own commands (o-chord s d, s t, t, d):
  *                                        the date and time set, the clock going on, the year, switched off and on;
  *                                        i-chord held through p-chord l's restart; and 1 March 2027's weekday
- *                                        (issue #3) (PART: clock, restart or year; start: only the clock read at
- *                                        the start, for the Spanish unit)
+ *                                        (issue #3); one-handed mode, switched on with dot 6 and dot 3 held
+ *                                        and kept through a save (PART: clock, restart, year or onehand, WORDS
+ *                                        after it its words in the firmware's language; start: only the clock
+ *                                        read at the start, for the Spanish unit)
  *   test_clock tns FIRMWARE [PART]       the English Type 'n Speak from cold, its setup questions answered y (F4 F5,
  *                                        F9 s t, F9 s d; PART: clock)
  *
@@ -16,7 +18,7 @@
  * 4 the year mapped as 0.7.0-0.7.5 did and saved units left on it (Jayson's issue #3), 5 a migrated unit's dated
  * alarm left on the old year (bl_clock.h blc_break); TEST_CLOCK_HOLD_BREAK=1 keys never reported held (the app before), 2 a chord read held at
  * the start delivered again when it comes up (bl_board.h bl_keys_break), 3 quick key response left on through the
- * restart (emu_unit.h emu_restart_break).
+ * restart (emu_unit.h emu_restart_break), 4 emu_hold_at_start's keys let up at once (emu_unit.h emu_hold_break).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -447,6 +449,38 @@ static void restart_checks(const char *fw, const char *st)
     emu_restart_break = 0;
 }
 
+/* One-handed mode (Leo, 2026-10-18; the Braille Lite 2000/40 manual 10.2, the 1997 Braille 'n Speak manual): dot 6
+   held as the unit is switched on turns it on -- "One-hand mode on, Braille Lite ready" --, dot 3 off; the firmware
+   keeps it, so a unit saved with it on says so at its next start too.  emu_hold_at_start is how every shell's menu
+   does it.  `msg`: the firmware's own words for it, in its language. */
+static void one_hand_checks(const char *fw, const char *st, const char *msg)
+{
+    static const char saved[] = "test_clock_onehand.state";
+    static const struct { int hold; int want; const char *what; } c[] = {
+        {0, 0, "switched on, no key held: two-handed"},
+        {EMU_ONE_HAND_ON, 1, "switched on with dot 6 held: one-handed"},
+        {0, 1, "saved one-handed, switched on again: still one-handed"},
+        {EMU_ONE_HAND_OFF, 0, "switched on with dot 3 held: two-handed again"},
+        {0, 0, "saved two-handed, switched on again: still two-handed"},
+    };
+    const char *hb = getenv("TEST_CLOCK_HOLD_BREAK");
+    char d[200];
+    int i;
+    emu_hold_break = hb && atoi(hb) == 4;
+    for (i = 0; i < (int)(sizeof c / sizeof c[0]); i++) {
+        start(EMU_BRAILLE_LITE, fw, i == 0 || i == 1 ? st : saved, T2015 + 100 * i);
+        emu_hold_at_start(g_u, c[i].hold);
+        run_to(8.0);
+        snprintf(d, sizeof d, "\"%s\" said: %s", msg, ram_has(msg) ? "yes" : "no");
+        check(c[i].what, ram_has(msg) == c[i].want, d);
+        if (!emu_save(g_u, saved))
+            check("saved", 0, saved);
+        emu_destroy(g_u);
+    }
+    remove(saved);
+    emu_hold_break = 0;
+}
+
 /* Jayson's issue #3 through the English Braille Lite's own date (o-chord d): a unit switched off on New Year's Eve
    2026 and on again on 1 March 2027 says Monday, as 2027 does (in 1999, its year 28 back); and a unit saved by
    0.7.0-0.7.5 (2015 for 2026) is moved onto that year when it is loaded.  On the old year it said "Monday February
@@ -497,10 +531,12 @@ int main(int argc, char **argv)
             restart_checks(argv[2], argv[3]);
         if (!*part || !strcmp(part, "year"))
             year_checks(argv[2], argv[3]);
+        if (!*part || !strcmp(part, "onehand"))
+            one_hand_checks(argv[2], argv[3], argc > 5 ? argv[5] : "one hand mode on");
     } else if (argc >= 3 && !strcmp(argv[1], "tns"))
         clock_checks(EMU_TYPE_N_SPEAK, argv[2], NULL, 0);
     else {
-        printf("usage: test_clock unit | bl FIRMWARE STATE [clock|restart|start|year] | tns FIRMWARE\n");
+        printf("usage: test_clock unit | bl FIRMWARE STATE [clock|restart|start|year|onehand [WORDS]] | tns FIRMWARE\n");
         return 2;
     }
     printf("%s\n", failures ? "FAILED" : "all passed");

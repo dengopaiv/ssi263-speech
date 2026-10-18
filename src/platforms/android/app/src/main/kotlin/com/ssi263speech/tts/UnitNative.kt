@@ -40,5 +40,10 @@ object UnitNative {
     external fun nativeUnitModel(h: Long): Int
     external fun nativeUnitVolume(h: Long, volume: Int)
     external fun nativeUnitQuick(h: Long, on: Boolean)
+    /** Keys held as the unit is switched on, before its first render (emu_hold_at_start): one-handed mode's dot 6
+     * (ONE_HAND_ON) or dot 3 (ONE_HAND_OFF). */
+    external fun nativeUnitHoldAtStart(h: Long, bits: Int)
+    const val ONE_HAND_ON = 0x20
+    const val ONE_HAND_OFF = 0x04
     external fun nativeUnitFlashBusy(h: Long): Boolean
 }

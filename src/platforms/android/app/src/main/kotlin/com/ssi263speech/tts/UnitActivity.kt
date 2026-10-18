@@ -44,6 +44,8 @@ class UnitActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var choice: RadioGroup
     private lateinit var power: Button
+    private lateinit var oneHand: Button
+    private lateinit var twoHand: Button
     private lateinit var field: TextView
     private var units: List<UnitNative.Unit> = emptyList()
     private var selected = 0
@@ -73,9 +75,21 @@ class UnitActivity : Activity() {
                 "every unit whose firmware the voices have can run here."
         } else {
             selected = units.indexOfFirst { it.key == prefs.getString("unit", null) }.coerceAtLeast(0)
-            choice = ui.choice(page, "Unit", units.map { it.name }, selected) { selected = it }
+            choice = ui.choice(page, "Unit", units.map { it.name }, selected) { selected = it; refresh() }
             power = Button(this).apply { setOnClickListener { if (handle != 0L) switchOff() else switchOn() } }
             page.addView(power)
+            // one-handed mode, the braille keyboard's (its manual: dot 6 held as the unit is switched on, dot 3 to
+            // leave it); the firmware keeps it in the unit's memory.  The Type 'n Speak has none.
+            oneHand = Button(this).apply {
+                text = "Switch on in one-handed mode (dot 6 held)"
+                setOnClickListener { switchOn(UnitNative.ONE_HAND_ON) }
+            }
+            page.addView(oneHand)
+            twoHand = Button(this).apply {
+                text = "Switch on in two-handed mode (dot 3 held)"
+                setOnClickListener { switchOn(UnitNative.ONE_HAND_OFF) }
+            }
+            page.addView(twoHand)
             ui.checkBox(page, "Quick key response", quick) { on ->
                 quick = on
                 prefs.edit().putBoolean("quick", on).apply()
@@ -129,9 +143,13 @@ class UnitActivity : Activity() {
         power.isEnabled = !starting
         for (i in 0 until choice.childCount) choice.getChildAt(i).isEnabled = !on && !starting
         field.visibility = if (on) View.VISIBLE else View.GONE
+        val hands = if (!on && !starting && !units[selected].typeNSpeak) View.VISIBLE else View.GONE
+        oneHand.visibility = hands
+        twoHand.visibility = hands
     }
 
-    private fun switchOn() {
+    /** `hold`: keys held as it is switched on (one-handed mode's dot 6 or dot 3), 0 for none. */
+    private fun switchOn(hold: Int = 0) {
         val unit = units[selected]
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("unit", unit.key).apply()
         val savedDir = File(filesDir, "units").also { it.mkdirs() }
@@ -160,6 +178,7 @@ class UnitActivity : Activity() {
                     return@post
                 }
                 UnitNative.nativeUnitQuick(h, quick)
+                if (hold != 0 && !unit.typeNSpeak) UnitNative.nativeUnitHoldAtStart(h, hold)  // before its first render
                 handle = h
                 running = unit
                 sound = Sound(h).also { it.start() }

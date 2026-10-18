@@ -177,6 +177,15 @@ Firmware > Restart the unit (keeps its files): what switching a real unit off an
 started again from it, the CPU from the beginning.  For a unit that has stopped answering; Back to the factory state
 is the one that erases.
 
+Firmware > Restart in one-handed mode (dot 6 held as it starts) and Restart in two-handed mode (dot 3 held as it
+starts): the same power cycle, with the key held from the unit's first instant (`emu_hold_at_start`), as the manuals
+say ("press a dot 6 as you turn on the unit"; the Braille Lite 2000/40 manual, 10.2, and the 1997 Braille 'n Speak
+manual).  The firmware does the rest: it says "One-hand mode on" and keeps the mode in its memory, so the saved unit
+starts one-handed until it is restarted two-handed.  In one-handed mode a character's dots go in a half at a time,
+space entering it; a chord starts and ends with space.  Not offered for the Type 'n Speak, whose manual has no
+one-handed mode (its firmware carries the words, from the code it shares with the Braille Lite, but nothing reaches
+them that we know of).  test_clock's `onehand` checks it on the Braille Lite, the Braille 'n Speak 2000 and the 640.
+
 Settings > Sound buffer (`[sound] buffer=` in `blazie_emu.ini`; `audio_pace.h`): how much sound is kept queued at the
 sound card, in blocks of 10 ms (`[sound] block_ms`, 5-20).  A key's speech plays behind it.
 

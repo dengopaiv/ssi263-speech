@@ -67,6 +67,19 @@ void emu_keys_down(emu_unit *u, int bits);
 /* the tests' control (an app never sets it): nonzero, emu_key sends a chord's bar as the old shells did -- port 40h
    bit 7, which the firmware never reads, so the bars do nothing */
 extern int emu_bars_break;
+/* Keys held as the unit is switched on: down from now until EMU_HOLD_START_S of the unit's time has passed, then up
+   with no chord sent -- a person holding them while switching it on.  Call it right after emu_create (a restart is
+   the unit saved, destroyed and created again from what it saved).  One-handed mode, the Braille Lite 2000's and the
+   Braille 'n Speaks' (their manuals: "press a dot 6 as you turn on the unit", "a dot 3 when next turning on the
+   unit" to leave it): EMU_ONE_HAND_ON and EMU_ONE_HAND_OFF.  The firmware keeps the mode in its memory, so the saved
+   state carries it; the unit says "one hand mode on" at every start while it is on.  No effect on the Type 'n Speak
+   (its manual has no one-handed mode). */
+#define EMU_HOLD_START_S 2.0
+#define EMU_ONE_HAND_ON 0x20
+#define EMU_ONE_HAND_OFF 0x04
+void emu_hold_at_start(emu_unit *u, int bits);
+/* the tests' control (an app never sets it): nonzero, emu_hold_at_start lets the keys up at once */
+extern int emu_hold_break;
 /* the most cells emu_braille gives (bl_display.h BLD_MAX_CELLS) */
 #define EMU_CELLS 40
 /* saves what the unit keeps while switched off (its files and settings, its clock), in the state format emu_create
