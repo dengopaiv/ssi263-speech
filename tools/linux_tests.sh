@@ -226,6 +226,15 @@ check "emulator: braille display wiring and latch" ./build/linux/test_display
 if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
     check "emulator: BT frontend, launcher and native worker" env BLAZIE_TEST_FIRMWARE="$DATA" \
         python3 -m unittest discover -s src/platforms/btspeak -p 'test_*.py'
+    # Controls mutate serve() only inside the mocked test fixture, never in the shipping helper.
+    control "emulator: legacy BT recovery CONTROL (marker after stop, must fail)" \
+        "^FAIL test_restore_marker_precedes_first_stop:" "^ok test_owner_exit_returns_and_closes_resources$" \
+        "^legacy serve: 1 of 2 FAILED$" -- env BLAZIE_BT_LEGACY_BREAK=late-marker \
+        python3 src/platforms/btspeak/test_legacy_bridge.py --control
+    control "emulator: legacy BT recovery CONTROL (owner death ignored, must fail)" \
+        "^ok test_restore_marker_precedes_first_stop$" "^FAIL test_owner_exit_returns_and_closes_resources:" \
+        "^legacy serve: 1 of 2 FAILED$" -- env BLAZIE_BT_LEGACY_BREAK=ignore-owner \
+        python3 src/platforms/btspeak/test_legacy_bridge.py --control
 else
     echo "skip  emulator: BT frontend: needs Python 3.11, the BT Speak's (this host has $(python3 -V 2>&1))"
 fi
@@ -392,7 +401,7 @@ if [ -x "$EMU" ]; then
         "^FAIL +hand-over: the device found, its options" "^FAIL +--no-bt: the terminal emulator" \
         "^FAIL +\[input\] bt = off: the terminal emulator" "^FAIL +\[input\] bt = native: no hand-over" \
         "^ok +no device: the terminal emulator" \
-        "^bt hand-over: 4 of 11 FAILED$" -- env BLAZIE_BT_BREAK=1 python3 src/apps/blazie/test_bt_handover.py "$EMU"
+        "^bt hand-over: 4 of 14 FAILED$" -- env BLAZIE_BT_BREAK=1 python3 src/apps/blazie/test_bt_handover.py "$EMU"
     check "emulator: libraries needed (libc, libm, libasound/libpulse; libstdc++ inside)" sh -c "! ldd $EMU | \
         grep -v -E 'linux-vdso|ld-linux|libc\.so|libm\.so|libpthread|libasound|libpulse|libdl' | grep -q . && \
         ! ldd $EMU | grep -q -E 'libstdc|libgcc_s' && echo 'only the C library and the sound library'"

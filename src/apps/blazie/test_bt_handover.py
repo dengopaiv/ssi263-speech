@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 failures = 0
 ran = 0
@@ -61,6 +62,10 @@ def detection(emu, tmp):
     open(os.path.join(lib, "BTSpeak", "__init__.py"), "w").close()
     with open(os.path.join(lib, "BTSpeak", "kb_client.py"), "w") as f:
         f.write(KB_CLIENT)
+    without_lib = os.path.join(tmp, "without-bt-lib")
+    os.makedirs(without_lib)
+    with open(os.path.join(without_lib, "BTSpeak.py"), "w") as f:
+        f.write("raise ImportError('BTSpeak deliberately unavailable for this test')\n")
     service = os.path.join(tmp, "keyboard-service")
     open(service, "w").close()
     path = os.environ.get("PYTHONPATH", "")
@@ -68,11 +73,27 @@ def detection(emu, tmp):
     for name, env, want in (
             ("detection: the BTSpeak library and its keyboard service",
              env_without_bt(PYTHONPATH=with_lib, BLAZIE_TEST_BT_SERVICE=service), 0),
-            ("detection: no BTSpeak library", env_without_bt(BLAZIE_TEST_BT_SERVICE=service), 1),
+            ("detection: no BTSpeak library", env_without_bt(PYTHONPATH=without_lib, BLAZIE_TEST_BT_SERVICE=service), 1),
             ("detection: no keyboard service",
              env_without_bt(PYTHONPATH=with_lib, BLAZIE_TEST_BT_SERVICE=service + ".absent"), 1)):
         code, out = run([emu, "--bt-probe"], env)
         check(name, code == want, "exit %d, %s" % (code, out.strip()))
+    # An installed frontend supplies legacy detection even when kb_client cannot be imported.
+    legacy_bin = os.path.join(tmp, "legacy-bin")
+    legacy_emu = install(emu, legacy_bin)
+    with zipfile.ZipFile(os.path.join(legacy_bin, "blazie_emu_bt"), "w") as bundle:
+        bundle.writestr("keyboard_backend.py", "import os\ndef legacy_available():\n"
+                        "    return os.path.exists(os.environ.get('BLAZIE_TEST_BT_LEGACY', '/nonexistent'))\n")
+    os.remove(os.path.join(lib, "BTSpeak", "kb_client.py"))
+    # Python -B never creates a cached copy of the removed stand-in.
+    for name, marker, want in (("legacy keypad recognized by bundled frontend", service, 0),
+                               ("unsupported legacy setup", service + ".absent", 1)):
+        code, out = run([legacy_emu, "--bt-probe"], env_without_bt(PYTHONPATH=with_lib, BLAZIE_TEST_BT_LEGACY=marker))
+        check("detection: " + name, code == want, "exit %d, %s" % (code, out.strip()))
+    with open(os.path.join(lib, "BTSpeak", "kb_client.py"), "w") as f:
+        f.write("raise ModuleNotFoundError(name='broken_dependency')\n")
+    code, out = run([legacy_emu, "--bt-probe"], env_without_bt(PYTHONPATH=with_lib, BLAZIE_TEST_BT_LEGACY=service))
+    check("detection: broken native library", code == 1, "exit %d, %s" % (code, out.strip()))
     on_bt = os.environ.get("BLAZIE_TEST_ON_BT_DEVICE") == "1"
     code, out = run([emu, "--bt-probe"], env_without_bt())
     check("detection: this machine (%s)" % ("a BT device" if on_bt else "not a BT device"),

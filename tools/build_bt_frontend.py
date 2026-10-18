@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULES = (
     "frontend.py", "worker.py", "keymap.py", "display.py", "preferences.py", "profiles.py",
     "tns_keyboard.py", "audio_options.py", "audio_menu.py", "runtime_paths.py", "file_import.py",
+    "entrypoint.py", "bt_runtime.py", "keyboard_backend.py", "legacy_keyboard.py", "legacy_bridge.py", "legacy_protocol.py",
 )
 
 
@@ -27,7 +28,7 @@ def build(output: Path) -> None:
             stream.write(b"#!/usr/bin/env python3\n# blazie-flags: self-voice\n")
             # Explicit runtime modules and fixed metadata keep the archive reproducible.
             with zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
-                files = {"__main__.py": b"from frontend import main\nraise SystemExit(main())\n"}
+                files = {"__main__.py": b"from entrypoint import main\nraise SystemExit(main())\n"}
                 files.update({name: (ROOT / "src/platforms/btspeak" / name).read_bytes() for name in MODULES})
                 for name, data in files.items():
                     info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))

@@ -3,7 +3,8 @@
  * uses the device's own keyboard, speech and braille display.  Everywhere else blazie_emu runs in the terminal.
  *
  * The device: the system's python3 imports the device's BTSpeak library and its keyboard service answers
- * (kb_client.server_available(): what the frontend itself needs before it can run).  An ordinary PC or Raspberry Pi
+ * (kb_client.server_available()), or the installed frontend recognizes the legacy keypad and BRLTTY services.
+ * Legacy detection is read-only; privileged handoff happens only when the frontend starts. An ordinary PC or Raspberry Pi
  * has no BTSpeak library, so the probe says no there; no python3, a probe that fails or one that hangs (5 s) says no.
  * BLAZIE_BT_DETECT=1 or 0 answers instead of the probe (the tests).
  */

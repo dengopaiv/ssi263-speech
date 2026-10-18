@@ -14,18 +14,32 @@
 
 #define PROBE_MS 5000
 
-/* The device's own library and keyboard service, as the frontend uses them; any failure is "no". */
+/* Keep the native probe usable without a frontend; its bundle supplies the read-only legacy probe. */
 static const char PROBE[] =
-    "import sys\n"
+    "import importlib, sys\n"
     "try:\n"
-    "    from BTSpeak import kb_client\n"
-    "    sys.exit(0 if kb_client.server_available() else 1)\n"
+    "    import BTSpeak\n"
+    "    try:\n"
+    "        kb_client = importlib.import_module('BTSpeak.kb_client')\n"
+    "    except ModuleNotFoundError as error:\n"
+    "        if error.name != 'BTSpeak.kb_client':\n"
+    "            raise\n"
+    "        kb_client = None\n"
+    "    if kb_client is not None and kb_client.server_available():\n"
+    "        sys.exit(0)\n"
+    "    if len(sys.argv) > 1:\n"
+    "        sys.path.insert(0, sys.argv[1])\n"
+    "        from keyboard_backend import legacy_available\n"
+    "        sys.exit(0 if legacy_available() else 1)\n"
     "except Exception:\n"
-    "    sys.exit(1)\n";
+    "    pass\n"
+    "sys.exit(1)\n";
 
 int bt_detect(void)
 {
     const char *force = getenv("BLAZIE_BT_DETECT");
+    char frontend[PATH_MAX];
+    int bundled = bt_frontend(frontend, sizeof frontend);
     struct timespec step = {0, 10 * 1000000L};
     int status, waited, fd;
     pid_t pid;
@@ -41,7 +55,10 @@ int bt_detect(void)
             dup2(fd, 1);
             dup2(fd, 2);
         }
-        execlp("python3", "python3", "-c", PROBE, (char *)NULL);
+        if (bundled)
+            execlp("python3", "python3", "-B", "-c", PROBE, frontend, (char *)NULL);
+        else
+            execlp("python3", "python3", "-B", "-c", PROBE, (char *)NULL);
         _exit(127);
     }
     for (waited = 0; waited < PROBE_MS; waited += 10) {
