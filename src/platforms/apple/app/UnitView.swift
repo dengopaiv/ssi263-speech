@@ -33,13 +33,30 @@ struct UnitView: View {
                     } else {
                         Button("Switch off") { model.stop() }
                             .disabled(model.busy)
+                        // a power cycle, its files kept (never the factory reset); the one-handed ones hold a dot
+                        // as it starts, as the manuals say
+                        Button("Restart the unit (keeps its files)") { model.restart() }
+                            .disabled(model.busy)
+                        if model.hasOneHandedMode {
+                            Button("Restart in one-handed mode (dot 6 held as it starts)") {
+                                model.restart(hold: Int32(EMU_ONE_HAND_ON))
+                            }
+                            .disabled(model.busy)
+                            Button("Restart in two-handed mode (dot 3 held as it starts)") {
+                                model.restart(hold: Int32(EMU_ONE_HAND_OFF))
+                            }
+                            .disabled(model.busy)
+                        }
                     }
                     if !model.status.isEmpty { Text(model.status) }
                 } header: {
                     Text("Unit").accessibilityAddTraits(.isHeader)
                 } footer: {
                     Text("The unit keeps its own memory, files and settings, saved when it is switched off or the " +
-                         "app is left. Switch it off to choose another.")
+                         "app is left. Switch it off to choose another. Restart saves it and starts it again, as " +
+                         "switching a real unit off and on, and works when it has stopped answering. One-handed " +
+                         "mode, the Braille Lite's and the Braille 'n Speak's: the unit says so and keeps it until a " +
+                         "two-handed restart.")
                 }
 
                 if model.running != nil {
@@ -71,6 +88,8 @@ struct UnitView: View {
                 Section {
                     SettingSlider(title: "Volume", value: $model.volume, range: 0...100)
                     Toggle("Quick key response (faster than the real unit)", isOn: $model.quick)
+                    Toggle("Double-speed upgrade installed (Braille Lite: its status menu's switch then works)",
+                           isOn: $model.doubleSpeed)
                     Picker("Idle channel", selection: $model.idleSound) {
                         Text("As the unit (hiss at even volumes, whine at odd)").tag(3)
                         Text("Hiss").tag(1)
@@ -88,7 +107,9 @@ struct UnitView: View {
                     Text("Sound").accessibilityAddTraits(.isHeader)
                 } footer: {
                     Text("The idle channel is the faint sound a real unit makes while its speech channel is open; " +
-                         "the unit keeps it open for some seconds after it speaks, then clicks it off.")
+                         "the unit keeps it open for some seconds after it speaks, then clicks it off. The " +
+                         "double-speed upgrade was a $99 option: with it installed, the unit's own switch (the " +
+                         "status menu, then + (dots 3-4-6), answered y) doubles its speed.")
                 }
             }
         }

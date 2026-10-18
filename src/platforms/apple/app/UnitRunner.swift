@@ -36,8 +36,11 @@ final class UnitRunner {
 
     deinit { stop() }
 
-    /// Starts the unit (the one running is saved and stopped first).  Throws with the reason in words.
-    func start(_ e: UnitCatalog.Entry, volume: Int, quick: Bool, idle: Idle) throws {
+    /// Starts the unit (the one running is saved and stopped first), with the double-speed upgrade fitted or not, and
+    /// `hold`'s keys held for its first 2 s (emu_hold_at_start: one-handed mode's dot 6 or dot 3; 0 for none).
+    /// Throws with the reason in words.
+    func start(_ e: UnitCatalog.Entry, volume: Int, quick: Bool, doubleSpeed: Bool, idle: Idle,
+               hold: Int32 = 0) throws {
         stop()
         let state = try UnitCatalog.prepare(e)
         var err = [CChar](repeating: 0, count: 300)
@@ -48,6 +51,8 @@ final class UnitRunner {
         set(u, idle)
         emu_set_volume(u, Int32(volume))
         emu_set_quick(u, quick ? 1 : 0)
+        emu_set_double_speed(u, doubleSpeed ? 1 : 0)
+        if hold != 0 { emu_hold_at_start(u, hold) }    // before its first render: held from its first instant
         core.lock.lock()
         core.unit = u
         chord_reset(&core.chord)
@@ -103,6 +108,7 @@ final class UnitRunner {
         return busy != 0
     }
     func setQuick(_ on: Bool) { withUnit { emu_set_quick($0, on ? 1 : 0) } }
+    func setDoubleSpeed(_ on: Bool) { withUnit { emu_set_double_speed($0, on ? 1 : 0) } }
 
     /// A key of the unit's keyboard (a chords.h bit: a dot, the space bar, an advance bar) went down or up.
     func key(_ bit: Int32, down: Bool) {

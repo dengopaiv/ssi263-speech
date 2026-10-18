@@ -17,6 +17,15 @@ var failures = 0
 
 let disks = CommandLine.arguments.count > 2 ? URL(fileURLWithPath: CommandLine.arguments[2]) : nil
 
+// every voice the library has (ssa_engine.h: 0 ..< SSA_ALL_VOICES, the Sounding Board's 27 last) is one of the app's,
+// once: the Apple column of tools/check_uniform.py's matrix
+do {
+    let indexes = SsiShared.voices.map { Int($0.index) }.sorted()
+    let ok = indexes == Array(0..<Int(SSA_ALL_VOICES)) && SsiShared.voices.last?.key == "soundingboard"
+    print("\(ok ? "ok   " : "FAIL ") every voice of the library is the app's, once: \(indexes.count) of \(SSA_ALL_VOICES)")
+    if !ok { failures += 1 }
+}
+
 func run(_ label: String, _ files: [String], expect: [String], kept: [String] = [], from base: URL? = nil) {
     let urls = files.map { (base ?? repo.appendingPathComponent("firmware")).appendingPathComponent($0) }
     guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else {
@@ -54,6 +63,38 @@ run("the Hungarian Braille Lite (a release voice)", ["blazie/bl2000/BL2HUN.BNS"]
     kept: ["BL2HUN.BNS", "bl2_hu_1999_07.state", "BL2HUN.BNS.label"])
 run("the Japanese Braille Lite (the unit tab's alone, beside the Hungarian)", ["blazie/bl2000/BL2JPN.BNS"],
     expect: ["braillelite-hu"], kept: ["units/bl2_ja.BNS", "units/bl2_ja.BNS.label"])
+// GW Micro's Sounding Board (0.8.5): its two drivers chosen as two files, then sb.zip as GW Micro gave it out (each
+// checked to speak by the commit); one driver alone, or one with a byte changed, is refused
+let sbDir = "gw-micro-sounding-board/"
+run("the Sounding Board's two drivers, chosen as two files", [sbDir + "SB.COM", sbDir + "SBLOAD.COM"],
+    expect: ["soundingboard"], kept: ["SBLOAD.COM", "SB.COM", "SBLOAD.COM.label"])
+if let unit = SsiShared.unitFolder {
+    for f in ["SBLOAD.COM", "SB.COM", "SBLOAD.COM.label"] {
+        try? FileManager.default.removeItem(at: unit.appendingPathComponent(f))
+    }
+}
+run("the Sounding Board from sb.zip", [sbDir + "sb.zip"], expect: ["soundingboard"],
+    kept: ["SBLOAD.COM", "SB.COM", "SBLOAD.COM.label"])
+func refuses(_ label: String, _ urls: [URL], _ words: String) {
+    guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else {
+        print("skip  \(label): its firmware is not there")
+        return
+    }
+    let plan = try? FirmwareInstaller.inspect(urls)
+    let ok = plan?.found.isEmpty == true && plan?.refusal?.contains(words) == true
+    print("\(ok ? "ok   " : "FAIL ") \(label): \(plan?.refusal ?? "no plan")")
+    if !ok { failures += 1 }
+}
+let sbCom = repo.appendingPathComponent("firmware/" + sbDir + "SB.COM")
+refuses("SB.COM alone", [sbCom], "but its SBLOAD.COM is needed too")
+if var changed = try? Data(contentsOf: sbCom) {
+    changed[100] ^= 1
+    let copy = root.appendingPathComponent("changed/SB.COM")
+    try? FileManager.default.createDirectory(at: copy.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try? changed.write(to: copy)
+    refuses("SB.COM with one byte changed", [copy], "does not contain")
+}
+
 // the confirmation's words (Android's): a language update takes a few seconds, and one already here is replaced;
 // the unit tab's alone is kept for it
 func confirms(_ label: String, _ file: String, _ words: [String]) {

@@ -111,6 +111,10 @@ func disk1() -> Data { bytes("DOS33DISK") + bytes("DISK1") + Data(count: 3000) }
 /// A made-up disk image: the toolkit's when it says TOOLKIT (the fake then gives the file), another when not.
 func disk(_ toolkit: Bool) -> Data { bytes("DOS33DISK") + bytes(toolkit ? "TOOLKIT" : "OTHER") + Data(count: 3000) }
 
+/// Made-up Sounding Board drivers: the native side knows the real ones by their sha256s.
+let sbLoad = bytes("SBLOAD") + filled(1300) { UInt8(($0 * 7) & 0xFF) }
+let sbCom = bytes("SBCOM") + filled(740) { UInt8(($0 * 9) & 0xFF) }
+
 /// A made-up state: the size every state has, whatever is in it.
 func state() -> Data { filled(FirmwareImport.stateSize) { UInt8(($0 * 13) & 0xFF) } }
 
@@ -139,6 +143,11 @@ struct Fake: FirmwareImport.Identify {
         if text.hasPrefix("SWEETMICRO") {
             try? data.write(to: out)
             return (FirmwareImport.mockingboard, "Mockingboard: Sweet Micro Systems' text-to-speech 1.1")
+        }
+        if text.hasPrefix("SBLOAD") || text.hasPrefix("SBCOM") {
+            try? data.write(to: out)
+            return text.hasPrefix("SBLOAD") ? (FirmwareImport.sbLoad, "GW Micro Sounding Board 2.7: SBLOAD.COM")
+                : (FirmwareImport.sbCom, "GW Micro Sounding Board 2.7: SB.COM")
         }
         if text.hasPrefix("AICOM ") {
             let which = String(text.dropFirst(6).prefix(while: { $0 != "\n" }))
@@ -753,7 +762,7 @@ for (label, tool) in [("ditto (Finder's Compress)", ["/usr/bin/ditto", "-c", "-k
 
 test("theWordsNameEveryUnit") {
     eq(FirmwareImport.noFirmwareFile, "This file does not contain Braille Lite, Braille 'n Speak, Speak-Out, " +
-        "Mockingboard or Accent firmware.")
+        "Sounding Board, Mockingboard or Accent firmware.")
     check(FirmwareImport.whatToChoose.contains("Lite2000.BNS (German, Italian)"), "")
     check(FirmwareImport.whatToChoose.contains("For the Slovak Braille 'n Speak 2000: BS2SLL.BNS"), "")
     check(FirmwareImport.whatToChoose.contains("your own copy of Mockingboard disk 1"), "")
@@ -766,6 +775,108 @@ test("theWordsNameEveryUnit") {
     }
     eq(FirmwareImport.stateFile, "This is a state file, not firmware. Please import only firmware files, or zips " +
         "containing them, with this tool.")
+}
+
+// ---- the Sounding Board: two files, imported only together (0.8.5) ------------------------------------------------
+
+let SB = FirmwareImport.soundingboard
+
+test("sbZipAsGwMicroGaveItOutIsOneVoiceOfTwoFiles") {
+    let plan = inspect("sb.zip", zip([("SBLOAD.COM", sbLoad), ("SB.COM", sbCom), ("SECT1.TXT", bytes("manual")),
+                                      ("SOUNDBRD.DLL", bytes("MZ viewer")), ("SB.INF", bytes("[sb]"))]))
+    eq(plan.refusal, nil)
+    eq(kinds(plan), [SB])
+    eq(plan.found.first?.label, "GW Micro Sounding Board 2.7: SBLOAD.COM and SB.COM")
+    eq(plan.found.first?.from, "SBLOAD.COM and SB.COM")
+    eq(plan.found.first.flatMap { try? Data(contentsOf: $0.firmware) }, sbLoad)
+    eq(plan.found.first?.parts.count, 1)
+    eq(plan.found.first?.parts.first.flatMap { try? Data(contentsOf: $0) }, sbCom)
+    eq(plan.notes, [])
+}
+
+test("oneSoundingBoardDriverAloneIsRefusedWithWhy") {
+    let plan = inspect("SB.COM", sbCom)
+    eq(plan.found.count, 0)
+    check(plan.refusal?.hasPrefix("SB.COM is the Sounding Board's SB.COM, but its SBLOAD.COM is needed too (both " +
+                                  "are in GW Micro's sb.zip).") == true, plan.refusal ?? "nil")
+    let other = inspect("half.zip", zip([("BL2ENG.BNS", bns("E")), ("SBLOAD.COM", sbLoad)]))
+    eq(kinds(other), [E])
+    check(other.notes.contains("SBLOAD.COM is the Sounding Board's SBLOAD.COM, but its SB.COM is needed too (both " +
+                               "are in GW Micro's sb.zip); it is left out."), "\(other.notes)")
+}
+
+test("the085AddOnBringsTheSoundingBoardItCarries") {
+    // 0.8.5's add-on carries GW Micro's two drivers beside SPEAKOUT.HEX (Tomi, 2026-10-18): one import, both voices
+    let s = "synthDrivers/_ssi263_unified/_ssi263_speakout/"
+    let plan = inspect("ssi263-speech-0.8.5.nvda-addon", zip([("manifest.ini", bytes("name = ssi263")),
+        (s + "SPEAKOUT.HEX", hex(true)), (s + "SBLOAD.COM", sbLoad), (s + "SB.COM", sbCom)]))
+    eq(plan.refusal, nil)
+    eq(kinds(plan), [SO, SB])
+    eq(plan.found.last?.parts.first.flatMap { try? Data(contentsOf: $0) }, sbCom)
+}
+
+test("theTwoDriversChosenAsTwoFilesAreOneVoice") {
+    tmpCount += 1
+    var ignored: [String] = []
+    let plan = FirmwareImport.inspect(files: [("SB.COM", sbCom), ("README.TXT", bytes("hello")),
+                                              ("SBLOAD.COM", sbLoad)],
+                                      staging: tmpRoot.appendingPathComponent("s\(tmpCount)"), id: Fake(),
+                                      ignored: &ignored)
+    eq(plan.refusal, nil)
+    eq(kinds(plan), [SB])
+    eq(plan.found.first.flatMap { try? Data(contentsOf: $0.firmware) }, sbLoad)
+    eq(plan.found.first?.parts.first.flatMap { try? Data(contentsOf: $0) }, sbCom)
+    eq(ignored, ["README.TXT"])
+}
+
+test("theSoundingBoardIsNamedForTheFilesToBring") {
+    check(FirmwareImport.whatToChoose.contains("For the Sounding Board: GW Micro's sb.zip, or the SBLOAD.COM and " +
+                                               "SB.COM inside it (both are needed)."), "")
+    check(FirmwareImport.order.contains(SB), "the order has no Sounding Board")
+    eq(FirmwareImport.partFiles[SB], ["SBLOAD.COM", "SB.COM"])
+    eq(FirmwareImport.files[SB], "SBLOAD.COM")
+}
+
+// ---- Export to WAV (WavExport.swift): Android's WavExportTest.kt ---------------------------------------------------
+
+test("theWavNameIsTheUnitAndTheTime") {
+    var c = DateComponents()
+    (c.year, c.month, c.day, c.hour, c.minute, c.second) = (2026, 10, 18, 16, 45, 33)
+    let at = Calendar.current.date(from: c)!
+    func name(_ v: String) -> String { WavExport.fileName(voiceName: v, at: at) }
+    eq(name("en-US-speakout"), "speakout-20261018-164533.wav")
+    eq(name("en-US-accentsa"), "accentsa-20261018-164533.wav")
+    eq(name("en-US-mockingboard-early"), "mockingboard-early-20261018-164533.wav")
+    eq(name("en-US-soundingboard"), "soundingboard-20261018-164533.wav")
+    // another language keeps its tag after the unit, once when the country only repeats it
+    eq(name("de-DE-braillelite"), "braillelite-de-20261018-164533.wav")
+    eq(name("sk-SK-braillenspeak"), "braillenspeak-sk-20261018-164533.wav")
+    eq(name("pt-BR-braillelite"), "braillelite-pt-br-20261018-164533.wav")
+    eq(name("ar-braillelite"), "braillelite-ar-20261018-164533.wav")
+    // a name with no unit after its tag is kept whole
+    eq(name("en-US"), "en-US-20261018-164533.wav")
+    // this app's voices, named as Android names them
+    eq(WavExport.voiceName(key: "speakout", language: "en-US"), "en-US-speakout")
+    eq(WavExport.voiceName(key: "mockingboard-early", language: "en-US"), "en-US-mockingboard-early")
+    eq(WavExport.voiceName(key: "braillelite-de", language: "de-DE"), "de-DE-braillelite")
+    eq(WavExport.voiceName(key: "braillenspeak-sk", language: "sk-SK"), "sk-SK-braillenspeak")
+    eq(WavExport.voiceName(key: "braillelite-pt-br", language: "pt-BR"), "pt-BR-braillelite")
+    eq(WavExport.voiceName(key: "braillelite-ar", language: "ar-001"), "ar-braillelite")
+}
+
+test("theWavFileIsTheRenderWithItsHeader") {
+    let pcm = (0..<1001).map { Int16(truncatingIfNeeded: $0 * 77 - 30000) }
+    let d = WavExport.wav(pcm, rate: 22050)
+    func u32(_ at: Int) -> Int { Int(d[at]) | Int(d[at + 1]) << 8 | Int(d[at + 2]) << 16 | Int(d[at + 3]) << 24 }
+    func u16(_ at: Int) -> Int { Int(d[at]) | Int(d[at + 1]) << 8 }
+    eq(String(data: d.prefix(4), encoding: .ascii), "RIFF")
+    eq(u32(4), 36 + 2002)
+    eq(String(data: d.subdata(in: 8..<16), encoding: .ascii), "WAVEfmt ")
+    eq([u32(16), u16(20), u16(22), u32(24), u32(28), u16(32), u16(34)], [16, 1, 1, 22050, 44100, 2, 16])
+    eq(String(data: d.subdata(in: 36..<40), encoding: .ascii), "data")
+    eq(u32(40), 2002)
+    eq(d.count, 44 + 2002)
+    eq((0..<1001).map { Int16(bitPattern: UInt16(u16(44 + 2 * $0))) }, pcm)
 }
 
 // ---- run -----------------------------------------------------------------------------------------------------------

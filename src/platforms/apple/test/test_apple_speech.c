@@ -139,9 +139,10 @@ static void spoken(ssp_speech *p, int voice, const ssp_request *r, const ssa_set
 
 static const char *VOICE_NAMES[SSA_RELEASE_FIRST] = {"en", "es", "sa", "so", "mini", "mb", "mbe", "de", "it", "sk"};
 
-/* a voice's short name: the release voices' by their key (blazie_hu) */
+/* a voice's short name: the release voices' by their key (blazie_hu), the Sounding Board's after them */
 static const char *voice_name(int v)
 {
+    if (v == SSA_SOUNDINGBOARD) return "sb";
     return v < SSA_RELEASE_FIRST ? VOICE_NAMES[v] : blv_release_voice_key(ssa_voice_release(v));
 }
 
@@ -193,7 +194,7 @@ static int speak(const char *data, const char *aicom, const char *dvc)
     int bad = 0;
     ssa_default_settings(&s);
     s.volume = 135;                    /* the app's default engine volume, as Android's */
-    for (int v = 0; v < SSA_VOICES; v++) {
+    for (int v = 0; v < SSA_ALL_VOICES; v++) {
         ssa_engine *mine = ssa_new(data), *ref = ssa_new(data);
         ssp_speech *p = ssp_speech_new(mine);
         load_aicom(mine, aicom, dvc);

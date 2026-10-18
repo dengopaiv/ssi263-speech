@@ -7,9 +7,10 @@
 //
 // Only the Blazie releases on the native side's list are taken (the Braille Lite in English, Spanish, German and
 // Italian, the Slovak Braille 'n Speak 2000, and every other release the table lists: a release voice's, Hungarian
-// and the others, or one the Braille Lite unit tab runs alone), only GW Micro's known SPEAKOUT.HEX, the Mockingboards'
-// two known files and only Aicom's own files, and never a unit's state: the app always makes its own from the
-// firmware (Tomi, 2026-09-30).  MIT.
+// and the others, or one the Braille Lite unit tab runs alone), only GW Micro's known SPEAKOUT.HEX and the Sounding
+// Board's two drivers (SBLOAD.COM and SB.COM 2.7, together or not at all), the Mockingboards' two known files and only
+// Aicom's own files, and never a unit's state: the app always makes its own from the firmware (Tomi, 2026-09-30).
+// MIT.
 
 import Foundation
 
@@ -28,6 +29,9 @@ enum FirmwareImport {
     static let accentU3 = 11                // its dictionary, part 1
     static let accentU4 = 12                // its dictionary, part 2
     static let accentMini = 13              // the Accent-mini's SPKEMS.DVC
+    static let soundingboard = 27           // GW Micro's Sounding Board (ssa_engine.h SSA_SOUNDINGBOARD; 0.8.5): two
+    static let sbLoad = 90                  // files -- SBLOAD.COM (ssa_import.h SSA_FW_SBLOAD) and
+    static let sbCom = 91                   // SB.COM (SSA_FW_SB): found apart, imported only together
     static let release = 100                // + a release's row (ssp_import.h's SSP_FW_RELEASE): no shipped voice
     static let none = -1                    // no firmware in the bytes
     static let refused = -2                 // Blazie firmware, but another unit's: not one the voice can run
@@ -44,13 +48,18 @@ enum FirmwareImport {
                                        mockingboard: "mockingboard-tts-1.1.bin",
                                        mockingboardEarly: "mockingboard-tts-early.bin",
                                        accentU2: "u2.BIN", accentU3: "u3.BIN", accentU4: "u4.BIN",
-                                       accentMini: "SPKEMS.DVC"]
+                                       accentMini: "SPKEMS.DVC", soundingboard: "SBLOAD.COM"]
+    /// A voice of two files (the Sounding Board's drivers): each file's kind as the native side finds it, and the
+    /// names they are kept under, in the same order (the first is `files`').
+    static let parts: [Int: [Int]] = [soundingboard: [sbLoad, sbCom]]
+    static let partFiles: [Int: [String]] = [soundingboard: ["SBLOAD.COM", "SB.COM"]]
+    static let soundingboardLabel = "GW Micro Sounding Board 2.7: SBLOAD.COM and SB.COM"
     static let stateFiles: [Int: String] = [english: "bl2_2003_warm.state", spanish: "bl2spa_fresh.state",
                                             german: "lite2000_de_fresh.state", italian: "lite2000_it_fresh.state",
                                             slovak: "bs2sll_fresh.state"]
     /// The order an import takes them in (Android's IMPORTED, then Aicom's).
     static let order = [english, spanish, german, italian, slovak, speakout, mockingboard, mockingboardEarly,
-                        accentU2, accentU3, accentU4, accentMini]
+                        soundingboard, accentU2, accentU3, accentU4, accentMini]
     /// The Blazie units: a state made from each one's firmware.
     static let blazie: Set<Int> = [english, spanish, german, italian, slovak]
     static let accentRoms = [accentU2, accentU3, accentU4]
@@ -59,10 +68,10 @@ enum FirmwareImport {
     static let maxSource = 64 << 20         // an add-on is a few megabytes; firmware a few hundred kilobytes
     static let maxEntry = 4 << 20           // an update program is half a megabyte
 
-    static let noFirmwareZip = "This zip does not contain Braille Lite, Braille 'n Speak, Speak-Out, Mockingboard " +
-        "or Accent firmware."
-    static let noFirmwareFile = "This file does not contain Braille Lite, Braille 'n Speak, Speak-Out, Mockingboard " +
-        "or Accent firmware."
+    static let noFirmwareZip = "This zip does not contain Braille Lite, Braille 'n Speak, Speak-Out, Sounding Board, " +
+        "Mockingboard or Accent firmware."
+    static let noFirmwareFile = "This file does not contain Braille Lite, Braille 'n Speak, Speak-Out, Sounding " +
+        "Board, Mockingboard or Accent firmware."
     /// Tomi's words, for a state picked on its own.
     static let stateFile = "This is a state file, not firmware. Please import only firmware files, or zips " +
         "containing them, with this tool."
@@ -72,7 +81,8 @@ enum FirmwareImport {
         "as blt2000.exe), or the BL2ENG.BNS (English), BL2SPA.BNS (Spanish) or Lite2000.BNS (German, Italian) " +
         "inside it, or one of its language updates (BL2HUN.BNS, BL2POL.BNS and the others). For the Slovak " +
         "Braille 'n Speak 2000: BS2SLL.BNS. For the Speak-Out: GW Micro's SPEAKOUT.HEX, " +
-        "or the speakout.zip holding it. For the Mockingboard: your own copy of the Mockingboard Developers " +
+        "or the speakout.zip holding it. For the Sounding Board: GW Micro's sb.zip, or the SBLOAD.COM and SB.COM " +
+        "inside it (both are needed). For the Mockingboard: your own copy of the Mockingboard Developers " +
         "Toolkit disk, as its image (.dsk, .do or .po), or the mockingboard-tts-1.1.bin made from it; for the early " +
         "Mockingboard, your own copy of Mockingboard disk 1, or the mockingboard-tts-early.bin made from it. For " +
         "the Accents: Aicom's u2.BIN, u3.BIN and u4.BIN for the Accent SA and SPKEMS.DVC for the Accent-mini. A " +
@@ -82,7 +92,8 @@ enum FirmwareImport {
     /// The host-side tests' controls (SSI263_IMPORT_BREAK; never set in the app): `1` looks at a zip's top only -- no
     /// folder down, no add-on layout -- so the layout tests must fail; `state` stops knowing a state file;
     /// `speakout` drops what the native side says is the Speak-Out's; `mockingboard` both Mockingboards'; `accent`
-    /// drops Aicom's files; `release` the releases with no shipped voice.
+    /// drops Aicom's files; `release` the releases with no shipped voice; `soundingboard` the Sounding Board's two
+    /// drivers.
     static var control = ProcessInfo.processInfo.environment["SSI263_IMPORT_BREAK"] ?? ""
 
     /// What the native side says about some bytes: the app's NativeIdentify, a fake in the tests.
@@ -128,6 +139,7 @@ enum FirmwareImport {
         case mockingboardEarly: return "early Mockingboard"
         case accentU2, accentU3, accentU4: return "Accent SA"
         case accentMini: return "Accent-mini"
+        case soundingboard: return "Sounding Board"
         default: return "unit"
         }
     }
@@ -141,6 +153,7 @@ enum FirmwareImport {
         case speakout: return "Speak-Out"
         case mockingboard: return "Mockingboard"
         case mockingboardEarly: return "early Mockingboard"
+        case soundingboard: return "Sounding Board"
         default: return "English"
         }
     }
@@ -154,6 +167,8 @@ enum FirmwareImport {
         let from: String                    // where it was: the file's name, or its path in the zip
         let firmware: URL                   // written into the staging folder
         let label: String                   // in words (the native side's)
+        var parts: [URL] = []               // a two-file voice's other files, in `partFiles`' order (the Sounding
+                                            // Board's SB.COM)
     }
 
     /// Either `refusal` says why nothing can be imported, in words for the person holding the device, or `found`
@@ -190,6 +205,27 @@ enum FirmwareImport {
         return sink.plan(zip: false)
     }
 
+    /// Several loose files chosen together (no zips: each of those is a source of its own), judged as one source,
+    /// so a voice of two files picked as its two files (the Sounding Board's SBLOAD.COM and SB.COM) is found whole.
+    /// `ignored` gets the names of those that held nothing this app takes.
+    static func inspect(files: [(name: String, data: Data)], staging: URL, id: Identify,
+                        ignored: inout [String]) -> Plan {
+        let fm = FileManager.default
+        try? fm.removeItem(at: staging)
+        try? fm.createDirectory(at: staging, withIntermediateDirectories: true)
+        let sink = Sink(staging: staging, id: id)
+        for (name, data) in files {
+            if isState(data) { sink.states.append(name); continue }
+            if sink.judge(from: name, bytes: data) { continue }
+            let before = sink.firmware.count
+            if let at = ZipReader.zipStart(data), at > 0 {      // an update program (blt2000.exe)
+                try? sink.zip(name: name, data: data, at: at, nested: false)
+            }
+            if sink.firmware.count == before { ignored.append(name) }
+        }
+        return sink.plan(zip: false)
+    }
+
     private final class Sink {
         struct Candidate { let kind: Int; let from: String; let file: URL; let label: String }
 
@@ -218,7 +254,8 @@ enum FirmwareImport {
             if (control == "speakout" && kind == speakout)
                 || (control == "mockingboard" && (kind == mockingboard || kind == mockingboardEarly))
                 || (control == "accent" && (accentU2...accentMini).contains(kind))
-                || (control == "release" && isRelease(kind)) {
+                || (control == "release" && isRelease(kind))
+                || (control == "soundingboard" && (kind == sbLoad || kind == sbCom)) {
                 kind = FirmwareImport.none
                 text = ""
             }
@@ -281,15 +318,32 @@ enum FirmwareImport {
             let rank = id.known()
             func r(_ label: String) -> Int { rank.firstIndex(of: label) ?? Int.max }
             for kind in order + Set(firmware.map { $0.kind }.filter(isRelease)).sorted() {
+                if let codes = parts[kind], let names = partFiles[kind] {
+                    // a two-file voice: each file once, imported only with both
+                    let have = codes.map { code in firmware.first { $0.kind == code } }
+                    let got = have.compactMap { $0 }
+                    if got.count == codes.count {
+                        found.append(Found(kind: kind, from: got.map { $0.from }.joined(separator: " and "),
+                                           firmware: got[0].file, label: soundingboardLabel,
+                                           parts: got.dropFirst().map { $0.file }))
+                    } else if let missing = have.firstIndex(where: { $0 == nil }) {
+                        for (i, c) in have.enumerated() {
+                            guard let c = c else { continue }
+                            withReason.append((c.from, "the \(languageName(kind))'s \(names[i]), but its " +
+                                "\(names[missing]) is needed too (both are in GW Micro's sb.zip)"))
+                        }
+                    }
+                    continue
+                }
                 guard let c = firmware.filter({ $0.kind == kind }).min(by: { r($0.label) < r($1.label) }) else {
                     continue
                 }
                 found.append(Found(kind: kind, from: c.from, firmware: c.file, label: c.label))
             }
-            let kept = Set(found.map { $0.firmware })
+            let kept = Set(found.flatMap { [$0.firmware] + $0.parts })
             for c in firmware where !kept.contains(c.file) {
                 try? FileManager.default.removeItem(at: c.file)
-                let f = found.first { $0.kind == c.kind }!
+                guard let f = found.first(where: { $0.kind == c.kind }) else { continue }  // a two-file voice's part
                 if c.label != f.label {     // the same release twice (an update program and its .BNS) is one
                     let l = languageName(c.kind)
                     notes.append("\(c.from) is another \(l) release (\(c.label)); only \(f.from) (\(f.label)) is " +

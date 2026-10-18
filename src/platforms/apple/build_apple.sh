@@ -53,6 +53,12 @@ if [ -f "$SRC/mockingboard/mb_voice.c" ]; then
     MB=1
     HAVE="$HAVE -DSSV_HAVE_MOCKINGBOARD"
 fi
+# the Sounding Board (0.8.5): the Speak-Out's voice on the card's DOS drivers, on the Accent-mini's pc86 (imported)
+SB=0
+if [ "$MINI" = 1 ] && [ -f "$SRC/soundingboard/sb_host.c" ]; then
+    SB=1
+    HAVE="$HAVE -DSSV_HAVE_SOUNDINGBOARD -DSO_HAVE_SOUNDINGBOARD"
+fi
 
 # slice -> SDK and clang target
 sdk() {
@@ -105,12 +111,15 @@ slice() {
     for f in so_board so_icu so_scu so_hex so_host; do
         cc $SPEAKOUT -c -o "$O/$f.o" "$SRC/speakout/$f.c"
     done
-    cc $FRONT -c -o "$O/so_voice.o" "$SRC/speakout/so_voice.c"
+    cc $FRONT $HAVE -c -o "$O/so_voice.o" "$SRC/speakout/so_voice.c"
     if [ "$MINI" = 1 ]; then
         cxx $MAME -c -o "$O/i86_mame.o" "$SRC/cpu/i86_mame.cpp"
         for f in pc86/pc86 accentmini/am_host accentmini/am_voice; do
             cc $ACCENT -I$SRC/pc86 -c -o "$O/${f##*/}.o" "$SRC/$f.c"
         done
+    fi
+    if [ "$SB" = 1 ]; then                           # the Sounding Board's host, on the same pc86
+        cc $ACCENT -I$SRC/pc86 -c -o "$O/sb_host.o" "$SRC/soundingboard/sb_host.c"
     fi
     # The Mockingboard (the 6502, its board, host and voice, and the disk reader the import uses)
     if [ "$MB" = 1 ]; then

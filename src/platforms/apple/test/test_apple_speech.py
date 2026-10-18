@@ -169,6 +169,11 @@ def check_speak(exe, data, aicom, env, releases=()):
         print("%-5s speak  the %d release voices each spoke%s" % ("ok" if not mute else "FAIL", len(releases),
                                                                  ": not " + ", ".join(mute) if mute else ""))
     bad += bool(mute)
+    # the Sounding Board (voice 27, after the release voices) speaks when its two drivers are there
+    if all(os.path.isfile(os.path.join(data, f)) for f in ("SBLOAD.COM", "SB.COM")):
+        ok = rows.get("sb-phrases", (0,))[0] > 0
+        print("%-5s speak  the Sounding Board spoke, after the release voices" % ("ok" if ok else "FAIL"))
+        bad += not ok
     print("%-5s speak  %d requests on %d voices: the segments' own PCM with the pauses between, a stop that holds" % (
         "ok" if not bad else "FAIL", cases, len({k.split("-")[0] for k in rows})))
     return bad
@@ -248,6 +253,10 @@ def main():
     tmp = tempfile.mkdtemp(prefix="ssi263-apple-speech-")
     try:
         data = tan.data_folder(a.firmware, tmp)
+        # the Sounding Board's two drivers (0.8.5), when they are in the firmware folder: voice 27 speaks too
+        if all(os.path.isfile(os.path.join(tan.SB_DIR, f)) for f in ("SBLOAD.COM", "SB.COM")):
+            for f in ("SBLOAD.COM", "SB.COM"):
+                shutil.copy2(os.path.join(tan.SB_DIR, f), data)
         releases, bad = release_voices.add(data, a.firmware)
         bad += check_parse(exe, env) + check_speak(exe, data, a.aicom, env, releases) + \
             check_import(exe, data, tmp, env, a.firmware)

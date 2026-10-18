@@ -53,7 +53,8 @@ struct SetupView: View {
                 Text("The voices: the Blazie Braille Lite 2000 in speech-box mode, its own firmware on an emulated " +
                      "Z180, in English, Spanish, German and Italian, and with its language updates in many more " +
                      "(the list below); the Blazie Braille 'n Speak 2000 the same way, in Slovak; the GW Micro " +
-                     "Speak-Out, its own firmware on an emulated V40; the Aicom Accent SA and Accent-mini; and the " +
+                     "Speak-Out, its own firmware on an emulated V40, and GW Micro's Sounding Board, the same voice " +
+                     "on the card's own DOS drivers; the Aicom Accent SA and Accent-mini; and the " +
                      "Sweet Micro Systems Mockingboard, the Apple II's speech card, on an emulated 6502. Each " +
                      "language is offered to VoiceOver and the system once its unit is imported.")
             }
@@ -80,8 +81,9 @@ struct SetupView: View {
                 Text("Voices").accessibilityAddTraits(.isHeader)
             } footer: {
                 Text("This app carries no firmware. Each voice speaks once you import the firmware you own: the " +
-                     "Braille Lite 2000's and its language updates, GW Micro's Speak-Out's, Aicom's for the Accent " +
-                     "SA and Accent-mini, and " +
+                     "Braille Lite 2000's and its language updates, GW Micro's Speak-Out's, GW Micro's sb.zip for " +
+                     "the Sounding Board (or its SBLOAD.COM and SB.COM together: the voice needs both), Aicom's " +
+                     "for the Accent SA and Accent-mini, and " +
                      "for the Mockingboard, your own copy of the Mockingboard Developers Toolkit disk.")
             }
 
@@ -124,11 +126,21 @@ struct SetupView: View {
                     }
                     TextField("Text to speak", text: $text, axis: .vertical)
                     Button("Speak") { model.speak(text, voiceKey: previewVoice) }
+                    Button("Export to WAV…") { model.export(text, voiceKey: previewVoice) }
+                        .disabled(model.exporting)
                     Button("Stop") { model.stopPreview() }
                 }
                 if !model.previewStatus.isEmpty { Text(model.previewStatus) }
             } header: {
                 Text("Try it").accessibilityAddTraits(.isHeader)
+            } footer: {
+                #if os(macOS)
+                Text("Export to WAV saves the text, spoken as Speak would say it, as a sound file where you choose. " +
+                     "The say command in Terminal can too, with any imported voice: say -v \"Speak-Out (en-US)\" " +
+                     "-o hello.aiff \"Hello there.\" (say -v ? lists them).")
+                #else
+                Text("Export to WAV saves the text, spoken as Speak would say it, as a sound file where you choose.")
+                #endif
             }
 
             Section {
@@ -164,6 +176,10 @@ struct SetupView: View {
             Text("Every voice will stay silent until its firmware is imported again.")
         }
         .sheet(isPresented: $showLicenses) { LicensesView() }
+        #if os(iOS)
+        .fileExporter(isPresented: $model.showExporter, document: model.exportDocument, contentType: .wav,
+                      defaultFilename: String(model.exportName.dropLast(4))) { model.exportFinished($0) }
+        #endif
         .onAppear(perform: choosePreviewVoice)
         .onChange(of: model.voices.map { $0.label ?? "" }) { _ in choosePreviewVoice() }
     }
@@ -374,7 +390,8 @@ struct VoiceSettingsView: View {
                 Text("The Speak-Out").accessibilityAddTraits(.isHeader)
             } footer: {
                 Text("The Speak-Out's tones A to Z, as its NVDA add-on offers them; I is the box's own. Joining " +
-                     "phrases and shorter pauses are on by default, as in its NVDA add-on.")
+                     "phrases and shorter pauses are on by default, as in its NVDA add-on. The Sounding Board " +
+                     "speaks with the Speak-Out's settings: its drivers' front end is the same.")
             }
 
             Section {
@@ -398,4 +415,13 @@ struct VoiceSettingsView: View {
         }
         .navigationTitle("Voice settings")
     }
+}
+
+/// A rendered WAV, as the iOS file exporter takes it.
+struct WavDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.wav] }
+    let data: Data
+    init(data: Data) { self.data = data }
+    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }

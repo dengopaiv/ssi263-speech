@@ -19,7 +19,12 @@ own locale for its language (hu-HU; Arabic as ar-001, Norwegian as nb-NO, Portug
 pt-BR), and named in English ("Braille Lite 2000 (Russian)", the table's `vname`). The Setup list shows each
 voice's file (`BL2HUN.BNS — not imported`); the languages wait behind "Show all Braille Lite importable languages (17,
 N imported)", imported or not. One import takes them all from the NVDA add-on too (`_ssi263_blazie/bl2000/`). A release no voice speaks yet (the betas, Japanese) is still
-imported, kept under `units/` for the Braille Lite unit tab. Languages work as in TGSpeechBox's speech extension, with Android's one locale
+imported, kept under `units/` for the Braille Lite unit tab. Last, after the release voices so no voice before it
+moves (`ssa_engine.h`'s `SSA_SOUNDINGBOARD`, 27 of 28): GW Micro's Sounding Board, the Speak-Out's voice on the
+card's own DOS drivers (`src/csrc/soundingboard`, on the Accent-mini's pc86), imported from `sb.zip`, from the 0.8.5
+add-on (`_ssi263_speakout/`, beside the Speak-Out's HEX) or as its `SBLOAD.COM` and `SB.COM` chosen together (several
+loose files are judged as one source): the voice needs both, so one alone is refused with why. It is always shown in
+the firmware list, and takes the Speak-Out's settings. Languages work as in TGSpeechBox's speech extension, with Android's one locale
 per voice: the units have no dialect firmware, so the English voices are en-US only and the Spanish Braille Lite es-ES
 only (0.8's first builds also offered en-GB, en-AU, en-CA and es-MX copies; their identifiers still name the voice). The locale ends the voice's identifier (`com.ssi263speech.braillelite.de-de`), and VoiceOver switches language
 by choosing another voice for the next request. `<lang>` elements inside a request are not switched on. "Lock
@@ -31,7 +36,11 @@ readers that always ask for the system's language.
 Setup and Voice settings follow the Android app's pages and words (`SettingsActivity.kt`), with VoiceOver in place of
 TalkBack and nothing built in. Setup: the voices, the firmware list (file names, the languages under "Show all"), the
 import (a line per unit in the confirmation: how long it takes, and whether it replaces one already here; the device
-kept awake while it runs; refused below 16 MB free), "Try it", where to choose the voice, the licences. Voice settings:
+kept awake while it runs; refused below 16 MB free), "Try it" (with Android's "Export to WAV…": the preview's render written where the person chooses -- the save
+panel on the Mac, the file exporter on iOS -- named by `WavExport.swift` as Android's `WavExport.kt` names it,
+`speakout-20261018-164533.wav`, `braillelite-de-...`; a Stop during the render, or a cancelled or failed write, leaves
+no file), where to choose the voice, the licences. On the Mac, `say` sees the voices too: `say -v "Speak-Out (en-US)"
+-o hello.aiff "Hello there."` (or `--file-format=WAVE`) writes the same voice to a file. Voice settings:
 the voice and Lock language, rate, pitch, tone, engine volume (135 percent by default), the unit's settings (inflection,
 short pauses, numbers, run ahead, line lift, the idle sound, the sample rate), the Speak-Out's, and VoiceOver's pauses.
 Left out on purpose: Android's built-in Accent SA and Mockingboards (the app carries no firmware), its update check (the
@@ -58,6 +67,16 @@ startup folder in one batch, names it has already replaced only when the person 
 `<state>.before-import`, the unit switched on again. The Sound section has the GTK shell's idle channel (as the unit,
 hiss, whine, silent), how long the channel stays open (off, until the unit clicks off, always), the pop and click, and
 the 10 Hz tick (`emu_set_idle`), with its defaults.
+
+While a unit runs, "Restart the unit (keeps its files)" switches it off and on as a real unit: saved (`emu_save`,
+which never asks the firmware, so a unit that stopped answering is saved too) and started again from what it saved,
+with the tab's settings applied again -- never the factory reset. "Restart in one-handed mode (dot 6 held as it
+starts)" and "... two-handed mode (dot 3 held as it starts)" are that restart with the key held for the unit's first
+2 s (`emu_hold_at_start`, set before its first render): the firmware says "One-hand mode on" and keeps the mode in its
+memory. They are not offered for the Type 'n Speak, whose manual has no such mode. "Double-speed upgrade installed"
+(off by default, `emu_set_double_speed`, applied at every start and at once) is Blazie's $99 chip: the unit's own
+switch (the status menu, then + (dots 3-4-6), answered y) then doubles its CPU, and BASIC's tones can garble and games
+freeze as on a real unit (the latch race), which Restart gets out of.
 
 ## The native core: SSI263Core
 
@@ -103,7 +122,7 @@ carries no firmware at all (Android's checks, plus Aicom's files). The icon is d
     sh src/platforms/apple/test/test_installer.sh                  the app's import on the real firmware, as the app runs it,
                                                                    then the unit tab's catalog and two units started
     SSI263_UNIT_BREAK=factory sh src/platforms/apple/test/test_installer.sh             control: must FAIL
-    SSI263_IMPORT_BREAK=1|state|speakout|accent|release sh src/platforms/apple/test/run_swift_tests.sh   controls
+    SSI263_IMPORT_BREAK=1|state|speakout|accent|release|soundingboard|export sh .../run_swift_tests.sh   controls
 
 `test_apple_core.py` links Android's host-side program (`test_android_native.c`) against each runnable slice's
 `libssi263core.a`, the library the apps link, and requires every case's samples and PCM hash to be the desktop
@@ -150,10 +169,11 @@ Windows DLLs: `SSI263_ANDROID_TEST_ONLY=bl,ra,num,so,mini,import`.
 | `app/UnitRunner.swift` | One unit running: `emu_create`, its sound through AVAudioEngine (`emu_render`), keys through `chords.c`, the bars, the display, the save |
 | `app/UnitKeys.swift` | The unit's keyboard by the keys' places: macOS key codes, iOS HID usages |
 | `app/BrailleField.swift` | The braille field: the display as Unicode braille for the screen reader, the keyboard kept, never edited |
+| `app/WavExport.swift` | Export to WAV's suggested name (Android's rule) and the WAV itself, the preview's render |
 | `app/UnitFiles.swift` | Files from the device into a saved unit's flash (`blx_add_cp`), all or nothing, the state before kept |
 | `app/UnitModel.swift`, `app/UnitView.swift` | The tab's state (the chosen unit, start and stop, loading files, volume, quick response, the idle channel) and its screen |
 | `testflight.py` | TestFlight: fresh archives for both platforms, checked (build numbers, icon, privacy manifests, no firmware), then uploaded as checked |
-| `test/check_archive_no_firmware.py` | An archive, app or .ipa carries no firmware: Android's checks (Blazie images, Intel HEX, states, disk images, the Speak-Out's and the Mockingboards' files, names) and Aicom's files by sha256; its controls |
+| `test/check_archive_no_firmware.py` | An archive, app or .ipa carries no firmware: Android's checks (Blazie images, Intel HEX, states, disk images, the Speak-Out's, the Sounding Board's and the Mockingboards' files, names) and Aicom's files by sha256; its controls |
 | `app/PrivacyInfo.xcprivacy`, `extension/PrivacyInfo.xcprivacy` | No tracking, no data collected; UserDefaults only for the App Group's settings the app and its extension share (1C8F.1), and file attributes (FileManager.attributesOfItem: the firmware's file protection) in the app's own containers (C617.1). Plain plists, Apple's own layout and no comments: build 1's commented ones were refused as invalid (ITMS-91056) |
 | `app/Assets.xcassets`, `tools/make_icon.swift`, `tools/make_icon.sh` | The icon: "263" over a sound wave on deep blue, drawn in code, opaque |
 | `test/test_apple_core.py` | Each runnable slice against the desktop program, byte for byte, with its control |

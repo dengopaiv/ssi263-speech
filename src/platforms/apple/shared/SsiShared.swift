@@ -62,9 +62,9 @@ enum SsiShared {
     private static let english = ["en-US"]
     private static let spanish = ["es-ES"]
 
-    /// Every voice the app knows, in the order the app lists them (ssa_engine.h's indexes): the shipped voices, then
-    /// the release voices.
-    static let voices: [Voice] = shipped + releaseVoices()
+    /// Every voice the app knows, in the order the app lists them (ssa_engine.h's indexes): the shipped voices, the
+    /// release voices, then the voices after them (0.8.5).
+    static let voices: [Voice] = shipped + releaseVoices() + afterReleases
 
     private static let shipped: [Voice] = [
         Voice(index: 0, key: "braillelite", name: "Braille Lite 2000", short: "Braille Lite 2000", locales: english,
@@ -89,6 +89,14 @@ enum SsiShared {
               files: ["u2.BIN", "u3.BIN", "u4.BIN"], bring: "u2.BIN, u3.BIN and u4.BIN"),
         Voice(index: 4, key: "accentmini", name: "Accent-mini", short: "Accent-mini", locales: english,
               files: ["SPKEMS.DVC"], bring: "SPKEMS.DVC"),
+    ]
+
+    /// The voices after the release table's (ssa_engine.h, 0.8.5: SSA_SOUNDINGBOARD is SSA_VOICES, so no voice
+    /// before it moves): GW Micro's Sounding Board, the Speak-Out's voice on the card's own DOS drivers, imported from
+    /// sb.zip (its two files: ssa_engine.c's AFTER_RELEASES).
+    private static let afterReleases: [Voice] = [
+        Voice(index: 27, key: "soundingboard", name: "Sounding Board (GW Micro)", short: "Sounding Board",
+              locales: english, files: ["SBLOAD.COM", "SB.COM"], bring: "GW Micro's sb.zip (SBLOAD.COM and SB.COM)"),
     ]
 
     /// The release voices, from the release table the library carries (bl_languages.txt; never a list kept here):

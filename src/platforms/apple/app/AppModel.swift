@@ -2,6 +2,7 @@
 // with its progress), the removal, and the preview.  The screens (SetupView, VoiceSettingsView) show it.  MIT.
 
 import SwiftUI
+import UniformTypeIdentifiers
 import os
 #if os(iOS)
 import UIKit
@@ -37,6 +38,11 @@ final class AppModel: ObservableObject {
     @Published var askingToImport = false                 // the confirmation shown; closing it is not a no
     @Published var message: String?                       // an import's or a removal's outcome, in words
     @Published var previewStatus = ""
+    @Published private(set) var exporting = false           // an export's render in flight
+    @Published var exportDocument: WavDocument?             // iOS: the rendered WAV, for the file exporter
+    @Published var showExporter = false
+    @Published private(set) var exportName = ""             // the name the save dialog suggests (WavExport)
+    private var exportSeconds = 0.0
 
     private var job: FirmwareInstaller.Job?
     private let preview = PreviewPlayer()
@@ -180,6 +186,62 @@ final class AppModel: ObservableObject {
     }
 
     func stopPreview() { preview.stop() }
+
+    /// Export to WAV: the text rendered as Speak would, then written where the person chooses -- the save panel on
+    /// the Mac, the file exporter on iOS (Views).  Rendered first, so a Stop during it leaves nothing; the file is
+    /// written whole or not at all.
+    func export(_ text: String, voiceKey: String) {
+        guard let v = SsiShared.voices.first(where: { $0.key == voiceKey }), !exporting else { return }
+        exporting = true
+        previewStatus = "Exporting…"
+        announce(previewStatus)
+        preview.export(text.isEmpty ? "Hello there." : text, voice: v) { [weak self] r in
+            guard let self = self else { return }
+            switch r {
+            case .stopped: self.exported("Stopped: nothing was exported.")
+            case .failed(let m): self.exported(m)
+            case .rendered(let wav, let seconds):
+                self.exportSeconds = seconds
+                self.exportName = WavExport.fileName(voiceName: WavExport.voiceName(key: v.key, language: v.language),
+                                                     at: Date())
+                #if os(macOS)
+                let panel = NSSavePanel()
+                panel.nameFieldStringValue = self.exportName
+                panel.allowedContentTypes = [.wav]
+                panel.canCreateDirectories = true
+                guard panel.runModal() == .OK, let url = panel.url else { return self.exported("Not exported.") }
+                do {
+                    try wav.write(to: url, options: .atomic)    // whole, or nothing left behind
+                    self.exported(self.wrote)
+                } catch {
+                    self.exported("The file could not be written: \(error.localizedDescription)")
+                }
+                #else
+                self.exportDocument = WavDocument(data: wav)
+                self.showExporter = true
+                #endif
+            }
+        }
+    }
+
+    /// The file exporter's answer (iOS).
+    func exportFinished(_ r: Result<URL, Error>) {
+        exportDocument = nil
+        switch r {
+        case .success: exported(wrote)
+        case .failure(let e as CocoaError) where e.code == .userCancelled: exported("Not exported.")
+        case .failure(let e): exported("The file could not be written: \(e.localizedDescription)")
+        }
+    }
+
+    private var wrote: String { String(format: "Exported %.1f seconds to the file.", exportSeconds) }
+
+    private func exported(_ s: String) {
+        exporting = false
+        previewStatus = s
+        announce(s)
+        log.notice("export: \(s, privacy: .public)")
+    }
 }
 
 /// The device kept from sleeping (iOS: the screen from locking) while an import runs, and let go after.

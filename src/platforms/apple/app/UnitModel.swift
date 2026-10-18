@@ -17,6 +17,13 @@ final class UnitModel: ObservableObject {
     @AppStorage("unit_last") var chosen = ""                // the app's own settings, not the App Group's
     @AppStorage("unit_volume") var volume = 100 { didSet { runner.setVolume(volume) } }
     @AppStorage("unit_quick") var quick = false { didSet { runner.setQuick(quick) } }
+    // the Braille Lite's $99 double-speed chip fitted (off by default): its own switch then doubles its CPU
+    @AppStorage("unit_double_speed") var doubleSpeed = false {
+        didSet {
+            runner.setDoubleSpeed(doubleSpeed)
+            say(doubleSpeed ? Self.doubleSpeedNote : "Double-speed upgrade off.")
+        }
+    }
     // the idle channel, the GTK shell's defaults: as the unit, open until it clicks off, the pop and click, the tick
     @AppStorage("unit_idle") var idleSound = 3 { didSet { runner.setIdle(idle) } }
     @AppStorage("unit_keep_open") var keepOpen = 1 { didSet { runner.setIdle(idle) } }
@@ -32,7 +39,17 @@ final class UnitModel: ObservableObject {
         UnitRunner.Idle(sound: Int32(idleSound), keepOpen: Int32(keepOpen), popClick: popClick, tick: tick)
     }
 
+    /// The desktop's words, when the upgrade is said to be installed.
+    static let doubleSpeedNote = "The double-speed upgrade is installed. To use it, switch it on in the unit: the " +
+        "status menu, then + (dots 3-4-6), answered y. As on a real unit, programs that play sounds can misbehave " +
+        "with it on: their tones can come out as a low rumble, and a game can stop the unit. Blazie's advice was to " +
+        "switch double speed off for them. Restart the unit starts a stopped unit again."
+
     private let runner = UnitRunner()
+
+    /// The running unit can be restarted one-handed or two-handed: not the Type 'n Speak (its manual has no such
+    /// mode).
+    var hasOneHandedMode: Bool { runner.running.map { $0.unit.kind != Int32(EMU_TYPE_N_SPEAK) } ?? false }
     private var timer: Timer?
 
     var actions: BrailleFieldActions {
@@ -64,7 +81,8 @@ final class UnitModel: ObservableObject {
                 defer { self.busy = false }
                 do {
                     _ = try prepared.get()
-                    try self.runner.start(e, volume: self.volume, quick: self.quick, idle: self.idle)
+                    try self.runner.start(e, volume: self.volume, quick: self.quick, doubleSpeed: self.doubleSpeed,
+                                          idle: self.idle)
                     self.running = e.key
                     self.say("The \(e.name) is running. The braille field has the keyboard.")
                     self.watch()
@@ -84,6 +102,31 @@ final class UnitModel: ObservableObject {
         cells = ""
         timer?.invalidate()
         say("The \(name) is switched off; its memory is kept.")
+    }
+
+    /// Restart the unit: what switching a real unit off and on does -- its memory saved (emu_save, which never asks
+    /// the firmware, so a unit that has stopped answering is saved too), then started again from it with the settings
+    /// applied again.  `hold`: one-handed mode's dot 6 (EMU_ONE_HAND_ON) or dot 3 (EMU_ONE_HAND_OFF) held as it starts;
+    /// the firmware keeps the mode in its memory.  Not the factory reset.
+    func restart(hold: Int32 = 0) {
+        guard let e = runner.running, !busy else { return }
+        if hold != 0 && !hasOneHandedMode { return }
+        guard runner.save() else {
+            say("Could not save the unit's memory, so it was not restarted.")
+            return
+        }
+        runner.stop()
+        do {
+            try runner.start(e, volume: volume, quick: quick, doubleSpeed: doubleSpeed, idle: idle, hold: hold)
+        } catch {
+            running = nil
+            cells = ""
+            timer?.invalidate()
+            say(error.localizedDescription)
+            return
+        }
+        say(hold == 0 ? "The \(e.name) was restarted."
+            : "The \(e.name) was restarted in \(hold == Int32(EMU_ONE_HAND_ON) ? "one" : "two")-handed mode.")
     }
 
     // ---- files into the unit's flash (UnitFiles) ---------------------------------------------------------------
@@ -132,7 +175,8 @@ final class UnitModel: ObservableObject {
             await MainActor.run {
                 defer { self.busy = false }
                 do {
-                    try self.runner.start(e, volume: self.volume, quick: self.quick, idle: self.idle)
+                    try self.runner.start(e, volume: self.volume, quick: self.quick, doubleSpeed: self.doubleSpeed,
+                                          idle: self.idle)
                 } catch {
                     self.running = nil
                     self.cells = ""

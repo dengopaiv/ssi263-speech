@@ -4,8 +4,9 @@ The store apps ship hollow (Tomi): not Blazie's, GW Micro's or Sweet Micro's fir
 which carries Aicom's -- not Aicom's either, nor any Apple II disk image (the Mockingboard toolkit disk also carries
 Apple's DOS 3.3).  Every file in an .xcarchive, an .app or an exported .ipa is judged by Android's
 check_apk_no_firmware.scan -- a Braille Lite ROM image by its signature, an Intel HEX image, a unit's state and an
-Apple II disk image by size and content, the Speak-Out's and the Mockingboards' files by sha256, firmware, state, ROM
-and disk names -- and, here, Aicom's four files by sha256 as well, under any name.
+Apple II disk image by size and content, the Speak-Out's, the Sounding Board's two drivers (SBLOAD.COM, SB.COM: its
+REFUSED) and the Mockingboards' files by sha256, firmware, state, ROM and disk names -- and, here, Aicom's four files
+by sha256 as well, under any name.
 
     python src/platforms/apple/test/check_archive_no_firmware.py <.xcarchive | .app | .ipa> ...
     python ... --control <file> <archive>     the file added to a copy of the archive under a bland name: must FAIL

@@ -61,14 +61,27 @@ enum FirmwareInstaller {
         }
         try? FileManager.default.removeItem(at: staging)
         var plans: [(String, FirmwareImport.Plan)] = []
+        var loose: [(name: String, data: Data)] = []    // several files chosen: the ones that are not zips, together
         for (i, url) in urls.enumerated() {
             let data = try read(url)
+            if urls.count > 1 && !ZipReader.isZip(data, at: 0) {
+                loose.append((url.lastPathComponent, data))
+                continue
+            }
             let plan = FirmwareImport.inspect(name: url.lastPathComponent, data: data,
                                               staging: staging.appendingPathComponent("source\(i)", isDirectory: true),
                                               id: NativeIdentify())
             plans.append((url.lastPathComponent, plan))
         }
-        if plans.count == 1 { return plans[0].1 }
+        var ignored: [String] = []
+        if !loose.isEmpty {
+            // judged as one source, so a voice of two files (the Sounding Board's drivers) chosen as its two files is
+            // found whole
+            let plan = FirmwareImport.inspect(files: loose, staging: staging.appendingPathComponent("loose",
+                                              isDirectory: true), id: NativeIdentify(), ignored: &ignored)
+            plans.append((loose.map { $0.name }.joined(separator: ", "), plan))
+        }
+        if plans.count == 1 && loose.isEmpty { return plans[0].1 }
         var found: [FirmwareImport.Found] = []
         let releases = Set(plans.flatMap { $0.1.found.map { $0.kind } }.filter(FirmwareImport.isRelease)).sorted()
         for kind in FirmwareImport.order + releases {
@@ -79,7 +92,10 @@ enum FirmwareInstaller {
             return FirmwareImport.Plan(found: [], refusal: plans.compactMap { p in p.1.refusal.map { "\(p.0): \($0)" } }
                                        .joined(separator: " "))
         }
-        let empty = plans.filter { $0.1.found.isEmpty }.map { "\($0.0) holds no firmware this app takes; it is left out." }
+        // each source that held nothing, the loose files by name (their plan's own notes say why a part was left out)
+        let empty = (plans.prefix(plans.count - (loose.isEmpty ? 0 : 1)).filter { $0.1.found.isEmpty }.map { $0.0 }
+                     + ignored)
+            .map { "\($0) holds no firmware this app takes; it is left out." }
         return FirmwareImport.Plan(found: found, refusal: nil, notes: notes + empty)
     }
 
@@ -98,6 +114,7 @@ enum FirmwareInstaller {
     /// Italian and Slovak run English's recipe or one as long; a release voice's takes as long as English's, about
     /// 3 s on an M-series Mac, as Android's SsiImport weighs it); the rest only a check.
     private static func weight(_ kind: Int) -> Double {
+        // (the Sounding Board, as the Speak-Out: checked, nothing prepared)
         kind == FirmwareImport.spanish ? 1150 : FirmwareImport.blazie.contains(kind) || isReleaseVoice(kind) ? 150 : 15
     }
 
@@ -145,6 +162,7 @@ enum FirmwareInstaller {
     /// The units heard once before they are taken: the Blazie units, the Speak-Out and the Mockingboards (the
     /// Accents' files are known by their sha256 alone, and the Accent SA needs all three).
     private static let probed: Set<Int> = FirmwareImport.blazie.union([FirmwareImport.speakout,
+                                                                      FirmwareImport.soundingboard,
                                                                       FirmwareImport.mockingboard,
                                                                       FirmwareImport.mockingboardEarly])
 
@@ -206,6 +224,14 @@ enum FirmwareInstaller {
                 try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try? fm.removeItem(at: target)
                 try fm.moveItem(at: f.firmware, to: target)
+                for (i, part) in f.parts.enumerated() {    // a two-file voice's others (the Sounding Board's SB.COM)
+                    guard let names = FirmwareImport.partFiles[f.kind], i + 1 < names.count else {
+                        throw Failure(message: "\(name) has no place in this app.")
+                    }
+                    let dest = ready.appendingPathComponent(names[i + 1])
+                    try? fm.removeItem(at: dest)
+                    try fm.moveItem(at: part, to: dest)
+                }
                 let w = weight(f.kind)
                 if let stateFile = stateFile {
                     say("Preparing the \(name) unit")
