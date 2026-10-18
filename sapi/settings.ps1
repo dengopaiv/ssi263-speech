@@ -16,6 +16,7 @@ Add-Type -AssemblyName System.Drawing
 
 $stage = Split-Path -Parent $MyInvocation.MyCommand.Path
 $registerScript = Join-Path $stage 'register.ps1'
+. (Join-Path $stage 'updates.ps1')     # Check for updates, by hand only
 $prefKey = 'HKCU:\Software\SSI-263 SAPI'
 $tokenRoots = @('HKLM:\SOFTWARE\Microsoft\Speech\Voices\Tokens', 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\Speech\Voices\Tokens')
 
@@ -97,8 +98,11 @@ $register = New-Object Windows.Forms.Button; $register.Text = '&Register'; $regi
 $register.Location = New-Object Drawing.Point(12, 214)
 $unregister = New-Object Windows.Forms.Button; $unregister.Text = '&Unregister'; $unregister.AutoSize = $true
 $unregister.Location = New-Object Drawing.Point(110, 214)
+$updates = New-Object Windows.Forms.Button; $updates.Text = 'Check for &updates...'; $updates.AutoSize = $true
+$updates.AccessibleName = 'Check for updates'
+$updates.Location = New-Object Drawing.Point(208, 214)
 $close = New-Object Windows.Forms.Button; $close.Text = '&Close'; $close.AutoSize = $true
-$close.Location = New-Object Drawing.Point(208, 214)
+$close.Location = New-Object Drawing.Point(370, 214)
 
 # The Braille Lite's four settings, as in the NVDA add-on.
 $group = New-Object Windows.Forms.GroupBox
@@ -194,15 +198,53 @@ $unregister.Add_Click({
     elseif ($code -eq 0) { [Windows.Forms.MessageBox]::Show($form, 'The SSI-263 voices were unregistered.', 'SSI-263 SAPI') | Out-Null }
     Refresh-Voices
 })
+# Check for updates (updates.ps1): the newest installer newer than the installed one, from its own name across the
+# releases; downloaded, checked against its release's SHA256SUMS.txt, then run -- its own pages and UAC prompt ask.
+$updates.Add_Click({
+    $title = 'SSI-263 SAPI'
+    $installed = Get-InstalledSapiVersion
+    if (-not $installed) {
+        [Windows.Forms.MessageBox]::Show($form, 'No installed copy of the SSI-263 SAPI voices was found to compare against. Install them with their setup program first.', $title, 'OK', 'Information') | Out-Null
+        return
+    }
+    $status.Text = 'Checking for updates...'
+    $form.Refresh()
+    $offer = $null; $problem = $null
+    try { $offer = Get-UpdateOffer $installed } catch { $problem = $_.Exception.Message }
+    Refresh-Voices
+    if ($problem) {
+        [Windows.Forms.MessageBox]::Show($form, ("Could not check for updates:`n`n{0}" -f $problem), $title, 'OK', 'Warning') | Out-Null
+        return
+    }
+    if (-not $offer) {
+        [Windows.Forms.MessageBox]::Show($form, ("You have the newest version, {0}." -f $installed), $title, 'OK', 'Information') | Out-Null
+        return
+    }
+    $answer = [Windows.Forms.MessageBox]::Show($form, ("A newer version is available: {0}. You have {1}.`n`nDownload it, check it against the release's checksum, and run its installer? The installer asks before changing anything." -f $offer.version, $installed), $title, 'YesNo', 'Question')
+    if ($answer -ne 'Yes') { return }
+    $status.Text = 'Downloading the update...'
+    $form.Refresh()
+    $file = $null
+    try { $file = Save-UpdateInstaller $offer $env:TEMP } catch { $problem = $_.Exception.Message }
+    Refresh-Voices
+    if ($problem) {
+        [Windows.Forms.MessageBox]::Show($form, ("Nothing was installed. {0}" -f $problem), $title, 'OK', 'Warning') | Out-Null
+        return
+    }
+    try { Start-Process -FilePath $file } catch {
+        [Windows.Forms.MessageBox]::Show($form, ("The update was downloaded and checked, but its installer could not be started. It is saved at:`n`n{0}" -f $file), $title, 'OK', 'Warning') | Out-Null
+    }
+})
 $close.Add_Click({ $form.Close() })
 $form.CancelButton = $close
 $group.Controls.AddRange(@($inflection, $whineLabel, $whine, $runAhead, $numbers, $lineLift))
 $accentGroup.Controls.AddRange(@($accentLabel, $accentInfl))
-$form.Controls.AddRange(@($label, $list, $status, $register, $unregister, $close, $group, $accentGroup, $rateLabel, $rate, $diagnostics))
+$form.Controls.AddRange(@($label, $list, $status, $register, $unregister, $updates, $close, $group, $accentGroup, $rateLabel, $rate, $diagnostics))
 Refresh-Voices
 if ($Check) {
     foreach ($item in $list.Items) { Write-Output ('voice: ' + $item) }
     Write-Output ('status: ' + $status.Text)
+    Write-Output ('updates: ' + $updates.Text + ' (installed: ' + $(if (Get-InstalledSapiVersion) { Get-InstalledSapiVersion } else { 'none' }) + ')')
     Write-Output ('inflection: {0}; whine: {1}; run ahead: {2}; numbers as words: {3}; accent inflection: {4}; sample rate: {5}; diagnostics: {6}; line lift: {7}' -f $inflection.Checked, $whine.SelectedItem, $runAhead.Checked, $numbers.Checked, $accentInfl.SelectedItem, $rate.SelectedItem, $diagnostics.Checked, $lineLift.Checked)
     exit 0
 }

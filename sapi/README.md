@@ -24,6 +24,8 @@ and the 6502's credits, Fake6502 by way of EchoTalk, are in `{app}\licenses`).
 | `installer.iss` | The Inno Setup installer: DLLs, firmware, licences, `voices.txt`, settings. |
 | `register.ps1` | The COM class and one token per voice in `voices.txt`, in both registry views (run elevated). |
 | `settings.ps1`, `settings_launcher.c` | The settings dialog and its console-free launcher. |
+| `updates.ps1` | The dialog's Check for updates, by hand only: the NVDA add-on's rules (`updates.py`) -- drafts and prereleases skipped, the version from the installer's own name, the newest across the releases -- and the download checked against its release's SHA256SUMS.txt before it runs (fails closed). |
+| `test_updates.ps1` | Its tests on GitHub's shapes, no network; `SSI263_UPDATES_BREAK=drafts` and `=hash` are its must-fail controls (run_tests). |
 | `test_native.py` | The native voices against `ssi_serve.py`, byte for byte over the wire, 64- and 32-bit; every voice listed on both widths; the Mockingboard (1.1 and early), which `ssi_serve.py` never had, held to itself (run_tests). |
 | `test_sapi_engine.py` | The development DLL through SAPI's interface against `ssi_serve.py` (both Mockingboards: against `ssi263_serve.exe`), byte for byte (run_tests). |
 | `test_serve.py` | The reference server's own checks (run_tests). |

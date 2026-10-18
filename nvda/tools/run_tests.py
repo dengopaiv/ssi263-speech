@@ -411,6 +411,18 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "sapi-dev", "x86",
     CHECKS.append(check("SAPI engine DLL CONTROL (the reference on nvda/dist's native drivers, must fail)",
                         [PY, SAPI_ENGINE, "--arch", "x64"], env={"SSI263_SAPI_REF_BREAK": "dist"},
                         expect_fail=True, fail_marks=[REF_MARK, r"^sapi engine: 1 FAILED$"]))
+# the SAPI settings' Check for updates (sapi/updates.ps1, the NVDA add-on's rules in PowerShell 2.0's dialect) on
+# GitHub's shapes, no network; its controls offer a draft and take any download
+SAPI_UPDATES = os.path.join(os.path.dirname(os.path.dirname(HERE)), "sapi", "test_updates.ps1")
+PS = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", SAPI_UPDATES]
+CHECKS.append(check("SAPI settings: Check for updates", PS))
+CHECKS.append(check("SAPI settings: Check for updates CONTROL (drafts offered, must fail)", PS,
+                    env={"SSI263_UPDATES_BREAK": "drafts"}, expect_fail=True,
+                    fail_marks=[r"^FAIL drafts and prereleases are never offered ", r"^ok +the checksum file's entry ",
+                                r"^sapi updates: 4 FAILED$"]))
+CHECKS.append(check("SAPI settings: Check for updates CONTROL (any download taken, must fail)", PS,
+                    env={"SSI263_UPDATES_BREAK": "hash"}, expect_fail=True,
+                    fail_marks=[r"^FAIL a download that does not match is refused ", r"^sapi updates: 1 FAILED$"]))
 # the golden vectors: every SSI-263 write with its time, the serial output and the audio hash of a fixed scenario, on
 # MAME's Z180 (0.7).  Two hosts, two baselines: the in-process host (bl.dll, the add-on's) has the lockstep cancel
 # protection on by default (blazie_{en,es}.txt, Astra's Replies 124-128); the pipe host (bns_live.exe / bl_live.exe,

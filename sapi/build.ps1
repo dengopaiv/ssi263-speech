@@ -68,6 +68,7 @@ if (!$Dev) {
 powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File "%~dp0settings.ps1"'
   Copy-Item (Join-Path $PSScriptRoot "register.ps1") $Stage
   Copy-Item (Join-Path $PSScriptRoot "settings.ps1") $Stage
+  Copy-Item (Join-Path $PSScriptRoot "updates.ps1") $Stage
 }
 # The firmware the voices need, as the library itself lists it (the serve host's --files), in the repository's
 # firmware\ layout under {app}\firmware; and the voices it can make from it (--list), for register.ps1.  Each

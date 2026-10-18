@@ -40,6 +40,7 @@ Source: "{#StageDir}\x64\ssi263speech.dll"; DestDir: "{app}\x64"; Flags: ignorev
 Source: "{#StageDir}\voices.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\register.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\settings.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\updates.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\settings.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\ssi263_settings.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode
 Source: "{#StageDir}\ssi263_settings_x86.exe"; DestDir: "{app}"; DestName: "ssi263_settings.exe"; Flags: ignoreversion; Check: not Is64BitInstallMode
