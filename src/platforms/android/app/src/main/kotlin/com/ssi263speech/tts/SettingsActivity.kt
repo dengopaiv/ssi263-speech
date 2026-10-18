@@ -1,9 +1,9 @@
 // The app's screen, laid out as outspoken's: two pages behind two plain buttons (a tab bar is hard to hit on a small
 // screen, and TalkBack reads a selected/unselected button pair well).  Setup: what this is, the firmware import (the
-// Braille Lite's, the Speak-Out's and the Mockingboards', one button, told apart by content), a preview, the way to the
-// system's TTS settings, the licences and source.  Voice settings: the voice (the built-in Accents and Mockingboards,
-// and the Blazie voices and the Speak-Out once imported) and the units' own settings -- every voice's NVDA
-// add-on settings (Tomi, 0.7.5).
+// Braille Lite's, the Speak-Out's and the Mockingboards', one button, told apart by content), a preview and its
+// export to WAV, the way to the system's TTS settings, the licences and source.  Voice settings: the voice (the
+// built-in Accents and Mockingboards, and the Blazie voices and the Speak-Out once imported) and the units' own
+// settings -- every voice's NVDA add-on settings (Tomi, 0.7.5).
 package com.ssi263speech.tts
 
 import android.app.Activity
@@ -38,6 +38,7 @@ class SettingsActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var sampleText: EditText
     private lateinit var speakButton: Button
+    private lateinit var exportButton: Button
     private lateinit var setupTab: Button
     private lateinit var voiceTab: Button
     private var pages: List<View> = emptyList()
@@ -148,6 +149,11 @@ class SettingsActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_EXPORT) {
+            val uri = data?.data
+            if (resultCode != RESULT_OK || uri == null) status.text = "Not exported." else exportTo(uri)
+            return
+        }
         if (requestCode != REQUEST_FIRMWARE) return
         val uri = data?.data
         if (resultCode != RESULT_OK || uri == null) { importStatus.text = "No file chosen."; return }
@@ -263,6 +269,8 @@ class SettingsActivity : Activity() {
         speakButton = Button(this).apply { text = "Speak"; setOnClickListener { speak() } }
         root.addView(speakButton)
         root.addView(Button(this).apply { text = "Stop"; setOnClickListener { PreviewPlayer.stop() } })
+        exportButton = Button(this).apply { text = "Export to WAV…"; setOnClickListener { pickExport() } }
+        root.addView(exportButton)
 
         root.addView(ui.body("\nThen choose this engine in the system's Text-to-speech settings:"))
         root.addView(Button(this).apply { text = "Open Text-to-speech settings"; setOnClickListener { openTtsSettings() } })
@@ -305,6 +313,7 @@ class SettingsActivity : Activity() {
         status.text = if (voices.isEmpty()) "No voice can speak: this copy of the app is missing the Accent SA."
             else "Voices: " + voices.joinToString(", ") { it.label } + ". Speaking with: ${current.label}."
         speakButton.isEnabled = voices.isNotEmpty()
+        exportButton.isEnabled = voices.isNotEmpty()
         voiceButton?.text = "Voice: " + current.label
     }
 
@@ -525,6 +534,55 @@ class SettingsActivity : Activity() {
         }, "ssi263-preview").start()
     }
 
+    /** The system's save dialog, suggesting the voice's unit and the time: speakout-20261018-164533.wav (WavExport). */
+    private fun pickExport() {
+        val voice = SsiEngine.voiceFor(this, SsiSettings.snapshot(this).voice)
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "audio/wav"
+            putExtra(Intent.EXTRA_TITLE, WavExport.fileName(voice.name, java.time.LocalDateTime.now()))
+        }
+        try { startActivityForResult(intent, REQUEST_EXPORT) }
+        catch (e: ActivityNotFoundException) {
+            AlertDialog.Builder(this).setTitle("No file picker on this device")
+                .setMessage("This device has no way to choose where a file is saved, so the text cannot be exported.")
+                .setPositiveButton("Close", null).show()
+        }
+    }
+
+    /** The text rendered as Speak would, written to the file the person chose; a failed or stopped export leaves
+     * no half-written file behind. */
+    private fun exportTo(uri: Uri) {
+        val text = sampleText.text.toString().ifBlank { "Hello there." }
+        speakButton.isEnabled = false
+        exportButton.isEnabled = false
+        status.text = "Exporting…"
+        Thread({
+            val result = try {
+                contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+                    val r = PreviewPlayer.export(this, text, out)
+                    when {
+                        r == null -> "The voice could not start: ${SsiNative.nativeError()}"
+                        !r.finished -> "Stopped: nothing was exported."
+                        else -> "Exported %.1f seconds to the file.".format(r.pcm.size / 2.0 / r.rate)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("Preview", "export failed", e)
+                "The file could not be written: ${e.message}"
+            }
+            if (!result.startsWith("Exported")) {
+                try { android.provider.DocumentsContract.deleteDocument(contentResolver, uri) } catch (e: Exception) {}
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                speakButton.isEnabled = true
+                exportButton.isEnabled = true
+                status.text = result
+            }
+        }, "ssi263-export").start()
+    }
+
     private fun openTtsSettings() {
         for (i in listOf(Intent("com.android.settings.TTS_SETTINGS"), Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
                          Intent(Settings.ACTION_SETTINGS))) {
@@ -700,5 +758,5 @@ class SettingsActivity : Activity() {
         root.addView(ui.body("Speak-Out only, both on by default, as in its NVDA add-on."))
     }
 
-    private companion object { const val REQUEST_FIRMWARE = 42 }
+    private companion object { const val REQUEST_FIRMWARE = 42; const val REQUEST_EXPORT = 43 }
 }

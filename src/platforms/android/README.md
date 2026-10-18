@@ -287,6 +287,7 @@ shipped in the APK. The Setup page's "Licenses and source" shows them all and po
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=release               # control: the release voices' cases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=units                 # control: the unit screen's releases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=soundingboard         # control: the Sounding Board's cases must FAIL
+    ./gradlew testDebugUnitTest -Pssi263ImportBreak=export                # control: the exported WAV's case must FAIL
 
 `test_import_native.py` makes every fixture at test time from the files in the firmware folder (`--firmware`, default
 `$SSI263_FIRMWARE`, else `firmware/blazie`, with `spanish/`, `tns/` and `once2000/` -- ONCE's September 2000
@@ -425,14 +426,16 @@ and restored after it by the voice itself (`sov_speak`, `amv_speak`), moved at l
 | `.../SsiEngine.kt` | The one engine in the process: opens it, lists the voices (the Accents built in, the Braille Lite and the Speak-Out once imported), the default voice, owns it for one utterance at a time |
 | `.../SsiTtsService.kt` | The `TextToSpeechService`: voices and languages, the request's voice, rate and pitch, audio streamed block by block, stop |
 | `.../SsiLanguages.kt` | What Android is told about each language (no Android context in it, so the JVM tests run it): availability, the voice for a request's language, CheckVoiceData's tags |
-| `.../SettingsActivity.kt` | The screen: Setup (the voices, the firmware's import -- the Braille Lite's and the Speak-Out's -- and removal with progress, status, a preview, the system TTS settings, licences and source) and Voice settings (every voice's own); the adb test hooks (`autospeak`, `ttstest`, `setvoice`, `setrunahead`, `import`, `removefirmware`) |
+| `.../SettingsActivity.kt` | The screen: Setup (the voices, the firmware's import -- the Braille Lite's and the Speak-Out's -- and removal with progress, status, a preview and its export to WAV, the system TTS settings, licences and source) and Voice settings (every voice's own); the adb test hooks (`autospeak`, `ttstest`, `setvoice`, `setrunahead`, `import`, `removefirmware`) |
 | `.../Updates.kt` | "Check for updates" (Panthera Speech's): by hand only, the newest `ssi263-speech-<version>.apk` across the recent releases by its own file name (not the tag; drafts and pre-releases skipped), handed to the browser -- the app asks for no install permission. The only use of the INTERNET permission |
 | `.../SettingsWidgets.kt` | Headings, the accessible slider, radio buttons and check boxes, from outspoken |
-| `.../PreviewPlayer.kt` | The preview: rendered through the engine, played on an AudioTrack, kept as `last-render.wav` |
+| `.../PreviewPlayer.kt` | The preview: rendered through the engine, played on an AudioTrack, kept as `last-render.wav`; "Export to WAV…" is the same render written to the file chosen in the system's save dialog |
+| `.../WavExport.kt` | What the export writes (no Android in it, so the JVM tests run it): the suggested name, `speakout-20261018-164533.wav`, and the 16-bit mono WAV |
 | `.../TtsSelfTest.kt` | The service through Android's own client, bound by package name (the default engine untouched): a file render, or a stop |
 | `.../CheckVoiceDataActivity.kt` | Answers the framework's voice-data check: English always (the Accent SA), Spanish, German, Italian and Slovak once their firmware is imported |
 | `app/src/test/kotlin/.../FirmwareImportTest.kt` | The JVM tests of `FirmwareImport`, with a fake native side |
 | `app/src/test/kotlin/.../UpdatesTest.kt` | The JVM tests of `Updates`: the version read after `ssi263-speech-` (never the 263), the newest APK not the newest tag, drafts and other projects' APKs passed over (org.json's real library for the JVM) |
+| `app/src/test/kotlin/.../WavExportTest.kt` | The JVM tests of `WavExport`: the suggested names (the unit, another language's tag, the time) and the file read back as a WAV |
 | `app/src/test/kotlin/.../SsiLanguagesTest.kt` | The JVM tests of `SsiLanguages`: each language with and without its unit |
 | `.../GetSampleTextActivity.kt` | The sample sentence the system's TTS settings speak |
 | `licenses/DISTRIBUTION.txt` | The distribution notice the licences dialog shows first (MIT, MAME's cores, the source, Aicom's ROMs and driver, no Braille Lite or Speak-Out firmware) |
