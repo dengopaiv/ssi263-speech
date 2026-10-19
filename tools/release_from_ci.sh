@@ -131,7 +131,9 @@ contents() {                        # archive, then kind (full|emu): what must a
             share/ssi263-speech/Lite2000_it.BNS share/ssi263-speech/lite2000_it_fresh.state
             share/ssi263-speech/BS2SLL.BNS share/ssi263-speech/bs2sll_fresh.state"
         # 0.8: the release table's voices (tools/release_voice_files.py: bl2000/<file>, bl2000/<release id>.state)
-        for f in $(python3 "$(dirname "$0")/release_voice_files.py"); do need="$need share/ssi263-speech/$f"; done
+        # (the source tree's copy: the Pi's release tools beside this script are only these three scripts)
+        for f in $(python3 "$S/tools/release_voice_files.py"); do need="$need share/ssi263-speech/$f"; done
+        [ -n "$(python3 "$S/tools/release_voice_files.py")" ] || miss="$miss (the release voices' list: none read)"
         never='bns2000/|bs03eng|bs2eng|bns640/|bspeng|bsppla'
     else
         need="bin/blazie_emu bin/blazie_emu_gtk bin/blazie_files bin/blazie_emu_bt bin/blazie_bt README-blazie-bt.md
@@ -294,6 +296,8 @@ on_pi() {
 case "$CMD" in
     on-pi) shift; on_pi "$@"; exit 0;;
     package) shift; pi_package "$@"; exit 0;;
+    # verify ARCH OUT SRC LOGS: pi_verify again on OUT's assets (after packaging an architecture again), its verdict
+    verify) shift; ARCH="$1"; O="$2"; S="$3"; L="$4"; (pi_verify); verdict "$ARCH"; exit 0;;
 esac
 
 # ---------------------------------------------------------------------------------------------- on Windows
