@@ -1779,6 +1779,15 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                         env={"SSI263_RELEASE_VOICES_BREAK": "slow"}, expect_fail=True,
                         fail_marks=[r"^FAIL bl2_hu_1999_07: speaks: .* (0\.9|1\.\d)\d s after its last sound",
                                     r"^ok +bl2_da_1999_11: speaks", r"^release voices: \d+ FAILED$"]))
+    # ... and never EARLY: past each first done the same unit runs on 1.5 s and must not speak again (test_no_echo_end;
+    # Astra, Reply 248); its control takes done 0.8 s into a sentence, and the speech after it is caught
+    CHECKS.append(check("no-echo end: every done final (the units that never echo)",
+                        [PY, os.path.join(BL_SRC, "test_no_echo_end.py")]))
+    CHECKS.append(check("no-echo end CONTROL (done taken early, must fail)",
+                        [PY, os.path.join(BL_SRC, "test_no_echo_end.py")],
+                        env={"SSI263_NO_ECHO_END_BREAK": "early"}, expect_fail=True,
+                        fail_marks=[r"^FAIL \S+, 1 .*: done at 0\.80 s, then \d+ spoken phonemes",
+                                    r"^no-echo end: 1 FAILED$"]))
     # the units' own accented letters (bl_voice.c's pages and folds): fifteen languages, every letter in both cases,
     # each its byte and exactly the unit's phonemes for it; the control sends what the voices did before (Hungarian
     # o double acute an o; the Slovak o circumflex, the Polish Z dot, French A grave and Italian E grave capitals silent)

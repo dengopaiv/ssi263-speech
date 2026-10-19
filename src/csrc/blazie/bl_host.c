@@ -538,19 +538,23 @@ BL_API int bh_owed(const bl_host *h)
     return h->sent_f - 1 - h->echo_f;
 }
 
-/* A unit that never echoes ^F has said all it was given: the CPU asleep (SLP) while the chip requests its next phoneme,
-   and every byte we sent read (none queued, the serial port's receive register empty).  Mid-utterance the request
-   wakes it at once -- it sleeps between phonemes only until the chip asks -- so asleep through a request means it has
-   masked that interrupt: it is done.  Measured on all 16 such units (the Italian and the Slovak Braille 'n Speak among
-   them), 13 sentences each: at every end within the render block of the last request, mid-utterance never (Tomi,
-   2026-10-19: the second each of their utterances waited for UNANSWERED_S, between NVDA's chunks). */
+/* A unit that never echoes ^F has said all it was given -- a firmware end SIGNATURE, measured, used as a completion
+   policy (Astra, Reply 248: not a universal proof that every internal buffer is drained): the CPU in SLEEP (SLP) with
+   the chip's interrupt INT1 asserted -- the board's A/R up, the SSI interrupt mode on -- and the chip requesting, and
+   every byte we sent read (none queued, the serial port's receive register empty).  Mid-utterance it sleeps only until
+   the request wakes it; at every end measured it stayed asleep through it.  Measured on the 16 such units (the Italian
+   and the Slovak Braille 'n Speak among them), 13 sentences each: at every end within the render block of the last
+   request, mid-utterance never; Astra's independent continuation run (Reply 248: 21 firmware images, 63 cases, three
+   block sizes) found no speech after it.  Exactly the state observed: SLEEP, not any HALT (halted is set for both in
+   this core); INT1, not A/R alone.  test_no_echo_end.py keeps it honest (Tomi, 2026-10-19: the second each of their
+   utterances waited for UNANSWERED_S, between NVDA's chunks). */
 static int no_echo_finished(const bl_host *h)
 {
     bl_probe p;
     bl_probe_get(h->unit, &p);
-    /* the request as the UNIT sees it (its A/R line): one raised at the end of a run and not yet given to the board
-       is no proof (Astra, Reply 100) */
-    return (p.halted || p.sleeping) && p.ssi_ar && request(h) && p.queued == 0 && !(p.asci_stat & 0x80);
+    /* the request as the UNIT sees it (its A/R line, and INT1 asserted): one raised at the end of a run and not yet
+       given to the board is no proof (Astra, Reply 100) */
+    return p.sleeping && p.int1 && p.ssi_ar && request(h) && p.queued == 0 && !(p.asci_stat & 0x80);
 }
 
 BL_API int bh_busy(const bl_host *h, double quiet, double patience)

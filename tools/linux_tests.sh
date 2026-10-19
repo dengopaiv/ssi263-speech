@@ -86,6 +86,12 @@ control "release voices CONTROL (the echo ignored, must fail)" "^FAIL bl2_hu_199
 control "release voices CONTROL (a non-echoing unit's own end left out, must fail)" \
     "^FAIL bl2_hu_1999_07: speaks: .* (0\.9|1\.[0-9])[0-9] s after its last sound" "^release voices: [0-9]+ FAILED$" \
     -- env SSI263_RELEASE_VOICES_BREAK=slow python3 src/csrc/blazie/test_release_voices.py --lib "$LIB" --firmware "$DATA"
+# ... and never early: past each first done the same unit runs on 1.5 s and must not speak again (Astra, Reply 248)
+check "no-echo end: every done final (the units that never echo)" python3 src/csrc/blazie/test_no_echo_end.py \
+    --lib "$LIB" --firmware "$DATA"
+control "no-echo end CONTROL (done taken early, must fail)" \
+    "^FAIL [^ ]+, 1 .*: done at 0\.80 s, then [0-9]+ spoken phonemes" "^no-echo end: 1 FAILED$" \
+    -- env SSI263_NO_ECHO_END_BREAK=early python3 src/csrc/blazie/test_no_echo_end.py --lib "$LIB" --firmware "$DATA"
 control "releases CONTROL (a release with no voice handed out as English, must fail)" "^releases: 1 FAILED$" \
     -- env SSI263_RELEASES_TEST_BREAK=voice python3 src/csrc/blazie/test_releases.py --lib "$LIB" --firmware "$DATA"
 # double speed (issue #15): the firmware's own switch runs the CPU twice as fast when allowed; the control never allows it
