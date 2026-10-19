@@ -227,7 +227,8 @@ class SettingsActivity : Activity() {
             "The Braille Lite's and the Braille 'n Speak's firmware is Blazie's, and the Speak-Out's and the " +
             "Sounding Board's GW Micro's: " +
             "none can come with this app, so import your own copy. One button takes any of them; the app tells them " +
-            "apart by what is in the file. " +
+            "apart by what is in the file, and a zip may hold any of them in any of its folders, even in a zip " +
+            "inside it, so an archive of your own imports in one go. " +
             "For the Braille Lite, choose the Braille Lite 2000's update program (such as blt2000.exe), the " +
             "BL2ENG.BNS (English), BL2SPA.BNS (Spanish) or Lite2000.BNS (German or Italian) inside it, a zip " +
             "holding them, or the NVDA add-on (.nvda-addon) or the Blazie emulator's Windows download " +

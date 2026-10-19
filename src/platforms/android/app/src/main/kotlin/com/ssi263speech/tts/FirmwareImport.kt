@@ -111,7 +111,8 @@ object FirmwareImport {
     fun isBlazie(voice: Int) = voice in BLAZIE || release(voice) != null
 
     /** The JVM tests' controls (`gradlew testDebugUnitTest -Pssi263ImportBreak=<value>`; never set on a phone):
-     * `1` looks at a zip's top only -- no folder down, no add-on layout -- so the layout tests must fail; `state` stops
+     * `1` looks at a zip's top only -- no folder below it -- so the layout tests must fail; `unopened` drops a zip
+     * inside a zip in the source in silence, so its test must fail; `state` stops
      * knowing a state file, so the state tests must fail; `speakout` drops what the native side says is the
      * Speak-Out's, so the Speak-Out tests must fail; `mockingboard` the same for the Mockingboard's; `release` leaves
      * the release voices out of the import, so their tests must fail; `units` drops a release no voice speaks (the
@@ -122,9 +123,13 @@ object FirmwareImport {
     const val STATE_SIZE = 786432           // battery-backed RAM + file flash: every state bl_save_state writes
     const val MAX_SOURCE = 64L shl 20       // an add-on is a few megabytes; firmware a few hundred kilobytes
     const val MAX_ENTRY = 4 shl 20          // an update program is half a megabyte
+    const val MAX_INNER = 32 shl 20         // a zip in a zip: the add-on (5.5 MB in 0.8.0), the emulator's download
 
     const val NO_FIRMWARE_ZIP = "This zip does not contain Braille Lite, Braille 'n Speak, Speak-Out or Mockingboard " +
         "firmware."
+    /** A zip inside a zip in the source: the import opens one level of zips, so its firmware is not looked at. */
+    const val UNOPENED = "%s: a zip inside a zip in this one, which the import does not open, so it is left out; " +
+        "unzip it once, and import it or the zip around it again."
     const val NO_FIRMWARE_FILE = "This file does not contain Braille Lite, Braille 'n Speak, Speak-Out or " +
         "Mockingboard firmware."
     /** Tomi's words, for a state picked on its own. */
@@ -132,7 +137,7 @@ object FirmwareImport {
         "containing them, with this tool."
     const val WHAT_TO_CHOOSE = "Choose the Braille Lite 2000's firmware: its update program (such as blt2000.exe), " +
         "the BL2ENG.BNS (English), BL2SPA.BNS (Spanish) or Lite2000.BNS (German, Italian) inside it, a zip holding " +
-        "them at its top or one folder down, or the NVDA add-on (.nvda-addon) or the Blazie emulator's Windows " +
+        "them in any of its folders, or the NVDA add-on (.nvda-addon) or the Blazie emulator's Windows " +
         "download (blazie-emu-...-windows.zip), which carry them all. Or a Braille " +
         "Lite 2000 language update, such as BL2HUN.BNS (Hungarian) or BL2TUR.BNS (Turkish): the Setup page lists " +
         "them all, under Show all Braille Lite importable languages. Or the Slovak " +
@@ -221,7 +226,7 @@ object FirmwareImport {
         val withReason = ArrayList<Pair<String, String>>()   // ... the Mockingboard's in a copy without the voice,
                                                              // another disk image
         val states = ArrayList<String>()
-        val deep = ArrayList<String>()
+        val unopened = ArrayList<String>()                   // a zip inside a zip inside the source
         private var n = 0
 
         /** One file's bytes, by the native side's eyes; true when it held firmware of any kind. */
@@ -249,7 +254,9 @@ object FirmwareImport {
             return true
         }
 
-        /** The zip's entries at its top, one folder down, and where the NVDA add-on keeps the unit's files. */
+        /** Every entry of the zip, in whatever folders it sits (Tomi, 2026-10-18: anyone's own archive -- gwmicro/sb.zip,
+         * blazie/braille-lite/BL2ENG.BNS -- imports as the add-on and the emulator's download do), each judged by its
+         * content alone, never by its name or its folder; a zip in it is opened too, one level. */
         fun zip(name: String, data: ByteArray, at: Int, nested: Boolean) {
             try {
                 ZipInputStream(ByteArrayInputStream(data, at, data.size - at)).use { zip ->
@@ -259,21 +266,19 @@ object FirmwareImport {
                         val path = e.name.replace('\\', '/').trimStart('/')
                         val parts = path.split('/').filter { it.isNotEmpty() }
                         if (parts.isEmpty() || parts.contains("__MACOSX")) continue
-                        val addon = addonFile(parts) || emulatorFile(parts)
-                        val tooDeep = if (CONTROL == "1") parts.size > 1 else parts.size > 2 && !addon
-                        if (tooDeep) {
-                            // an add-on's other files are left out on purpose (the Accents' ROMs are built in)
-                            if (!parts[0].equals("synthDrivers", true) && parts.last().lowercase().let { it.endsWith(".bns") || it.endsWith(".exe") ||
-                                    it.endsWith(".hex") || it.endsWith(".bin") || it.endsWith(".dsk") ||
-                                    it.endsWith(".do") || it.endsWith(".po") })
-                                deep.add(path)
-                            continue
-                        }
-                        val bytes = readUpTo(zip, MAX_ENTRY) ?: continue
+                        if (CONTROL == "1" && parts.size > 1) continue      // the control: the zip's top alone
+                        // a zip in it may be as big as the add-on (5.5 MB); nothing else that big is firmware
+                        val bytes = readUpTo(zip, if (nested) MAX_ENTRY else MAX_INNER) ?: continue
                         val from = if (nested) "$name, $path" else path
+                        val inner = zipAt(bytes, 0)
+                        if (bytes.size > MAX_ENTRY && !inner) continue
                         if (isState(bytes)) { states.add(from); continue }
-                        if (!judge(from, bytes) && !nested && zipStart(bytes) >= 0)
-                            zip(path, bytes, zipStart(bytes), nested = true)
+                        // a zip is opened, not judged whole; an update program is judged, then opened when it holds
+                        // no firmware itself (a zip behind its own code)
+                        if (inner || (!judge(from, bytes) && zipStart(bytes) >= 0)) {
+                            if (!nested) zip(path, bytes, zipStart(bytes), nested = true)
+                            else if (CONTROL != "unopened") unopened.add(from)   // the control: in silence again
+                        }
                     }
                 }
             } catch (e: IOException) {
@@ -326,14 +331,11 @@ object FirmwareImport {
             else if (states.isNotEmpty()) notes.add("${states.joinToString(", ")} ${if (states.size == 1) "is a state " +
                 "file" else "are state files"}, not firmware, and ${if (states.size == 1) "is" else "are"} not " +
                 "used: this phone prepares the unit's state itself from the firmware.")
-            // firmware deeper than the import looks, beside what it took: said, never dropped in silence
-            if (found.isNotEmpty() && deep.isNotEmpty() && CONTROL != "deep")   // the control: dropped in silence again
-                notes.add(if (deep.size == 1) "${deep[0]} is deeper in the zip than firmware is looked for, so it is " +
-                    "left out." else "${deep.size} files (${deep[0]} and others) are deeper in the zip than firmware " +
-                    "is looked for, so they are left out.")
+            // a zip inside a zip in the source, beside what was taken: said, never dropped in silence
+            if (found.isNotEmpty() && unopened.isNotEmpty()) notes.add(UNOPENED.format(unopened.joinToString(", ")))
             if (found.isNotEmpty()) return Plan(found, null, notes)
 
-            if (states.isNotEmpty() && unknown.isEmpty() && refused.isEmpty() && deep.isEmpty() && otherHex.isEmpty() &&
+            if (states.isNotEmpty() && unknown.isEmpty() && refused.isEmpty() && unopened.isEmpty() && otherHex.isEmpty() &&
                 withReason.isEmpty())
                 return Plan(emptyList(), "This ${if (zip) "zip" else "file"} holds ${if (states.size == 1)
                     "a state file (${states[0]})" else "state files (${states.joinToString(", ")})"}, not firmware. " +
@@ -354,42 +356,11 @@ object FirmwareImport {
             if (states.isNotEmpty())
                 refusal.append(" ${states.joinToString(", ")}: a state file, not firmware; this phone makes the " +
                     "unit's state itself.")
-            if (deep.isNotEmpty())
-                refusal.append(" Firmware is looked for only at the top of the zip and one folder down; " +
-                    "${deep.first()} is deeper than that.")
+            if (unopened.isNotEmpty()) refusal.append(" ").append(UNOPENED.format(unopened.joinToString(", ")))
             refusal.append(" ").append(WHAT_TO_CHOOSE)
             return Plan(emptyList(), refusal.toString())
         }
     }
-
-    /** The NVDA add-ons' engine folders that hold firmware a phone imports (the Accents' are built into the app). */
-    private val ENGINES = setOf("_ssi263_blazie", "_ssi263_speakout", "_ssi263_mockingboard")
-
-    /** A file where an NVDA add-on keeps its units' firmware: synthDrivers/<engine>/ (the 0.7 add-ons) or
-     * synthDrivers/_ssi263_unified/<engine>/ (the 0.8 add-on, every unit in one), each unit's files flat, and the
-     * Blazie engine's bl2000/ (the language updates: Hungarian, Turkish, ...) -- so one add-on brings them all. */
-    private fun addonFile(parts: List<String>): Boolean {
-        if (CONTROL == "1" || parts.size < 3 || !parts[0].equals("synthDrivers", true)) return false
-        val e = if (parts[1].equals("_ssi263_unified", true)) 2 else 1
-        if (parts.size <= e || ENGINES.none { it.equals(parts[e], true) }) return false
-        return parts.size == e + 2 ||
-            (parts.size == e + 3 && parts[e].equals("_ssi263_blazie", true) && parts[e + 1].equals("bl2000", true))
-    }
-
-    /** A file of the Blazie emulator's download (blazie-emu-<version>-windows.zip): its firmware/ folder, each unit's
-     * files in it or up to three folders down (spanish/, german/, bl2000/, bns2000/, bns640/june2003/), the folder at
-     * the zip's top or one folder down -- so the emulator's download brings every unit it carries.  The firmware
-     * collection's (blazie-firmware-collection-<date>.zip) too: the same folder as emulator-firmware-folder/, and
-     * system/ (every release of every unit, system/<unit>/): judged as the rest, so its duplicates are one, its other
-     * releases are said, and none is called too deep. */
-    private fun emulatorFile(parts: List<String>): Boolean {
-        if (CONTROL == "1") return false
-        val f = (0..1).firstOrNull { it < parts.size - 1 && FOLDERS.any { n -> parts[it].equals(n, true) } }
-            ?: return false
-        return parts.size - f - 1 in 2..4
-    }
-
-    private val FOLDERS = setOf("firmware", "emulator-firmware-folder", "system")
 
     private fun readUpTo(zip: ZipInputStream, cap: Int): ByteArray? {
         val out = java.io.ByteArrayOutputStream()

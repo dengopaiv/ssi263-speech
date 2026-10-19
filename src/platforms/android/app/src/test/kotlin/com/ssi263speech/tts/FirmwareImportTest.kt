@@ -5,7 +5,8 @@
 // The real judgement (bl_firmware.c, its list of releases; ssa_import.c, SPEAKOUT.HEX's sha256) has its own tests,
 // test_import_native.py and test_android_native.py, on the real files.
 //     gradlew testDebugUnitTest                              every case
-//     gradlew testDebugUnitTest -Pssi263ImportBreak=1        control: the layout rules off; the layout cases fail
+//     gradlew testDebugUnitTest -Pssi263ImportBreak=1        control: the zip's top alone; the folder cases fail
+//     gradlew testDebugUnitTest -Pssi263ImportBreak=unopened control: a zip in a zip in the source dropped in silence
 //     gradlew testDebugUnitTest -Pssi263ImportBreak=state    control: a state not known as one; the state cases fail
 //     gradlew testDebugUnitTest -Pssi263ImportBreak=speakout control: the Speak-Out's HEX dropped; its cases fail
 //     gradlew testDebugUnitTest -Pssi263ImportBreak=mockingboard    the Mockingboard's file dropped; its cases fail
@@ -191,11 +192,12 @@ class FirmwareImportTest {
             "Speak, Speak-Out or Mockingboard firmware."))
     }
 
-    @Test fun firmwareTwoFoldersDownIsNotLookedForButNamed() {
-        val plan = inspect("deep.zip", zip("backup/blt2000/BL2ENG.BNS" to bns('E')))
-        assertTrue(plan.found.isEmpty())
-        assertTrue(plan.refusal!!.startsWith(FirmwareImport.NO_FIRMWARE_ZIP))
-        assertTrue(plan.refusal!!, plan.refusal!!.contains("backup/blt2000/BL2ENG.BNS is deeper than that"))
+    @Test fun firmwareInAnyFolderIsFound() {
+        // judged by its content, never by its folder (Tomi, 2026-10-18: anyone's own archive imports)
+        val plan = inspect("deep.zip", zip("backup/2001/blt2000/disk1/BL2ENG.BNS" to bns('E')))
+        assertNull(plan.refusal)
+        assertEquals(listOf(FirmwareImport.ENGLISH), languages(plan))
+        assertEquals("backup/2001/blt2000/disk1/BL2ENG.BNS", plan.found[0].from)
     }
 
     @Test fun namesDoNotMatterContentDoes() {
@@ -376,10 +378,9 @@ class FirmwareImportTest {
             "left out.", plan.notes.single())
     }
 
-    @Test fun aHexTwoFoldersDownIsNamed() {
+    @Test fun aHexTwoFoldersDownIsFound() {
         val plan = inspect("deep.zip", zip("backup/speakout/SPEAKOUT.HEX" to hex(true)))
-        assertTrue(plan.found.isEmpty())
-        assertTrue(plan.refusal!!, plan.refusal!!.contains("backup/speakout/SPEAKOUT.HEX is deeper than that"))
+        assertEquals(listOf(FirmwareImport.SPEAKOUT), languages(plan))
     }
 
     @Test fun aStateBesideTheHexIsNotUsed() {
@@ -406,11 +407,9 @@ class FirmwareImportTest {
         assertEquals("mockingboard/mockingboard-tts-1.1.bin", plan.found[2].from)
     }
 
-    @Test fun theMockingboardFileTwoFoldersDownIsNamed() {
+    @Test fun theMockingboardFileTwoFoldersDownIsFound() {
         val plan = inspect("deep.zip", zip("backup/mockingboard/mockingboard-tts-1.1.bin" to mockingboard()))
-        assertTrue(plan.found.isEmpty())
-        assertTrue(plan.refusal!!, plan.refusal!!.contains("backup/mockingboard/mockingboard-tts-1.1.bin is deeper " +
-            "than that"))
+        assertEquals(listOf(FirmwareImport.MOCKINGBOARD), languages(plan))
     }
 
     @Test fun theToolkitDiskGivesTheFile() {
@@ -611,9 +610,9 @@ class FirmwareImportTest {
         val b = "synthDrivers/_ssi263_blazie/"
         assertEquals(listOf(FirmwareImport.ENGLISH, HUNGARIAN), languages(inspect("blazie.nvda-addon",
             zip(b + "BL2ENG.BNS" to bns('E'), b + "bl2000/BL2HUN.BNS" to bns('H')))))
-        // ... and nowhere else that deep
-        val deep = inspect("other.zip", zip("synthDrivers/_ssi263_blazie/other/BL2HUN.BNS" to bns('H')))
-        assertTrue(deep.found.isEmpty())
+        // ... and in any other folder of it
+        assertEquals(listOf(HUNGARIAN), languages(inspect("other.zip",
+            zip("synthDrivers/_ssi263_blazie/other/BL2HUN.BNS" to bns('H')))))
     }
 
     @Test fun the085AddOnBringsTheSoundingBoardItCarries() {
@@ -643,8 +642,9 @@ class FirmwareImportTest {
         // the same folder one level down (a zip someone made of the download's folder)
         assertEquals(listOf(FirmwareImport.SPANISH), languages(inspect("emu.zip",
             zip("blazie-emu-0.8.0-windows/firmware/spanish/BL2SPA.BNS" to bns('S')))))
-        // ... and nowhere deeper
-        assertTrue(inspect("deep.zip", zip("firmware/a/b/c/d/BL2SPA.BNS" to bns('S'))).found.isEmpty())
+        // ... and deeper still
+        assertEquals(listOf(FirmwareImport.SPANISH), languages(inspect("deep.zip",
+            zip("firmware/a/b/c/d/BL2SPA.BNS" to bns('S')))))
     }
 
     @Test fun theFirmwareCollectionBringsEveryUnitAndKnowsItsArchive() {
@@ -672,11 +672,38 @@ class FirmwareImportTest {
         assertTrue(plan.notes.toString(), plan.notes.none { "deeper in the zip" in it || "a55455eb" in it })
     }
 
-    @Test fun firmwareTooDeepBesideWhatIsTakenIsSaid() {
-        // never dropped in silence: the import says what it left out, even when it took something else
-        val plan = inspect("mixed.zip", zip("BL2ENG.BNS" to bns('E'), "a/b/BL2SPA.BNS" to bns('S')))
+    @Test fun anArchiveOfOnesOwnFoldersBringsEverySynth() {
+        // Tomi, 2026-10-18: "top-level folders for each synth name: one gwmicro/sb.zip, gwmicro/speakout.hex and so
+        // on" -- any folders, any names, zips in it opened; the add-on in it too, bigger than any firmware
+        FirmwareImport.releases = RELEASES
+        val noise = java.util.Random(263).let { r -> ByteArray(5 shl 20).also { r.nextBytes(it) } }
+        val plan = inspect("my-synths.zip", zip(
+            "synths/gwmicro/sb.zip" to zip("SBLOAD.COM" to sbLoad, "SB.COM" to sbCom, "README.DOC" to "x".toByteArray()),
+            "synths/gwmicro/speakout.hex" to hex(true),
+            "synths/blazie/braille lite 2000/english/BL2ENG.BNS" to bns('E'),
+            "synths/sweet micro/disks/toolkit.dsk" to disk(true),
+            "add-ons/ssi263-speech-0.8.5.nvda-addon" to zip(
+                "synthDrivers/_ssi263_unified/_ssi263_blazie/bl2000/BL2HUN.BNS" to bns('H'), "noise.bin" to noise),
+            "photos/cat.jpg" to noise.copyOf(6 shl 20)))
+        assertNull(plan.refusal)
+        assertEquals(setOf(FirmwareImport.ENGLISH, FirmwareImport.SPEAKOUT, FirmwareImport.MOCKINGBOARD,
+            FirmwareImport.SOUNDINGBOARD, HUNGARIAN), languages(plan).toSet())
+        assertEquals("synths/gwmicro/sb.zip, SBLOAD.COM and synths/gwmicro/sb.zip, SB.COM",
+            plan.found.first { it.language == FirmwareImport.SOUNDINGBOARD }.from)
+        assertEquals("add-ons/ssi263-speech-0.8.5.nvda-addon, synthDrivers/_ssi263_unified/_ssi263_blazie/bl2000/" +
+            "BL2HUN.BNS", plan.found.first { it.language == HUNGARIAN }.from)
+        assertTrue(plan.notes.toString(), plan.notes.isEmpty())
+    }
+
+    @Test fun aZipInAZipInTheSourceIsSaid() {
+        // the import opens one level of zips; a deeper one is named, never dropped in silence (its control: unopened)
+        val plan = inspect("outer.zip", zip("BL2ENG.BNS" to bns('E'),
+            "backup.zip" to zip("old/inner.zip" to zip("BL2SPA.BNS" to bns('S')))))
         assertEquals(listOf(FirmwareImport.ENGLISH), languages(plan))
-        assertTrue(plan.notes.toString(), plan.notes.any { it.startsWith("a/b/BL2SPA.BNS is deeper in the zip") })
+        assertTrue(plan.notes.toString(), plan.notes.any { it.startsWith("backup.zip, old/inner.zip: a zip inside a zip") })
+        // ... and alone, in the refusal
+        val alone = inspect("outer.zip", zip("backup.zip" to zip("inner.zip" to zip("BL2SPA.BNS" to bns('S')))))
+        assertTrue(alone.refusal!!, alone.refusal!!.contains("backup.zip, inner.zip: a zip inside a zip"))
     }
 
     @Test fun aReleaseVoiceHasItsFilesAndNames() {

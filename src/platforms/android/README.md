@@ -89,8 +89,11 @@ content://media --arg external_primary` if MediaStore has not seen it yet):
 
 It takes:
 
-- a zip, with the firmware at its top or one folder down -- GW Micro's `speakout.zip`, a Braille Lite update -- and
-  the NVDA add-on (`.nvda-addon`: `synthDrivers/_ssi263_blazie/`); a zip holding both units' files imports both;
+- a zip, with the firmware in any of its folders -- GW Micro's `speakout.zip`, a Braille Lite update, the NVDA add-on
+  (`.nvda-addon`), the Blazie emulator's download, the firmware collection, or anyone's own archive
+  (`gwmicro/sb.zip`, `gwmicro/speakout.hex`, ...). Every file is judged by its content, never by its name or folder;
+  a zip inside it is opened too (one level: a zip inside that one is named in the notes, not opened); a zip holding
+  several units' files imports them all;
 - one file: the Speak-Out's `SPEAKOUT.HEX`; a Mockingboard's `mockingboard-tts-1.1.bin` or
   `mockingboard-tts-early.bin`, or the disk image it comes from; a `.BNS`, or an update
   program (`.exe`/`.com`) holding the image, raw or as a zip behind its code (`blt2000.exe`), also inside a zip.
@@ -109,7 +112,7 @@ It takes:
 its sha256 -- `88e1e90f…` and `c7c049b1…`, `src/csrc/mockingboard/mb_host.h`'s `mbh_variant`, the only two files its
 host runs. It is written as it is, under its own name; like the Speak-Out's it has no state to make, so it is
 checked once (`ssa_probe` says "Hello.") and moved into place, where it wins over the APK's copy. A disk image (a
-143,360-byte `.dsk`/`.do` in DOS order or `.po` in ProDOS order, alone or in a zip, at its top or one folder down)
+143,360-byte `.dsk`/`.do` in DOS order or `.po` in ProDOS order, alone or in a zip, in any of its folders)
 is taken too: `mb_dsk.h`'s `mb_firmware_from_dsk` reads the files out of it -- the toolkit's give the 1.1 file, disk
 1's the early one -- and the file is written exactly as a `.bin` import writes it; another disk is refused with the
 disk reader's reason ("a Mockingboard disk, but not the text-to-speech version 1.1 this voice runs", "not a DOS 3.3
@@ -288,7 +291,7 @@ shipped in the APK. The Setup page's "Licenses and source" shows them all and po
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=units                 # control: the unit screen's releases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=soundingboard         # control: the Sounding Board's cases must FAIL
     ./gradlew testDebugUnitTest -Pssi263ImportBreak=export                # control: the exported WAV's case must FAIL
-    ./gradlew testDebugUnitTest -Pssi263ImportBreak=deep                  # control: firmware too deep dropped in silence: must FAIL
+    ./gradlew testDebugUnitTest -Pssi263ImportBreak=unopened              # control: a zip in a zip dropped in silence: must FAIL
 
 `test_import_native.py` makes every fixture at test time from the files in the firmware folder (`--firmware`, default
 `$SSI263_FIRMWARE`, else `firmware/blazie`, with `spanish/`, `tns/` and `once2000/` -- ONCE's September 2000
@@ -299,8 +302,9 @@ update program and the 1998 layout, two unknown releases refused, TNSENG.TNS ref
 the states made from the firmware alone must be the listed ones byte for byte (the shipped z180emu-made ones are
 refused), speak every case of the Android test within a few samples of the shipped ones, and report their progress every 10 million instructions, steadily. Its controls hold the
 wrong chord at the English warm reset, and drop the list (the unknown releases are then taken). The JVM tests
-(`app/src/test`) play the native side with a fake and check the zip layouts (top, one folder down, the add-on and the
-unified 0.8 add-on's `synthDrivers/_ssi263_unified/_ssi263_blazie/`, an
+(`app/src/test`) play the native side with a fake and check the zip layouts (top, any folders down, the add-on and the
+unified 0.8 add-on's `synthDrivers/_ssi263_unified/_ssi263_blazie/`, the emulator's download, the firmware
+collection, an archive of one's own folders with zips and the add-on in it, an
 update program inside a zip, `speakout.zip`, both units in one zip), the refusals' words (unknown releases, other
 units, a damaged HEX alone and beside firmware, states alone, in a zip and beside firmware) and the choices between
 releases; `SsiLanguagesTest.kt` what Android is told about each language with and without each unit imported.
@@ -345,8 +349,8 @@ order and in a zip give the 1.1 file; disk 1's the early one (also in ProDOS ord
 (`mockingboard-pitch`), the number words dropped (`mockingboard-numbers`), the imported copy ignored
 (`mockingboard-import-ignored`), the built-in copies ignored (`mockingboard-builtin-ignored`), either file taken for
 either voice (`mockingboard-variant`), the disk image never tried (`import-dsk`); `import-hash` also takes the changed
-files. The JVM tests play them with a fake too (each alone, beside the other units one folder down, two folders down
-named, both disks in one zip; `-Pssi263ImportBreak=mockingboard` must fail those).
+files. The JVM tests play them with a fake too (each alone, beside the other units one folder down, two folders
+down, both disks in one zip; `-Pssi263ImportBreak=mockingboard` must fail those).
 
 The Braille Lite's reference in both is the desktop library the NVDA add-on and Linux ship (`bl.dll` + `ssi263.dll`
 from `build_board.py` / `build_native.py`, or `build/linux/libssi263speech.so`), driven the way `sd_ssi263.c` maps
