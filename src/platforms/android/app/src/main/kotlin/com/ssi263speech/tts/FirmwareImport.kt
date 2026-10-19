@@ -132,7 +132,8 @@ object FirmwareImport {
         "containing them, with this tool."
     const val WHAT_TO_CHOOSE = "Choose the Braille Lite 2000's firmware: its update program (such as blt2000.exe), " +
         "the BL2ENG.BNS (English), BL2SPA.BNS (Spanish) or Lite2000.BNS (German, Italian) inside it, a zip holding " +
-        "them at its top or one folder down, or the NVDA add-on (.nvda-addon), which carries them all. Or a Braille " +
+        "them at its top or one folder down, or the NVDA add-on (.nvda-addon) or the Blazie emulator's Windows " +
+        "download (blazie-emu-...-windows.zip), which carry them all. Or a Braille " +
         "Lite 2000 language update, such as BL2HUN.BNS (Hungarian) or BL2TUR.BNS (Turkish): the Setup page lists " +
         "them all, under Show all Braille Lite importable languages. Or the Slovak " +
         "Braille 'n Speak 2000's: BS2SLL.BNS. Or the Speak-Out's: GW Micro's SPEAKOUT.HEX, or the speakout.zip " +
@@ -258,10 +259,11 @@ object FirmwareImport {
                         val path = e.name.replace('\\', '/').trimStart('/')
                         val parts = path.split('/').filter { it.isNotEmpty() }
                         if (parts.isEmpty() || parts.contains("__MACOSX")) continue
-                        val addon = addonFile(parts)
+                        val addon = addonFile(parts) || emulatorFile(parts)
                         val tooDeep = if (CONTROL == "1") parts.size > 1 else parts.size > 2 && !addon
                         if (tooDeep) {
-                            if (parts.last().lowercase().let { it.endsWith(".bns") || it.endsWith(".exe") ||
+                            // an add-on's other files are left out on purpose (the Accents' ROMs are built in)
+                            if (!parts[0].equals("synthDrivers", true) && parts.last().lowercase().let { it.endsWith(".bns") || it.endsWith(".exe") ||
                                     it.endsWith(".hex") || it.endsWith(".bin") || it.endsWith(".dsk") ||
                                     it.endsWith(".do") || it.endsWith(".po") })
                                 deep.add(path)
@@ -324,6 +326,11 @@ object FirmwareImport {
             else if (states.isNotEmpty()) notes.add("${states.joinToString(", ")} ${if (states.size == 1) "is a state " +
                 "file" else "are state files"}, not firmware, and ${if (states.size == 1) "is" else "are"} not " +
                 "used: this phone prepares the unit's state itself from the firmware.")
+            // firmware deeper than the import looks, beside what it took: said, never dropped in silence
+            if (found.isNotEmpty() && deep.isNotEmpty() && CONTROL != "deep")   // the control: dropped in silence again
+                notes.add(if (deep.size == 1) "${deep[0]} is deeper in the zip than firmware is looked for, so it is " +
+                    "left out." else "${deep.size} files (${deep[0]} and others) are deeper in the zip than firmware " +
+                    "is looked for, so they are left out.")
             if (found.isNotEmpty()) return Plan(found, null, notes)
 
             if (states.isNotEmpty() && unknown.isEmpty() && refused.isEmpty() && deep.isEmpty() && otherHex.isEmpty() &&
@@ -367,6 +374,15 @@ object FirmwareImport {
         if (parts.size <= e || ENGINES.none { it.equals(parts[e], true) }) return false
         return parts.size == e + 2 ||
             (parts.size == e + 3 && parts[e].equals("_ssi263_blazie", true) && parts[e + 1].equals("bl2000", true))
+    }
+
+    /** A file of the Blazie emulator's download (blazie-emu-<version>-windows.zip): its firmware/ folder, each unit's
+     * files in it or up to three folders down (spanish/, german/, bl2000/, bns2000/, bns640/june2003/), the folder at
+     * the zip's top or one folder down -- so the emulator's download brings every unit it carries. */
+    private fun emulatorFile(parts: List<String>): Boolean {
+        if (CONTROL == "1") return false
+        val f = (0..1).firstOrNull { it < parts.size - 1 && parts[it].equals("firmware", true) } ?: return false
+        return parts.size - f - 1 in 2..4
     }
 
     private fun readUpTo(zip: ZipInputStream, cap: Int): ByteArray? {

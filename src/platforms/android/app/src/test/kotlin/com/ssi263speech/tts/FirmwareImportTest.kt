@@ -628,6 +628,32 @@ class FirmwareImportTest {
         assertEquals(sbCom.toList(), sb.parts.single().readBytes().toList())
     }
 
+    @Test fun theEmulatorDownloadBringsEveryUnitItCarries() {
+        // blazie-emu-0.8.0-windows.zip as it is: the program beside firmware/, each unit's files in it or below it
+        // (Tomi: someone who imports the emulator's download gets its units, as from the add-on)
+        FirmwareImport.releases = RELEASES
+        val plan = inspect("blazie-emu-0.8.0-windows.zip", zip("blazie_emu.exe" to "MZ".toByteArray() + ByteArray(900),
+            "firmware/BL2ENG.BNS" to bns('E'), "firmware/bl2_2003_warm.state" to state(),
+            "firmware/spanish/BL2SPA.BNS" to bns('S'), "firmware/german/Lite2000.BNS" to bns('G'),
+            "firmware/bl2000/BL2HUN.BNS" to bns('H'), "firmware/bns2000/BS2SLL.BNS" to bns('K'),
+            "firmware/bns640/june2003/BSPENG.BNS" to bns('6')))
+        assertNull(plan.refusal)
+        assertEquals(setOf(FirmwareImport.ENGLISH, FirmwareImport.SPANISH, FirmwareImport.GERMAN, FirmwareImport.SLOVAK,
+            HUNGARIAN, FirmwareImport.UNIT_RELEASE + BNS640_ROW), languages(plan).toSet())
+        // the same folder one level down (a zip someone made of the download's folder)
+        assertEquals(listOf(FirmwareImport.SPANISH), languages(inspect("emu.zip",
+            zip("blazie-emu-0.8.0-windows/firmware/spanish/BL2SPA.BNS" to bns('S')))))
+        // ... and nowhere deeper
+        assertTrue(inspect("deep.zip", zip("firmware/a/b/c/d/BL2SPA.BNS" to bns('S'))).found.isEmpty())
+    }
+
+    @Test fun firmwareTooDeepBesideWhatIsTakenIsSaid() {
+        // never dropped in silence: the import says what it left out, even when it took something else
+        val plan = inspect("mixed.zip", zip("BL2ENG.BNS" to bns('E'), "a/b/BL2SPA.BNS" to bns('S')))
+        assertEquals(listOf(FirmwareImport.ENGLISH), languages(plan))
+        assertTrue(plan.notes.toString(), plan.notes.any { it.startsWith("a/b/BL2SPA.BNS is deeper in the zip") })
+    }
+
     @Test fun aReleaseVoiceHasItsFilesAndNames() {
         FirmwareImport.releases = RELEASES
         assertEquals(listOf("BL2HUN.BNS", "bl2_hu_1999_07.state"), FirmwareImport.files(HUNGARIAN))

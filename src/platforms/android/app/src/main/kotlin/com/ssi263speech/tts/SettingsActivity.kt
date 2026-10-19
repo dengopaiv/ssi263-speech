@@ -230,7 +230,9 @@ class SettingsActivity : Activity() {
             "apart by what is in the file. " +
             "For the Braille Lite, choose the Braille Lite 2000's update program (such as blt2000.exe), the " +
             "BL2ENG.BNS (English), BL2SPA.BNS (Spanish) or Lite2000.BNS (German or Italian) inside it, a zip " +
-            "holding them, or the NVDA add-on (.nvda-addon), which carries them all; for its other languages, " +
+            "holding them, or the NVDA add-on (.nvda-addon) or the Blazie emulator's Windows download " +
+            "(blazie-emu-...-windows.zip), which carry them all, the emulator's with the units no voice speaks " +
+            "for the Braille Lite unit screen; for its other languages, " +
             "the language update's file (BL2HUN.BNS for Hungarian, and the others the list below names); for the " +
             "Slovak Braille 'n " +
             "Speak 2000, its BS2SLL.BNS. This phone then prepares the unit once, as the add-on's was prepared: a " +
