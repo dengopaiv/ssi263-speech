@@ -647,6 +647,31 @@ class FirmwareImportTest {
         assertTrue(inspect("deep.zip", zip("firmware/a/b/c/d/BL2SPA.BNS" to bns('S'))).found.isEmpty())
     }
 
+    @Test fun theFirmwareCollectionBringsEveryUnitAndKnowsItsArchive() {
+        // blazie-firmware-collection-<date>.zip (Tomi: the big bundle imports, and the import knows its valid files):
+        // the emulator's folder under another name, and system/ with every release of every unit -- the same release
+        // twice is one, another release is said, a unit no app runs and a program are not firmware to take
+        FirmwareImport.releases = RELEASES
+        val plan = inspect("blazie-firmware-collection-2026-10-18.zip", zip("README.txt" to "text".toByteArray(),
+            "emulator-firmware-folder/BL2ENG.BNS" to bns('E'), "emulator-firmware-folder/bl2_2003_warm.state" to state(),
+            "emulator-firmware-folder/spanish/BL2SPA.BNS" to bns('S'),
+            "emulator-firmware-folder/bl2000/BL2HUN.BNS" to bns('H'),
+            "emulator-firmware-folder/bns640/june2003/BSPENG.BNS" to bns('6'),
+            "system/BL2 Braille Lite 2000/BL2ENG_a55455eb.BNS" to bns('E'),
+            "system/BL2 Braille Lite 2000/BL2ENG_a4d13165.BNS" to bns('e'),
+            "system/BL4 Braille Lite 40/BL4ENG-1.BNS" to bns('T'),
+            "system/BSP Braille n Speak 640/BSPENG_ff0738fe.BNS" to bns('6'),
+            "programs/ADDCAL.BNS" to ByteArray(4000) { 0x18 }))
+        assertNull(plan.refusal)
+        assertEquals(setOf(FirmwareImport.ENGLISH, FirmwareImport.SPANISH, HUNGARIAN,
+            FirmwareImport.UNIT_RELEASE + BNS640_ROW), languages(plan).toSet())
+        assertEquals("each once", 4, plan.found.size)
+        assertEquals("emulator-firmware-folder/BL2ENG.BNS", plan.found.first { it.language == FirmwareImport.ENGLISH }.from)
+        assertTrue(plan.notes.toString(), plan.notes.any { it.startsWith("system/BL2 Braille Lite 2000/BL2ENG_a4d13165.BNS " +
+            "is another English release") })
+        assertTrue(plan.notes.toString(), plan.notes.none { "deeper in the zip" in it || "a55455eb" in it })
+    }
+
     @Test fun firmwareTooDeepBesideWhatIsTakenIsSaid() {
         // never dropped in silence: the import says what it left out, even when it took something else
         val plan = inspect("mixed.zip", zip("BL2ENG.BNS" to bns('E'), "a/b/BL2SPA.BNS" to bns('S')))

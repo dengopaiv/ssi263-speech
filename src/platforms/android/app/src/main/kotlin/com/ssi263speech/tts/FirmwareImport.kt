@@ -378,12 +378,18 @@ object FirmwareImport {
 
     /** A file of the Blazie emulator's download (blazie-emu-<version>-windows.zip): its firmware/ folder, each unit's
      * files in it or up to three folders down (spanish/, german/, bl2000/, bns2000/, bns640/june2003/), the folder at
-     * the zip's top or one folder down -- so the emulator's download brings every unit it carries. */
+     * the zip's top or one folder down -- so the emulator's download brings every unit it carries.  The firmware
+     * collection's (blazie-firmware-collection-<date>.zip) too: the same folder as emulator-firmware-folder/, and
+     * system/ (every release of every unit, system/<unit>/): judged as the rest, so its duplicates are one, its other
+     * releases are said, and none is called too deep. */
     private fun emulatorFile(parts: List<String>): Boolean {
         if (CONTROL == "1") return false
-        val f = (0..1).firstOrNull { it < parts.size - 1 && parts[it].equals("firmware", true) } ?: return false
+        val f = (0..1).firstOrNull { it < parts.size - 1 && FOLDERS.any { n -> parts[it].equals(n, true) } }
+            ?: return false
         return parts.size - f - 1 in 2..4
     }
+
+    private val FOLDERS = setOf("firmware", "emulator-firmware-folder", "system")
 
     private fun readUpTo(zip: ZipInputStream, cap: Int): ByteArray? {
         val out = java.io.ByteArrayOutputStream()
