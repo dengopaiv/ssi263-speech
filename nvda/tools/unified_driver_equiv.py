@@ -41,10 +41,11 @@ def L(lang):
 UNITS = {
     "braillelite2000": ("blazie", "blazie", "blazie", "en"),
     "braillelite2000-es": ("blazie", "blazie", "blazie_es", "es"),
-    # 0.8: the German and Italian Braille Lite 2000, and the Slovak Braille 'n Speak 2000 (its own firmware type)
+    # 0.8: the German and Italian Braille Lite 2000; 0.8.5: Slovak (the Braille 'n Speak 2000's firmware), a language of
+    # the Braille Lite's type, no longer a type of its own
     "braillelite2000-de": ("blazie", "blazie", "blazie_de", "de"),
     "braillelite2000-it": ("blazie", "blazie", "blazie_it", "it"),
-    "braillenspeak2000": ("blazie", "blazie", "blazie_sk", "sk"),
+    "braillelite2000-sk": ("blazie", "blazie", "blazie_sk", "sk"),
     "speakout": ("speakout", "speakout", None, "en"),
     "accentsa": ("accent", "accentmini", "sa", "en"),
     "accentmini": ("accent", "accentmini", "mini", "en"),
@@ -69,8 +70,6 @@ MOCKINGBOARD = [c for c in nde.COMMON] + [
 def cases(fw):
     if fw.startswith("braillelite2000"):
         return BRAILLE_LITE
-    if fw == "braillenspeak2000":       # one language on its firmware type: no switch to Spanish
-        return [c for c in BRAILLE_LITE if c["label"] != "language switch"]
     if fw == "speakout":
         return nde.SPEAKOUT
     if fw.startswith("mockingboard"):

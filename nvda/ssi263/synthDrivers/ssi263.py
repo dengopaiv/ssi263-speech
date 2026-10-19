@@ -42,10 +42,12 @@ except ImportError:              # staged only with its firmware file (build_ssi
 # firmware type: (its name, the unit's driver module, {language: that driver's voice})
 FIRMWARE_TYPES = OrderedDict([
     # 0.8: German and Italian (Blazie's September 2000 update) beside English and Spanish
+    # 0.8.5: and Slovak -- the Braille 'n Speak 2000's September 2000 firmware, newer than the Braille Lite's own Slovak
+    # beta, run by the same driver -- a language here rather than a firmware type of its own, so NVDA's language
+    # switching reaches it and the list holds no unit for one language (Tomi)
     ("braillelite2000", ("Braille Lite 2000", blazie, OrderedDict([("en", "blazie"), ("es", "blazie_es"),
-                                                                   ("de", "blazie_de"), ("it", "blazie_it")]))),
-    # the Slovak Braille 'n Speak 2000: the same driver, its own unit
-    ("braillenspeak2000", ("Braille 'n Speak 2000", blazie, OrderedDict([("sk", "blazie_sk")]))),
+                                                                   ("de", "blazie_de"), ("it", "blazie_it"),
+                                                                   ("sk", "blazie_sk")]))),
     ("speakout", ("Speak-Out", speakout, OrderedDict([("en", "speakout")]))),
     ("accentsa", ("Accent SA", accentmini, OrderedDict([("en", "sa")]))),
     ("accentmini", ("Accent-mini", accentmini, OrderedDict([("en", "mini")]))),
@@ -59,6 +61,10 @@ if mockingboard is not None:
     # the earlier text-to-speech of Mockingboard disk 1: its own rules ("Mocking-bo-wrd", "dough-lars")
     FIRMWARE_TYPES["mockingboardearly"] = ("Mockingboard, early", mockingboard, OrderedDict([("en", "early")]))
 LANGUAGES = {"en": "English", "es": "Español", "de": "Deutsch", "it": "Italiano", "sk": "Slovenčina"}
+# firmware types that are gone, and where their users land: (the type now, the language it was).  A saved one loads as
+# that type in that language, its own saved values filling in only what the new type has none of (_saved); the next
+# save writes the new type, and the old one is never read again.  0.8's Braille 'n Speak 2000 (Slovak only)
+MOVED_TYPES = {"braillenspeak2000": ("braillelite2000", "sk")}
 # 0.8: the Braille Lite 2000 in 17 more languages (Blazie's updates, an anonymous donation), from the release table
 # through the Braille Lite driver (blazie.py _release_table): each its language under the firmware type, named as the
 # voice is, in English ("Braille Lite 2000 (Hungarian)" -> "Hungarian"): a name in its own script (русский) is lost on
@@ -215,6 +221,22 @@ class _Unified(SynthDriver):
                         out[s.id] = v
             except Exception:
                 pass
+        # the saved type is one that moved into this one (MOVED_TYPES): its language, and its values where this type
+        # has none of its own
+        try:
+            moved = MOVED_TYPES.get(c.get("firmwareType"))
+        except Exception:
+            moved = None
+        if moved and moved[0] == fw:
+            old = c.get("firmwareType")
+            for s in _settings_of(fw):
+                key = mem_key(old, s.id)
+                try:
+                    if s.id not in out and (c.isSet(key) if hasattr(c, "isSet") else key in c) and c[key] is not None:
+                        out[s.id] = c[key]
+                except Exception:
+                    pass
+            out["voice"] = moved[1]                        # the voice as its language, as saved (_values_of)
         return out
 
     def _wanted(self, fw):
@@ -358,6 +380,7 @@ class _Unified(SynthDriver):
         self._memory.clear()
         c = self._section()
         fw = c.get("firmwareType") if c is not None else None
+        fw = MOVED_TYPES.get(fw, (fw,))[0]                 # a type that moved: the one it is now (_saved its values)
         if fw and fw != self._fw:
             if fw in FIRMWARE_TYPES and present_languages(fw):
                 try:

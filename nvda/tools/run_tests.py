@@ -162,11 +162,13 @@ if os.path.isdir(os.path.join(os.path.dirname(HERE), "dist", "ssi263-build", "sy
     CHECKS.append(check("0.8 driver settings: memory, order, Cancel, profiles, boot", [PY, "unified_settings_test.py"],
                         ok=lambda out: bool(re.search(r"^unified settings: all passed$", out, re.M))))
     for brk, marks in (("plain", [r"^FAIL ring_type_only ", r"^ok   profile_one_key ", r"^unified settings: 1 FAILED$"]),
-                       ("sametype", [r"^FAIL profile_one_key ", r"^ok   memory ", r"^unified settings: 5 FAILED$"]),
+                       ("sametype", [r"^FAIL profile_one_key ", r"^ok   memory ", r"^unified settings: 6 FAILED$"]),
                        ("cancel", [r"^FAIL cancel ", r"^ok   order ", r"^unified settings: 2 FAILED$"]),
                        ("ready", [r"^FAIL worker_boot ", r"^ok   boot_failure ", r"^unified settings: 1 FAILED$"]),
                        ("announce", [r"^FAIL ring_return ", r"^FAIL ring_startup ", r"^ok   ring_first_use ",
-                                     r"^unified settings: 3 FAILED$"])):
+                                     r"^unified settings: 3 FAILED$"]),
+                       # 0.8.5: 0.8's Braille 'n Speak 2000 type forgotten -- the Slovak user not moved
+                       ("moved", [r"^FAIL moved ", r"^ok   missing ", r"^unified settings: 1 FAILED$"])):
         CHECKS.append(check("0.8 driver settings CONTROL (%s, must fail)" % brk, [PY, "unified_settings_test.py"],
                             env={"UNIFIED_SETTINGS_BREAK": brk}, expect_fail=True, fail_marks=marks))
     # the release archive's own check (build_ssi263.py verify_archive): clean as built, and a changed DLL, a missing
@@ -1770,6 +1772,13 @@ if os.path.isfile(os.path.join(os.path.dirname(HERE), "dist", "blazie-lib", "x64
                         env={"SSI263_RELEASE_VOICES_BREAK": "echo"}, expect_fail=True,
                         fail_marks=[r"^FAIL bl2_hu_1999_07: speaks: .* done at [4-9]", r"^ok +bl2_da_1999_11: speaks",
                                     r"^release voices: \d+ FAILED$"]))
+    # 0.8.5: a unit that never echoes is done when its firmware is (bl_host.c no_echo_finished); the control leaves
+    # that out, so each is done a second after its last sound again (the pause between NVDA's chunks Tomi heard)
+    CHECKS.append(check("release voices CONTROL (a non-echoing unit's own end left out, must fail)",
+                        [PY, os.path.join(BL_SRC, "test_release_voices.py")],
+                        env={"SSI263_RELEASE_VOICES_BREAK": "slow"}, expect_fail=True,
+                        fail_marks=[r"^FAIL bl2_hu_1999_07: speaks: .* (0\.9|1\.\d)\d s after its last sound",
+                                    r"^ok +bl2_da_1999_11: speaks", r"^release voices: \d+ FAILED$"]))
     # the units' own accented letters (bl_voice.c's pages and folds): fifteen languages, every letter in both cases,
     # each its byte and exactly the unit's phonemes for it; the control sends what the voices did before (Hungarian
     # o double acute an o; the Slovak o circumflex, the Polish Z dot, French A grave and Italian E grave capitals silent)

@@ -14,6 +14,8 @@ live only in fw_<type>_<setting>; the plain keys are never read (Astra, Reply 16
     ring_type_only    the ring writes only the plain firmwareType: a new driver from that config is the Speak-Out
                       with ITS rate, not a plain rate left over (Reply 163, 2)
     missing           a saved type whose firmware is not here: the current unit kept, a warning, no exception
+    moved             0.8's Braille 'n Speak 2000 (Slovak only) saved: the Braille Lite in Slovak, its own rate kept, a
+                      value it has none of taken from the old type, no warning; saved again as the Braille Lite (0.8.5)
     boot_failure      a unit whose constructor fails: the old one kept, still current
     worker_boot       a unit whose WORKER fails to boot its firmware: the switch refused, the old unit still current
                       and speaking, the new one stopped (Reply 163, 4)
@@ -31,6 +33,7 @@ live only in fw_<type>_<setting>; the plain keys are never read (Astra, Reply 16
     UNIFIED_SETTINGS_BREAK=ready     control: a unit taken without waiting for its boot -- worker_boot must FAIL
     UNIFIED_SETTINGS_BREAK=announce  control: NVDA's changeVoice(self, None) after a load left out -- ring_return,
                                      ring_startup and ring_other_type must FAIL (ring_first_use is NVDA's own)
+    UNIFIED_SETTINGS_BREAK=moved     control: the moved types forgotten (MOVED_TYPES empty) -- moved must FAIL
 
 Exit 0 when all pass; 1 otherwise.  Build first: nvda/build_ssi263.py.
 """
@@ -320,6 +323,8 @@ def main():
         W.loadSettings = keeps
     if BREAK == "announce":
         W._announce = lambda self: None
+    if BREAK == "moved":
+        mod.MOVED_TYPES.clear()
     if BREAK == "ready":
         for _name, m, _v in mod.FIRMWARE_TYPES.values():
             m.SynthDriver.booted = None          # what _make waits on, hidden: it takes the unit at once
@@ -430,6 +435,27 @@ def main():
     warned = any("not here" in m for m in LOG[n:])
     check("missing", d.firmwareType == "braillelite2000" and warned and crashed is None,
           "kept %s; warned: %s%s" % (d.firmwareType, warned, "; loadSettings RAISED %r" % crashed if crashed else ""))
+
+    # 0.8's Slovak Braille 'n Speak 2000, saved as its own type: the Braille Lite in Slovak now (MOVED_TYPES)
+    base = STORE["base"]
+    kept = dict(base)
+    base.update({"firmwareType": "braillenspeak2000", "fw_braillenspeak2000_voice": "sk",
+                 "fw_braillenspeak2000_rate": 80, "fw_braillenspeak2000_pitch": 33})
+    base.pop("fw_braillelite2000_pitch", None)       # the Braille Lite has a rate of its own (70), but no pitch
+    d.terminate()
+    n = len(LOG)
+    d = new_driver()
+    got = (d.firmwareType, d.voice, d.inner.voice, d.rate, d.pitch)
+    warned = any("not here" in m for m in LOG[n:])
+    d.saveSettings()
+    after = (base.get("firmwareType"), base.get("fw_braillelite2000_voice"))
+    check("moved", got == ("braillelite2000", "sk", "blazie_sk", 70, 33) and not warned
+          and after == ("braillelite2000", "sk"),
+          "loaded %s (want braillelite2000 sk blazie_sk 70 33)%s; saved %s" % (got, ", WARNED" if warned else "", after))
+    base.clear()
+    base.update(kept)
+    d.terminate()
+    d = new_driver()
 
     unit = mod.FIRMWARE_TYPES["speakout"][1].SynthDriver
     real_init = unit.__init__
