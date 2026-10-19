@@ -197,6 +197,24 @@ object FirmwareImport {
      * lists what will be.  `notes` are things worth saying either way. */
     class Plan(val found: List<Found>, val refusal: String?, val notes: List<String> = emptyList())
 
+    /** What a finished import says: the voices that speak now, and the units kept for the unit screen alone said to
+     * be no voice (Tomi, 2026-10-18: a Braille 'n Speak 640 imported alone is "not a voice", never "the voice speaks
+     * now"). */
+    fun doneMessage(found: List<Found>): String {
+        val voices = found.filter { it.unit == null }.map { it.label }
+        val units = found.filter { it.unit != null }.map { it.label }
+        val said = ArrayList<String>()
+        if (voices.isNotEmpty())
+            said.add("Imported ${voices.joinToString(" and ")}. " +
+                (if (voices.size == 1) "The voice speaks now." else "The voices speak now."))
+        if (units.isNotEmpty())
+            said.add((if (voices.isEmpty()) "Imported " else "Also imported ") + units.joinToString(" and ") +
+                " for the Blazie Engineering unit screen. " + (if (units.size == 1) "Note: this one cannot be used " +
+                "as a voice; it runs on the unit screen." else "Note: these cannot be used as voices; they run on " +
+                "the unit screen."))
+        return said.joinToString(" ")
+    }
+
     private class Candidate(val language: Int, val from: String, val file: File, val label: String,
                             val unit: UnitRelease? = null)
 

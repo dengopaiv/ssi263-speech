@@ -695,6 +695,20 @@ class FirmwareImportTest {
         assertTrue(plan.notes.toString(), plan.notes.isEmpty())
     }
 
+    @Test fun aUnitImportedAloneIsSaidToBeNoVoice() {
+        // Tomi, 2026-10-18: a Braille 'n Speak 640 alone is "not a voice", never "the voice speaks now"
+        val alone = inspect("BSPENG.BNS", bns('6'))
+        val said = FirmwareImport.doneMessage(alone.found)
+        assertEquals("Imported Braille 'n Speak 640 English June 2003 for the Blazie Engineering unit screen. Note: " +
+            "this one cannot be used as a voice; it runs on the unit screen.", said)
+        // beside a voice: the voice speaks, the unit is said apart
+        val both = FirmwareImport.doneMessage(inspect("both.zip", zip("BL2ENG.BNS" to bns('E'), "BSPENG.BNS" to bns('6'))).found)
+        assertTrue(both, both.startsWith("Imported English June 2003. The voice speaks now. Also imported " +
+            "Braille 'n Speak 640 English June 2003 for the Blazie Engineering unit screen. Note: this one cannot"))
+        assertEquals("Imported English June 2003. The voice speaks now.",
+            FirmwareImport.doneMessage(inspect("BL2ENG.BNS", bns('E')).found))
+    }
+
     @Test fun aProgramThatOnlyLooksLikeAZipIsNotFirmware() {
         // the collection's programs/unzip.BNS (found on Tomi's phone, 2026-10-18): Blazie's unzip program carries a zip
         // signature with a name that is no text; opening it threw past the import, and the whole zip "could not be

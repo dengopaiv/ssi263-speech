@@ -520,9 +520,9 @@ class SettingsActivity : Activity() {
         importDialog?.dismiss(); importDialog = null
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val result = job.result ?: return
-        result.onSuccess { labels ->
+        result.onSuccess {
             refreshStatus()
-            importStatus.text = "Imported ${labels.joinToString(" and ")}. The voice speaks now."
+            importStatus.text = FirmwareImport.doneMessage(job.plan.found)
             Log.i("SsiImport", importStatus.text.toString())
             try { importStatus.announceForAccessibility(importStatus.text) } catch (e: Throwable) {}
         }.onFailure { e ->
