@@ -14,6 +14,11 @@ object SsiNative {
             val c = row.split('\t')
             FirmwareImport.Release(c[0].toInt(), c[1], c[2], c[3], c[4], c[5])
         }
+        // ... and the releases no voice speaks, for the unit screen alone
+        FirmwareImport.units = nativeUnitReleases().map { row ->
+            val c = row.split('\t')
+            FirmwareImport.UnitRelease(c[0], c[2], c[1])
+        }
     }
 
     /** Loads the library (and with it the release voices), if nothing has yet. */
@@ -119,6 +124,9 @@ object SsiNative {
 
     /** The release voices (ssa_jni.c's): per voice "<index>\t<id>\t<file>\t<name>\t<voice name>\t<tag>". */
     external fun nativeReleaseVoices(): Array<String>
+
+    /** The releases no voice speaks, kept for the unit screen alone (ssa_jni.c's): per row "<id>\t<file>\t<name>". */
+    external fun nativeUnitReleases(): Array<String>
 
     /** The state at `state` is the one [nativeMakeState] makes from the release at `bns`. */
     external fun nativeStateCheck(bns: String, state: String): Boolean

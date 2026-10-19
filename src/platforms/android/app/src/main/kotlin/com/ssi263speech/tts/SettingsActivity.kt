@@ -47,6 +47,9 @@ class SettingsActivity : Activity() {
     private lateinit var firmwareList: LinearLayout
     private lateinit var showAllButton: Button
     private var showAllLanguages = false
+    private lateinit var unitList: LinearLayout
+    private lateinit var showUnitsButton: Button
+    private var showAllUnits = false
     private lateinit var importStatus: TextView
     private lateinit var removeButton: Button
     private var importDialog: AlertDialog? = null
@@ -253,6 +256,11 @@ class SettingsActivity : Activity() {
         firmwareList = ui.column().also { root.addView(it) }
         showAllButton = Button(this).apply { setOnClickListener { showAllLanguages = !showAllLanguages; refreshStatus() } }
         root.addView(showAllButton)
+        // the releases no voice speaks (the 640, Japanese, the betas), for the unit screen alone: behind their own
+        // button the same way (Tomi, 2026-10-18), so an import of the emulator's download or the collection is seen
+        unitList = ui.column().also { root.addView(it) }
+        showUnitsButton = Button(this).apply { setOnClickListener { showAllUnits = !showAllUnits; refreshStatus() } }
+        root.addView(showUnitsButton)
         root.addView(Button(this).apply { text = "Import firmware…"; setOnClickListener { pickFile() } })
         removeButton = Button(this).apply { text = "Remove firmware…"; setOnClickListener { removeFirmware(true) } }
         root.addView(removeButton)
@@ -310,11 +318,14 @@ class SettingsActivity : Activity() {
         // the shipped voices' imports named; the language updates' counted, the list under Show all naming them
         val shipped = FirmwareImport.IMPORTED.mapNotNull { SsiData.label(this, it) }
         val languages = labels.size - shipped.size
-        firmwareStatus.text = if (labels.isEmpty()) "No firmware imported."
+        val units = FirmwareImport.units.count { unitLabel(it) != null }
+        firmwareStatus.text = if (labels.isEmpty() && units == 0) "No firmware imported."
             else (shipped.map { "$it, imported." } + (if (languages > 0) listOf("$languages Braille Lite " +
-                (if (languages == 1) "language" else "languages") + " imported (Show all names them).") else emptyList()))
+                (if (languages == 1) "language" else "languages") + " imported (Show all names them).") else emptyList()) +
+                (if (units > 0) listOf("$units more " + (if (units == 1) "unit" else "units") + " for the Braille Lite " +
+                    "unit screen imported (Show the unit screen's units names them).") else emptyList()))
                 .joinToString("\n")
-        removeButton.isEnabled = labels.isNotEmpty()
+        removeButton.isEnabled = labels.isNotEmpty() || units > 0
         refreshFirmwareList()
         val current = SsiEngine.voiceFor(this, SsiSettings.snapshot(this).voice)
         status.text = if (voices.isEmpty()) "No voice can speak: this copy of the app is missing the Accent SA."
@@ -343,6 +354,22 @@ class SettingsActivity : Activity() {
         showAllButton.visibility = if (releases.isNotEmpty()) View.VISIBLE else View.GONE
         showAllButton.text = if (showAllLanguages) "Hide the Braille Lite languages"
             else "Show all Braille Lite importable languages (${releases.size}, $here imported)"
+
+        unitList.removeAllViews()
+        val units = FirmwareImport.units
+        if (showAllUnits) for (u in units)
+            unitList.addView(ui.body("${u.name}: ${u.bring} — " + (unitLabel(u)?.let { "imported ($it)" } ?: "not imported")))
+        val unitsHere = units.count { unitLabel(it) != null }
+        showUnitsButton.visibility = if (units.isNotEmpty()) View.VISIBLE else View.GONE
+        showUnitsButton.text = if (showAllUnits) "Hide the Braille Lite unit screen's units"
+            else "Show the Braille Lite unit screen's units (${units.size}, $unitsHere imported)"
+    }
+
+    /** What was imported for a unit the unit screen keeps alone (units/<id>.BNS.label), or null when it is not here. */
+    private fun unitLabel(u: FirmwareImport.UnitRelease): String? {
+        val f = File(SsiData.dir(this), u.file)
+        if (!f.isFile) return null
+        return try { File(f.path + SsiData.LABEL).readText() } catch (e: Exception) { u.name }
     }
 
     // ---- the firmware import (FirmwareImport.kt, SsiImport.kt), as outspoken's zip import ------------------------

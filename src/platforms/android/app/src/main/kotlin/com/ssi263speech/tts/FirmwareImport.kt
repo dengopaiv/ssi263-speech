@@ -41,7 +41,7 @@ object FirmwareImport {
 
     /** A release no voice speaks yet, kept for the unit screen alone (Apple's units/ the same): `id` names its file
      * there, `name` is the release in English ("Braille 'n Speak 640 (English)"). */
-    class UnitRelease(val id: String, val name: String) {
+    class UnitRelease(val id: String, val name: String, val bring: String = "") {
         /** Where it is kept in the unit folder: the unit screen's catalog (emu_catalog.c) finds it one folder down;
          * no state is made -- the unit screen makes its own on first start. */
         val file get() = "units/$id.BNS"
@@ -90,6 +90,10 @@ object FirmwareImport {
     @Volatile var releases: List<Release> = emptyList()
 
     fun release(voice: Int): Release? = releases.firstOrNull { it.voice == voice }
+
+    /** The releases no voice speaks, for the unit screen alone, from the same table (nativeUnitReleases): Setup names
+     * them behind their own button, `bring` being the file a person brings. */
+    @Volatile var units: List<UnitRelease> = emptyList()
 
     /** The files an imported voice needs ([FILES], a release voice's .BNS and state); null for a voice with none. */
     fun files(voice: Int): List<String>? = FILES[voice] ?: release(voice)?.files

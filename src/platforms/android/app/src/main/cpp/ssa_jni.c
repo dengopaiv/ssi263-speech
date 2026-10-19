@@ -294,6 +294,26 @@ JNIEXPORT jobjectArray JNICALL FN(nativeReleaseVoices)(JNIEnv *env, jclass cls)
     return out;
 }
 
+/* The releases no voice speaks, kept for the unit screen alone (the Braille 'n Speak 640, Japanese, the betas), in
+   the table's order: per row "<id>\t<file>\t<name>" -- its file under units/ is <id>.BNS, the file a person brings,
+   its name.  Setup's list names them behind its own button (SettingsActivity), as the release voices are. */
+JNIEXPORT jobjectArray JNICALL FN(nativeUnitReleases)(JNIEnv *env, jclass cls)
+{
+    int k, n = 0, i = 0;
+    char row[512];
+    jobjectArray out;
+    (void)cls;
+    for (k = 0; k < blv_firmware_count(); k++)
+        n += blv_firmware_language(k) == BLV_FW_NONE && !blv_release_voice_key(k);
+    out = (*env)->NewObjectArray(env, n, (*env)->FindClass(env, "java/lang/String"), NULL);
+    for (k = 0; out && k < blv_firmware_count(); k++) {
+        if (blv_firmware_language(k) != BLV_FW_NONE || blv_release_voice_key(k)) continue;
+        snprintf(row, sizeof row, "%s\t%s\t%s", blv_release_id(k), blv_release_file(k), blv_release_name(k));
+        (*env)->SetObjectArrayElement(env, out, i++, (*env)->NewStringUTF(env, row));
+    }
+    return out;
+}
+
 /* A release table row, for one the unit screen keeps alone (nativeImportFirmware's SSA_FW_RELEASE + row):
    "<id>\t<name>", its file under units/ being <id>.BNS; null for no such row. */
 JNIEXPORT jstring JNICALL FN(nativeReleaseRow)(JNIEnv *env, jclass cls, jint k)
