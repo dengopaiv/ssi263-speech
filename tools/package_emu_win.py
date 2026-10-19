@@ -12,7 +12,7 @@
     firmware/bns2000/  the Braille 'n Speak 2000's, English and Slovak
     firmware/bl2000/   the Braille Lite 2000's language updates (0.8): 17 firmware files and their states
     firmware/bns640/   the Braille 'n Speak 640's (0.8.5): BSPENG.BNS (June 2003 English), BSPENG_2000.BNS and
-                       BSPPLA.BNS (Greg's September 2000 English and Polish), one folder down where the catalog finds
+                       BSPPLA.BNS (issue #15's September 2000 English and Polish), one folder down where the catalog finds
                        them; no state: the emulator makes a release unit's factory state on its first start.  In the
                        downloads only, never an app's
     build-info.json    the version, the commit, every file's sha256

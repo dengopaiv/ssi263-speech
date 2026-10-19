@@ -18,7 +18,7 @@
 #                                        testers, in the emulator archives only, never the full package): exactly
 #                                        the four files below, each checked against the sha256 Tomi approved
 #       share/ssi263-speech/bns640/      the Braille 'n Speak 640 (0.8.5; the emulator downloads only, never an app):
-#                                        BSPENG.BNS (June 2003 English), BSPENG_2000.BNS and BSPPLA.BNS (Greg's
+#                                        BSPENG.BNS (June 2003 English), BSPENG_2000.BNS and BSPPLA.BNS (issue #15's
 #                                        September 2000 English and Polish), from BNS640_DIR (default the Braille 'n
 #                                        Speak 2000 folder's sibling bns640/, laid out june2003/ and issue15/), each
 #                                        checked; one folder down, where the catalog finds them; no state: the
@@ -121,7 +121,10 @@ for e in $BNS640_FILES; do
     echo "== boot, Braille 'n Speak 640 $u (no --firmware)"
     "./$NAME/bin/blazie_emu" --config "$C" --null --rate 22050 --unit $u --seconds 10 --rms 0:6 > b640.txt 2>&1
     echo "exit=$?"; cat b640.txt
-    grep -q "^starting $u from .*/$NAME/bin/\\.\\./share/ssi263-speech/bns640/" b640.txt || bad=1
+    # its first start: set up from the archive's firmware (no other folder is given), then started from the factory
+    # state that made (headless with no memory kept: a scratch file)
+    grep -q "^Setting up the Braille 'n Speak 640 .* for its first start" b640.txt || bad=1
+    grep -q "^starting $u from " b640.txt || bad=1
     awk '$1 == "rms" && $2 == "0.00-6.00" { ok = $NF > 0.01 } END { exit !ok }' b640.txt || bad=1
 done
 echo "== blazie_files (no arguments: its usage)"; "./$NAME/bin/blazie_files" > files.txt 2>&1; echo "exit=$?"; head -n 2 files.txt
