@@ -60,12 +60,12 @@ class UnitActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        title = "Braille Lite unit"
+        title = "Blazie Engineering unit"
         ui = SettingsWidgets(this)
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         quick = prefs.getBoolean("quick", false)
         val page = ui.column()
-        page.addView(ui.heading("Braille Lite unit"))
+        page.addView(ui.heading("Blazie Engineering unit"))
         status = ui.body("")
         page.addView(status)
 

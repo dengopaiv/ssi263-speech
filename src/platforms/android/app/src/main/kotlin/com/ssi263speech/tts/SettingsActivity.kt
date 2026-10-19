@@ -69,10 +69,12 @@ class SettingsActivity : Activity() {
 
         setupTab = Button(this).apply { text = "Setup"; setOnClickListener { show(0) } }
         voiceTab = Button(this).apply { text = "Voice settings"; setOnClickListener { show(1) } }
-        // the Braille Lite unit: a screen of its own (its sound, its keyboard, its memory saved when it is left)
+        // the Blazie unit: a screen of its own (its sound, its keyboard, its memory saved when it is left) -- any
+        // Blazie Engineering unit, the 640 and the Braille 'n Speak 2000 too (Tomi, 2026-10-18: "Blazie eng. unit"
+        // to see, the whole name to hear)
         val unitScreen = Button(this).apply {
-            text = "Braille Lite unit"
-            contentDescription = "Braille Lite unit, opens its screen"
+            text = "Blazie eng. unit"
+            contentDescription = "Blazie Engineering unit, opens its screen"
             setOnClickListener { startActivity(Intent(this@SettingsActivity, UnitActivity::class.java)) }
         }
         val wide = resources.configuration.screenWidthDp >= 340
@@ -236,7 +238,7 @@ class SettingsActivity : Activity() {
             "BL2ENG.BNS (English), BL2SPA.BNS (Spanish) or Lite2000.BNS (German or Italian) inside it, a zip " +
             "holding them, or the NVDA add-on (.nvda-addon) or the Blazie emulator's Windows download " +
             "(blazie-emu-...-windows.zip), which carry them all, the emulator's with the units no voice speaks " +
-            "for the Braille Lite unit screen; for its other languages, " +
+            "for the Blazie Engineering unit screen; for its other languages, " +
             "the language update's file (BL2HUN.BNS for Hungarian, and the others the list below names); for the " +
             "Slovak Braille 'n " +
             "Speak 2000, its BS2SLL.BNS. This phone then prepares the unit once, as the add-on's was prepared: a " +
@@ -322,8 +324,8 @@ class SettingsActivity : Activity() {
         firmwareStatus.text = if (labels.isEmpty() && units == 0) "No firmware imported."
             else (shipped.map { "$it, imported." } + (if (languages > 0) listOf("$languages Braille Lite " +
                 (if (languages == 1) "language" else "languages") + " imported (Show all names them).") else emptyList()) +
-                (if (units > 0) listOf("$units more " + (if (units == 1) "unit" else "units") + " for the Braille Lite " +
-                    "unit screen imported (Show the unit screen's units names them).") else emptyList()))
+                (if (units > 0) listOf("$units more " + (if (units == 1) "unit" else "units") + " for the Blazie " +
+                    "Engineering unit screen imported (Show the unit screen's units names them).") else emptyList()))
                 .joinToString("\n")
         removeButton.isEnabled = labels.isNotEmpty() || units > 0
         refreshFirmwareList()
@@ -341,6 +343,11 @@ class SettingsActivity : Activity() {
     private fun refreshFirmwareList() {
         firmwareList.removeAllViews()
         val releases = FirmwareImport.releases
+        // the built-in voices too, so every voice has its line (Tomi): nothing to bring for them
+        if (SsiData.has(this, SsiNative.ACCENT_SA))
+            firmwareList.addView(ui.body("Aicom Accent SA: its ROMs — built into this app"))
+        if (SsiData.has(this, SsiNative.ACCENT_MINI))
+            firmwareList.addView(ui.body("Aicom Accent-mini: SPKEMS.DVC — built into this app"))
         for (voice in FirmwareImport.imported()) {
             val release = FirmwareImport.release(voice)
             val label = SsiData.label(this, voice)
@@ -361,8 +368,8 @@ class SettingsActivity : Activity() {
             unitList.addView(ui.body("${u.name}: ${u.bring} — " + (unitLabel(u)?.let { "imported ($it)" } ?: "not imported")))
         val unitsHere = units.count { unitLabel(it) != null }
         showUnitsButton.visibility = if (units.isNotEmpty()) View.VISIBLE else View.GONE
-        showUnitsButton.text = if (showAllUnits) "Hide the Braille Lite unit screen's units"
-            else "Show the Braille Lite unit screen's units (${units.size}, $unitsHere imported)"
+        showUnitsButton.text = if (showAllUnits) "Hide the Blazie Engineering unit screen's units"
+            else "Show the Blazie Engineering unit screen's units (${units.size}, $unitsHere imported)"
     }
 
     /** What was imported for a unit the unit screen keeps alone (units/<id>.BNS.label), or null when it is not here. */
@@ -425,7 +432,7 @@ class SettingsActivity : Activity() {
         val lines = plan.found.map { f ->
             val unit = f.unit
             if (unit != null)
-                return@map "Will import ${f.label} (from ${f.from}) for the Braille Lite unit screen: no voice " +
+                return@map "Will import ${f.label} (from ${f.from}) for the Blazie Engineering unit screen: no voice " +
                     "speaks it yet, so it is kept for the unit screen alone, which prepares it on its first start." +
                     (if (File(SsiData.dir(this), unit.file).exists()) " The copy already here will be replaced."
                      else "")

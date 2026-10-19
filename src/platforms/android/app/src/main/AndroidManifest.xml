@@ -57,7 +57,7 @@
         <activity
             android:name=".UnitActivity"
             android:exported="true"
-            android:label="Braille Lite unit"
+            android:label="Blazie Engineering unit"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize" />
 
         <activity

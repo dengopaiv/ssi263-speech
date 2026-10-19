@@ -183,9 +183,9 @@ TalkBack hears every fifth of the way, no closer than 5 s apart. Then the unit s
 do the files replace what was there, in device-protected storage. Until then the service reports its languages as
 missing data and CheckVoiceData fails.
 
-## The Braille Lite unit screen
+## The Blazie Engineering unit screen
 
-The settings' third button, **Braille Lite unit**, opens a Blazie unit running in real time on the firmware already
+The settings' third button, **Blazie eng. unit** (read out in full: "Blazie Engineering unit"), opens a Blazie unit running in real time on the firmware already
 imported for the voices -- one app, no second firmware picker, as Apple's unit tab. Its units are the emulator's own
 catalog over the data folder (`emc_list`, `src/apps/blazie/emu_catalog.c`, the list every emulator shell reads): every
 unit whose firmware is imported, never one without. A release unit's first start makes its state by its own recipe
