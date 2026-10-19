@@ -82,6 +82,10 @@ control "release voices CONTROL (the fast boot keys everywhere, must fail)" "^FA
 control "release voices CONTROL (the echo ignored, must fail)" "^FAIL bl2_hu_1999_07: speaks: .* done at [4-9]" \
     "^release voices: [0-9]+ FAILED$" \
     -- env SSI263_RELEASE_VOICES_BREAK=echo python3 src/csrc/blazie/test_release_voices.py --lib "$LIB" --firmware "$DATA"
+# 0.8.5: a non-echoing unit is done when its firmware is (bl_host.c no_echo_finished); left out, a second later again
+control "release voices CONTROL (a non-echoing unit's own end left out, must fail)" \
+    "^FAIL bl2_hu_1999_07: speaks: .* (0\.9|1\.[0-9])[0-9] s after its last sound" "^release voices: [0-9]+ FAILED$" \
+    -- env SSI263_RELEASE_VOICES_BREAK=slow python3 src/csrc/blazie/test_release_voices.py --lib "$LIB" --firmware "$DATA"
 control "releases CONTROL (a release with no voice handed out as English, must fail)" "^releases: 1 FAILED$" \
     -- env SSI263_RELEASES_TEST_BREAK=voice python3 src/csrc/blazie/test_releases.py --lib "$LIB" --firmware "$DATA"
 # double speed (issue #15): the firmware's own switch runs the CPU twice as fast when allowed; the control never allows it

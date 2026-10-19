@@ -102,8 +102,11 @@ BL_API bl_voice *blv_create(const char *firmware, const char *state, int encodin
     v->host = bh_create(firmware, state, v->chip, out_rate, BOARD_LOWPASS_HZ, key_at, codes, n,
                         start + (unsigned long long)n * gap, 0, err, errlen);
     if (!v->host) { ssi263_free(v->chip); free(v); return NULL; }
-    if (release >= 0 && blv_release_echo(release) == 0 && blv_voice_break != 2)
+    if (release >= 0 && blv_release_echo(release) == 0 && blv_voice_break != 2) {
         bh_set_int(v->host, "no_echo", 1);
+        if (blv_voice_break == 3)          /* the control: its own end left out (bl_host.c no_echo_finished) */
+            bh_set_int(v->host, "no_echo_slow", 1);
+    }
     bh_send(v->host, (const unsigned char *)"\x18", 1);
     bh_send(v->host, (const unsigned char *)"\r\x06", 2);
     bh_run(v->host, 0.3, 0.0005, &y);

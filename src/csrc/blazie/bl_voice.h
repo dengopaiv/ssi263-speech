@@ -47,7 +47,8 @@ typedef struct bl_voice bl_voice;
 BL_API bl_voice *blv_create(const char *firmware, const char *state, int encoding, double out_rate, int inflection,
                             int whine, char *err, int errlen);
 /* The tests' controls (an app never sets it): 1 boots every firmware with the fast keys, 2 ignores the release's
-   echo (bl_firmware.h blv_release_slow_boot, blv_release_echo). */
+   echo (bl_firmware.h blv_release_slow_boot, blv_release_echo), 3 leaves out a non-echoing unit's own end (bl_host.c
+   no_echo_finished: done a second after its last sound again). */
 BL_API extern int blv_voice_break;
 BL_API void blv_destroy(bl_voice *v);
 

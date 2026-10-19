@@ -3,15 +3,18 @@ for each whose firmware is in the firmware folder, its state made by its own rec
 (blv_create: the release's own boot keys and echo, bl_voice.c) with the release's text encoding, and a sentence said.
 
   speaks = yes   the sentence heard (0.8 s of speech or more) and the voice done within 3.6 s of audio -- a unit that
-                 never echoes ^F is judged by the chip (no_echo), else its done would take the ~4.5-s timeout path
+                 never echoes ^F is judged by the chip (no_echo), else its done would take the ~4.5-s timeout path --
+                 and done within DONE_AFTER_S of its last sound (0.8.5: a unit that never echoes is done when its
+                 firmware is, bl_host.c no_echo_finished, not a second later: NVDA's chunks waited out that second)
   speaks = no    silent (Japanese: not yet understood; Chinese: the unit has no speech)
 
     python test_release_voices.py [--firmware DIR] [--lib PATH] [--chip PATH]
 
 Controls (SSI263_RELEASE_VOICES_BREAK, bl_voice.h blv_voice_break): fast boots every firmware with the shipped
 voices' fast keys -- the slower firmwares (Czech, Russian, Greek, Hebrew, Arabic, French) must fall silent; echo
-ignores the release's echo -- the units that never echo must take the timeout path.  The shipped voices' releases
-are left to their own byte-for-byte tests.
+ignores the release's echo -- the units that never echo must take the timeout path; slow leaves out their own end
+(no_echo_slow) -- each must be done about a second after its last sound again.  The shipped voices' releases are left
+to their own byte-for-byte tests.
 """
 import argparse
 import ctypes
@@ -28,7 +31,9 @@ import gen_languages  # noqa: E402
 import test_releases  # noqa: E402
 
 WINDOWS = sys.platform == "win32"
-BREAK = {"": 0, "fast": 1, "echo": 2}[os.environ.get("SSI263_RELEASE_VOICES_BREAK", "")]
+BREAK = {"": 0, "fast": 1, "echo": 2, "slow": 3}[os.environ.get("SSI263_RELEASE_VOICES_BREAK", "")]
+DONE_AFTER_S = 0.6                # done after the last sound: the echoing units take 0.0-0.2 s, the others 0.04-0.11;
+                                  # the Korean firmware works on ~0.46 s, awake, before it sleeps (its own end)
 RATE = 22050
 TEXT = b"Hello. One two three."
 TEXTS = {"7bit": 0, "850": 1, "852": 2, "857": 3, "860": 4, "866": 5, "hun": 6, "852sk": 7, "852pl": 8, "852hr": 9, "850fr": 10, "850dano": 11, "850sv": 12, "850es": 13, "850it": 14, "857tr": 15, "860pt": 16, "866ru": 17, "864ar": 18, "-": 0}
@@ -57,10 +62,10 @@ def speak(job):
     k, fw, st, enc = job
     err = ctypes.create_string_buffer(300)
     if not lib.blv_make_release_state(fw.encode(), k, st.encode(), PROGRESS(0), None, err, 300):
-        return k, "state: " + err.value.decode(errors="replace"), 0, 0, 0
+        return k, "state: " + err.value.decode(errors="replace"), 0, 0, 0, 0
     v = lib.blv_create(fw.encode(), st.encode(), enc, float(RATE), 1, 0, err, 300)
     if not v:
-        return k, "voice: " + err.value.decode(errors="replace"), 0, 0, 0
+        return k, "voice: " + err.value.decode(errors="replace"), 0, 0, 0, 0
     lib.blv_speak(v, TEXT)
     pcm, done, y, total = ctypes.POINTER(ctypes.c_short)(), ctypes.c_int(0), [], 0
     while not done.value and total < 12 * RATE:
@@ -72,12 +77,13 @@ def speak(job):
     os.remove(st)
     y = y or [0.0]
     sq = [s * s for s in y]
-    return k, None, total / RATE if done.value else 99.0, speech_span(sq), (sum(sq) / len(sq)) ** 0.5
+    span, end = speech_span(sq)
+    return k, None, total / RATE if done.value else 99.0, span, end, (sum(sq) / len(sq)) ** 0.5
 
 
 def speech_span(sq):
-    """Seconds from the first to the last sample whose 10 ms RMS (a centred moving mean of the squares, numpy's
-    convolve "same") is over 0.01 -- in plain Python, so the test needs no numpy (the Pi's Debian has none)."""
+    """(Seconds from the first to the last sample whose 10 ms RMS (a centred moving mean of the squares, numpy's
+    convolve "same") is over 0.01, and the time of that last one) -- in plain Python, so the test needs no numpy (the Pi's Debian has none)."""
     w = RATE // 100
     n = len(sq)
     if n <= w:
@@ -89,7 +95,7 @@ def speech_span(sq):
         h = (w - 1) // 2               # convolve "same": output i is the full output's i + (w-1)//2
         loud = [i for i in range(n)
                 if (pre[min(n, i + h + 1)] - pre[max(0, i + h + 1 - w)]) / w > 0.0001]
-    return (loud[-1] - loud[0]) / RATE if loud else 0.0
+    return ((loud[-1] - loud[0]) / RATE, loud[-1] / RATE) if loud else (0.0, 0.0)
 
 
 def main():
@@ -114,14 +120,14 @@ def main():
     bad = 0
     with ProcessPoolExecutor(max_workers=max(1, min(len(jobs), (os.cpu_count() or 2) // 2)), initializer=load,
                              initargs=(a.lib, a.chip)) as ex:
-        for k, error, done_s, speech_s, rms in ex.map(speak, jobs):
+        for k, error, done_s, speech_s, end_s, rms in ex.map(speak, jobs):
             r = table[k]
             if error:
                 ok, what = False, error
             elif r["speaks"] == "yes":
-                ok = speech_s >= 0.8 and done_s <= 3.6
-                what = "speaks: %.1f s of speech, done at %.1f s (%s boot, echo %s)" % (
-                    speech_s, done_s, r["boot"], r["echo"]) if done_s < 99 else "speaks: NO DONE in 12 s"
+                ok = speech_s >= 0.8 and done_s <= 3.6 and done_s - end_s <= DONE_AFTER_S
+                what = "speaks: %.1f s of speech, done at %.1f s, %.2f s after its last sound (%s boot, echo %s)" % (
+                    speech_s, done_s, done_s - end_s, r["boot"], r["echo"]) if done_s < 99 else "speaks: NO DONE in 12 s"
             else:
                 ok = rms < 0.002
                 what = "silent, as listed (rms %.4f)" % rms

@@ -98,8 +98,10 @@ struct bl_host {
     int lift, lift_r1s, lift_val;
     /* The unit never echoes ^F (bh_set_int "no_echo"): the Italian Braille Lite and the Slovak Braille 'n Speak
        send XON/XOFF only, so the echo count can never say an utterance is over.  bh_busy then judges by the chip
-       alone: speech under way, a phoneme playing, or the firmware's request not yet left unanswered. */
-    int no_echo;
+       alone: speech under way, a phoneme playing, or the firmware's request not yet left unanswered -- and, since
+       0.8.5, the firmware's own end (no_echo_finished): asleep through the chip's request, all our text read.
+       no_echo_slow (a test's control): that end left out, so "done" waits out UNANSWERED_S again (1 s). */
+    int no_echo, no_echo_slow;
 };
 
 enum { BH_FAULT_RUN_AHEAD = 1, BH_FAULT_EVENT = 2 };
@@ -536,6 +538,21 @@ BL_API int bh_owed(const bl_host *h)
     return h->sent_f - 1 - h->echo_f;
 }
 
+/* A unit that never echoes ^F has said all it was given: the CPU asleep (SLP) while the chip requests its next phoneme,
+   and every byte we sent read (none queued, the serial port's receive register empty).  Mid-utterance the request
+   wakes it at once -- it sleeps between phonemes only until the chip asks -- so asleep through a request means it has
+   masked that interrupt: it is done.  Measured on all 16 such units (the Italian and the Slovak Braille 'n Speak among
+   them), 13 sentences each: at every end within the render block of the last request, mid-utterance never (Tomi,
+   2026-10-19: the second each of their utterances waited for UNANSWERED_S, between NVDA's chunks). */
+static int no_echo_finished(const bl_host *h)
+{
+    bl_probe p;
+    bl_probe_get(h->unit, &p);
+    /* the request as the UNIT sees it (its A/R line): one raised at the end of a run and not yet given to the board
+       is no proof (Astra, Reply 100) */
+    return (p.halted || p.sleeping) && p.ssi_ar && request(h) && p.queued == 0 && !(p.asci_stat & 0x80);
+}
+
 BL_API int bh_busy(const bl_host *h, double quiet, double patience)
 {
     double now = ssi263_time(h->chip);
@@ -561,6 +578,9 @@ BL_API int bh_busy(const bl_host *h, double quiet, double patience)
     }
     if ((now - h->last_speech) < quiet)
         return 1;
+    /* a unit that never echoes: its own end, the moment it comes (no_echo_finished), not UNANSWERED_S later */
+    if (h->no_echo && !h->no_echo_slow && h->last_speech > h->say_time && no_echo_finished(h))
+        return 0;
     /* the firmware is still inside an utterance while the chip plays a phoneme it loaded -- when speech has loaded
        since the last ^F echo (see blazie.py's busy) */
     if (h->last_speech > h->say_time) {
@@ -892,6 +912,7 @@ BL_API int bh_get_int(const bl_host *h, const char *name)
     if (!strcmp(name, "log_writes")) return h->log_on;
     if (!strcmp(name, "line_lift")) return h->lift;
     if (!strcmp(name, "no_echo")) return h->no_echo;
+    if (!strcmp(name, "no_echo_slow")) return h->no_echo_slow;
     if (!strcmp(name, "run_ahead")) return h->ra_on;
     if (!strcmp(name, "run_ahead_state")) return ra_state(&h->ra, h->chip);
     if (!strcmp(name, "run_ahead_end")) return h->ra.end;
@@ -934,6 +955,7 @@ BL_API void bh_set_int(bl_host *h, const char *name, int v)
     else if (!strcmp(name, "turbo_between_lines")) h->turbo_between_lines = v;
     else if (!strcmp(name, "log_writes")) h->log_on = v != 0;
     else if (!strcmp(name, "no_echo")) h->no_echo = v != 0;
+    else if (!strcmp(name, "no_echo_slow")) h->no_echo_slow = v != 0;
     else if (!strcmp(name, "line_lift")) {             /* 1: lift the next line's start; 0: not (bh_cancel too) */
         h->lift = v ? 1 : 0;
         h->lift_r1s = 0;
