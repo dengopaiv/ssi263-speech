@@ -1,6 +1,9 @@
 /* test_catalog.c -- the emulator catalog (emu_catalog.h), headless.
  *
  *   test_catalog FIRMWARE_DIR
+ *   test_catalog FIRMWARE_DIR --list    every unit the shells' menus would offer from FIRMWARE_DIR, one per line:
+ *                                       "unit <key> <present 0|1> <name>" (the packagers' check of what a download's
+ *                                       firmware folder brings: the Braille 'n Speak 640s in firmware/bns640/)
  *
  * 1. The eight units the emulators always had keep their names, keys, saved-state names and settings values (users'
  *    data), in their order, read from FIRMWARE_DIR as the shells do.
@@ -69,8 +72,14 @@ int main(int argc, char **argv)
     static emc_unit u[EMC_MAX];
     char tmp[EMC_PATH], sub[EMC_PATH], hun[EMC_PATH], tur[EMC_PATH], src[EMC_PATH], st[EMC_PATH], err[300], d[600];
     int n, i, k, old = 0, ok;
+    if (argc == 3 && !strcmp(argv[2], "--list")) {
+        n = emc_list(argv[1], u, EMC_MAX);
+        for (i = 0; i < n; i++)
+            printf("unit %s %d %s\n", u[i].key, u[i].present, u[i].name);
+        return 0;
+    }
     if (argc != 2) {
-        fprintf(stderr, "usage: test_catalog FIRMWARE_DIR\n");
+        fprintf(stderr, "usage: test_catalog FIRMWARE_DIR [--list]\n");
         return 2;
     }
     emc_catalog_break = getenv("CATALOG_BREAK") != NULL;

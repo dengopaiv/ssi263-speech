@@ -11,6 +11,10 @@
     firmware/tns/      the Type 'n Speak's two
     firmware/bns2000/  the Braille 'n Speak 2000's, English and Slovak
     firmware/bl2000/   the Braille Lite 2000's language updates (0.8): 17 firmware files and their states
+    firmware/bns640/   the Braille 'n Speak 640's (0.8.5): BSPENG.BNS (June 2003 English), BSPENG_2000.BNS and
+                       BSPPLA.BNS (Greg's September 2000 English and Polish), one folder down where the catalog finds
+                       them; no state: the emulator makes a release unit's factory state on its first start.  In the
+                       downloads only, never an app's
     build-info.json    the version, the commit, every file's sha256
 
 The firmware folder is the person's own (never in the repository), laid out as firmware/blazie: each file is checked
@@ -40,6 +44,17 @@ FIRMWARE = [
     ("tns/TNSENG.TNS", "a317fae688f19bbb"), ("tns/TNSSPA.TNS", "78b2cece30545af3"),
     ("bns2000/BS03ENG.BNS", "9ee0af633beb744c"), ("bns2000/bs03eng_fresh.state", "12112afda9be2809"),
     ("bns2000/BS2SLL.BNS", "8c01c59845b5609c"), ("bns2000/bs2sll_fresh.state", "6818720dc50c5f7d"),
+]
+# the Braille 'n Speak 640 (0.8.5): (its name in the archive's firmware/bns640/, the file in the firmware folder and
+# its sha256's first 16 hex digits, the factory state the tests boot it from and its, the catalog's id, the label,
+# the key-to-sound bound or None).  The state is only the test's: the emulator makes its own on the first start.
+BNS640 = [
+    ("BSPENG.BNS", "bns640/june2003/BSPENG.BNS", "ff0738fe2b041fc6", "bns640/june2003/bspeng_fresh.state",
+     "f9987f05ead89ff8", "bns640_en_2003_06", "Braille 'n Speak 640 English", None),
+    ("BSPENG_2000.BNS", "bns640/issue15/BSPENG.BNS", "ea6d9f069ce4d86f", "bns640/issue15/bspeng_2000_fresh.state",
+     "ada323ad7d97ff38", "bns640_en_2000_09", "Braille 'n Speak 640 English, September 2000", None),
+    ("BSPPLA.BNS", "bns640/issue15/bsppla.bns", "5aca4a6e5da5bbe5", "bns640/issue15/bsppla_fresh.state",
+     "f3cb8f9abbb82246", "bns640_pl_2000_09", "Braille 'n Speak 640 Polish", "480"),
 ]
 # (the unit, firmware, state -- None: the Type 'n Speak, from cold --, key-to-sound bound in ms or None: the test's)
 UNITS = [("English", "BL2ENG.BNS", "bl2_2003_warm.state", None),
@@ -77,6 +92,11 @@ def main():
         if not got.startswith(want):
             fail("%s is not the approved file (sha256 %s..., want %s...)" % (name, got[:16], want))
         approved[name] = got
+    for _, name, want, state, state_want, _, _, _ in BNS640:
+        for f, w in ((name, want), (state, state_want)):
+            got = sha256(os.path.join(fw, f)) if os.path.isfile(os.path.join(fw, f)) else "missing"
+            if not got.startswith(w):
+                fail("%s is not the approved file (sha256 %s..., want %s...)" % (f, got[:16], w))
 
     commit = subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     dirty = subprocess.run(["git", "-C", ROOT, "status", "--porcelain", "--", "src/apps/blazie", "src/csrc"],
@@ -91,6 +111,7 @@ def main():
              ("licenses/MAME-Z180-core-BSD-3-Clause.txt",
               os.path.join(ROOT, "src", "csrc", "cpu", "mame_z180", "LICENSE-BSD-3-Clause.txt"))]
     files += [("firmware/" + name, os.path.join(fw, name)) for name, _ in FIRMWARE]
+    files += [("firmware/bns640/" + arc, os.path.join(fw, name)) for arc, name, _, _, _, _, _, _ in BNS640]
     # the Braille Lite 2000's language updates (0.8): firmware/bl2000/, each file byte for byte the published NVDA
     # add-on's copy (the catalog finds them one folder down, as the Linux archive's share/ssi263-speech/bl2000/)
     addon = os.path.join(ROOT, "nvda", "dist", "ssi263-speech-%s.nvda-addon" % version)
@@ -142,6 +163,21 @@ def main():
             last = (r.stdout.strip().splitlines() or ["(no output)"])[-1]
             print("%s  %s, headless from the archive: %s" % ("ok  " if r.returncode == 0 else "FAIL", label, last))
             ok &= r.returncode == 0
+        # the 640s: the archive's firmware booted from its approved factory state, and the catalog offering each
+        # from the unpacked firmware folder as the program's menu does
+        for arc, _, _, state, _, _, label, bound in BNS640:
+            r = subprocess.run([os.path.join(EMU, "test_emu_unit.exe"), "bl",
+                                os.path.join(tmp, "firmware", "bns640", arc), os.path.join(fw, state)]
+                               + ([bound] if bound else []), capture_output=True, text=True)
+            last = (r.stdout.strip().splitlines() or ["(no output)"])[-1]
+            print("%s  %s, headless from the archive: %s" % ("ok  " if r.returncode == 0 else "FAIL", label, last))
+            ok &= r.returncode == 0
+        listed = subprocess.run([os.path.join(EMU, "test_catalog.exe"), os.path.join(tmp, "firmware"), "--list"],
+                                capture_output=True, text=True).stdout.splitlines()
+        for _, _, _, _, _, key, label, _ in BNS640:
+            there = any(l.startswith("unit %s 1 " % key) for l in listed)
+            print("%s  %s in the emulator's menu from the archive (%s)" % ("ok  " if there else "FAIL", label, key))
+            ok &= there
     print("package: all passed" if ok else "package: FAILED")
     sys.exit(0 if ok else 1)
 

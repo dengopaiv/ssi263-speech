@@ -77,7 +77,11 @@ The firmware is looked for in `firmware_dir` in the settings, else beside the pr
 `../share/ssi263-speech`, a `firmware` folder, or the source tree's `firmware/blazie` (run from `build/linux`); or
 give it: `--firmware DIR`. Either layout works: the repository's (`BL2ENG.BNS`, `spanish/`, `tns/`, `bns2000/`,
 `german/`, `italian/`) or all in one folder (the German and Italian then as the package names them, `Lite2000_de.BNS`
-and `Lite2000_it.BNS`, beside their `lite2000_de_fresh.state` and `lite2000_it_fresh.state`).
+and `Lite2000_it.BNS`, beside their `lite2000_de_fresh.state` and `lite2000_it_fresh.state`). The units of the
+release table, the Braille Lite 2000 language updates (`bl2000/`) and the Braille 'n Speak 640s (`bns640/`, 0.8.5:
+`BSPENG.BNS`, `BSPENG_2000.BNS`, `BSPPLA.BNS` in the download), are found by their contents in the folder or one
+folder down, and each makes its factory state on its first start; `--unit` takes a release's id, such as
+`bns640_en_2003_06`, `bns640_en_2000_09` or `bns640_pl_2000_09`.
 
 **F11 opens the menu** (and Ctrl+O for the Braille Lite; Alt+Shift+F always, as on Windows). Type a number and
 Enter; Enter alone goes back to the unit:

@@ -17,13 +17,19 @@
 #       share/ssi263-speech/bns2000/     the Braille 'n Speak 2000, English and Slovak (Tomi: a preview for Slovak
 #                                        testers, in the emulator archives only, never the full package): exactly
 #                                        the four files below, each checked against the sha256 Tomi approved
+#       share/ssi263-speech/bns640/      the Braille 'n Speak 640 (0.8.5; the emulator downloads only, never an app):
+#                                        BSPENG.BNS (June 2003 English), BSPENG_2000.BNS and BSPPLA.BNS (Greg's
+#                                        September 2000 English and Polish), from BNS640_DIR (default the Braille 'n
+#                                        Speak 2000 folder's sibling bns640/, laid out june2003/ and issue15/), each
+#                                        checked; one folder down, where the catalog finds them; no state: the
+#                                        emulator makes a release unit's factory state on its first start
 #
 # Then: the no-GPL audit, and from a clean folder: --help, a headless Braille Lite, Type 'n Speak and Braille 'n Speak
 # 2000 (bns-en, bns-sk) booted with no --firmware (so bin/../share/ssi263-speech is what finds the firmware), and
 # blazie_files' usage.  Exit 0 only if all hold.  No firmware is in the repository: the Braille 'n Speak 2000 folder
 # is the person's own.
 BNS_DIR="$(cd "${1:?usage: package_emu_linux.sh <Braille 'n Speak 2000 folder> [VERSION] [ARCHNAME]}" && pwd)"
-V="${2:-0.8.0}"; A="${3:-$(uname -m)}"
+V="${2:-0.8.5}"; A="${3:-$(uname -m)}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 export LANG=C.UTF-8 PYTHON_COLORS=0 PYTHONDONTWRITEBYTECODE=1
@@ -32,6 +38,10 @@ NAME="blazie-emu-$V-linux-$A"
 S="build/emu-stage/$NAME"
 # the Braille 'n Speak 2000's files and the first 16 hex digits of the sha256 of each one Tomi approved
 BNS_FILES="BS03ENG.BNS:9ee0af633beb744c bs03eng_fresh.state:12112afda9be2809 BS2SLL.BNS:8c01c59845b5609c bs2sll_fresh.state:6818720dc50c5f7d"
+# the Braille 'n Speak 640's: its file in BNS640_DIR, its name in the archive, its approved sha256's first 16 digits,
+# its release id
+B640="${BNS640_DIR:-$BNS_DIR/../bns640}"
+BNS640_FILES="june2003/BSPENG.BNS:BSPENG.BNS:ff0738fe2b041fc6:bns640_en_2003_06 issue15/BSPENG.BNS:BSPENG_2000.BNS:ea6d9f069ce4d86f:bns640_en_2000_09 issue15/bsppla.bns:BSPPLA.BNS:5aca4a6e5da5bbe5:bns640_pl_2000_09"
 [ -x "$PKG/bin/blazie_emu" ] || { echo "no package stage with bin/blazie_emu at $PKG (tools/package_linux.sh first)"; exit 1; }
 rm -rf build/emu-stage "build/$NAME.tar.gz"; mkdir -p "$S/bin" "$S/licenses" "$S/share/ssi263-speech"
 cp -p "$PKG"/bin/blazie_* "$S/bin/"
@@ -39,7 +49,7 @@ cp -p "$PKG/README-blazie-emu.md" "$PKG/LICENSE" "$S/"
 [ -f "$PKG/README-blazie-bt.md" ] && cp -p "$PKG/README-blazie-bt.md" "$S/"
 cp -p "$PKG/licenses/Casso-MIT.txt" "$PKG/licenses/MAME-Z180-core-BSD-3-Clause.txt" "$S/licenses/"
 # the package's Slovak voice files (0.8: the speech module's flat copies) stay out: the emulator's Braille 'n Speak
-# 2000 is the bns2000/ folder below, and nothing else may hold a Braille 'n Speak image
+# 2000 is the bns2000/ folder below, and nothing else may hold a Braille 'n Speak 2000 image
 (cd "$PKG/share/ssi263-speech" && tar -cf - --exclude=./speech-dispatcher --exclude=./BS2SLL.BNS \
     --exclude=./bs2sll_fresh.state .) | (cd "$S/share/ssi263-speech" && tar -xf -)
 [ -d "$PKG/share/applications" ] && cp -pr "$PKG/share/applications" "$S/share/"
@@ -49,6 +59,13 @@ for fh in $BNS_FILES; do
     got="$(sha256sum "$BNS_DIR/$f" 2>/dev/null | cut -c1-16)"
     [ "$got" = "$want" ] || { echo "FAIL: $f in the Braille 'n Speak 2000 folder: sha256 ${got:-missing}, expected $want..."; exit 1; }
     cp -p "$BNS_DIR/$f" "$S/share/ssi263-speech/bns2000/"
+done
+mkdir -p "$S/share/ssi263-speech/bns640"
+for e in $BNS640_FILES; do
+    f="${e%%:*}"; r="${e#*:}"; arc="${r%%:*}"; r="${r#*:}"; want="${r%%:*}"
+    got="$(sha256sum "$B640/$f" 2>/dev/null | cut -c1-16)"
+    [ "$got" = "$want" ] || { echo "FAIL: $f in the Braille 'n Speak 640 folder: sha256 ${got:-missing}, expected $want..."; exit 1; }
+    cp -p "$B640/$f" "$S/share/ssi263-speech/bns640/$arc"
 done
 (cd build/emu-stage && tar --owner=0 --group=0 -czf "../$NAME.tar.gz" "$NAME") || exit 1
 bad=0
@@ -60,6 +77,11 @@ want="$(for f in BS03ENG.BNS BS2SLL.BNS bs03eng_fresh.state bs2sll_fresh.state; 
     echo "$NAME/share/ssi263-speech/bns2000/$f"; done | sort | tr '\n' ' ')"
 if [ "$got" = "$want" ]; then echo "ok: the Braille 'n Speak 2000's four files, and no other"
 else echo "FAIL: Braille 'n Speak 2000 files: $got (expected $want)"; bad=1; fi
+# the Braille 'n Speak 640: exactly its three files, in share/ssi263-speech/bns640/
+got="$(tar -tzf "build/$NAME.tar.gz" | grep -i -E 'bns640/.' | sort | tr '\n' ' ')"
+want="$(for f in BSPENG.BNS BSPENG_2000.BNS BSPPLA.BNS; do echo "$NAME/share/ssi263-speech/bns640/$f"; done | sort | tr '\n' ' ')"
+if [ "$got" = "$want" ]; then echo "ok: the Braille 'n Speak 640's three files"
+else echo "FAIL: Braille 'n Speak 640 files: $got (expected $want)"; bad=1; fi
 T="$(mktemp -d)"; C="$(mktemp -d)"
 tar -xzf "build/$NAME.tar.gz" -C "$T"
 cd "$T" || exit 1
@@ -92,6 +114,15 @@ for u in bl-de:Lite2000_de.BNS bl-it:Lite2000_it.BNS; do
     echo "exit=$?"; cat lang.txt
     grep -q "^starting $u from .*/$NAME/bin/\\.\\./share/ssi263-speech/lite2000_" lang.txt || bad=1
     awk '$1 == "rms" && $2 == "0.00-6.00" { ok = $NF > 0.01 } END { exit !ok }' lang.txt || bad=1
+done
+# each Braille 'n Speak 640 by its release id: found one folder down, its factory state made on its first start
+for e in $BNS640_FILES; do
+    u="${e##*:}"
+    echo "== boot, Braille 'n Speak 640 $u (no --firmware)"
+    "./$NAME/bin/blazie_emu" --config "$C" --null --rate 22050 --unit $u --seconds 10 --rms 0:6 > b640.txt 2>&1
+    echo "exit=$?"; cat b640.txt
+    grep -q "^starting $u from .*/$NAME/bin/\\.\\./share/ssi263-speech/bns640/" b640.txt || bad=1
+    awk '$1 == "rms" && $2 == "0.00-6.00" { ok = $NF > 0.01 } END { exit !ok }' b640.txt || bad=1
 done
 echo "== blazie_files (no arguments: its usage)"; "./$NAME/bin/blazie_files" > files.txt 2>&1; echo "exit=$?"; head -n 2 files.txt
 grep -q "^usage: blazie_files" files.txt || bad=1

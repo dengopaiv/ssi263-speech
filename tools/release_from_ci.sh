@@ -4,7 +4,7 @@
 # the firmware lives (it never goes to GitHub).  Driven from Git Bash on Windows (gh, git, ssh, scp); the Pi runs this
 # same script's on-pi half.
 #
-#   sh tools/release_from_ci.sh all COMMIT [VERSION]        everything below, in order (VERSION: 0.8.0)
+#   sh tools/release_from_ci.sh all COMMIT [VERSION]        everything below, in order (VERSION: 0.8.5)
 #   sh tools/release_from_ci.sh download COMMIT              the CI run of COMMIT (dispatched on CI_BRANCH, default
 #                                                            main, when there is none), awaited; its two artifacts
 #                                                            into build/ci/<commit>/, their COMMIT checked
@@ -37,7 +37,8 @@
 # commit's tree on the Pi (the commit may predate them); everything that ships is the commit's and CI's.
 #
 # Settings: SSI263_PI (user@host) and SSI263_PI_KEY (its ssh key), or PI and PI_KEY in paths.local.  On the Pi:
-# FIRMWARE (default ~/blazie-firmware, with spanish/, tns/ and bns2000/) and SPEAKOUT (default ~/speakout-firmware).
+# FIRMWARE (default ~/blazie-firmware, with spanish/, tns/, bns2000/ and bns640/ -- june2003/, issue15/: the emulator
+# archives' 640s, 0.8.5) and SPEAKOUT (default ~/speakout-firmware).
 # fetch moves the older files of each architecture and VERSION in DEST into build-<their commit>/ first, and refuses
 # an architecture whose STATUS is not ok unless FORCE=1.
 set -u
@@ -67,14 +68,18 @@ verdict() {                         # $L/STATUS: ok when every step is as it mus
     echo "STATUS $1: $(head -n 1 "$L/STATUS")"
 }
 
-fw_copies() {                       # DIR: DIR/fw-ship (the firmware without bns2000/), DIR/speakout-firmware (beside
-    d="$1"                          # it, where package_linux.sh looks), DIR/bns2000 (the emulator archive's)
+fw_copies() {                       # DIR: DIR/fw-ship (the firmware without bns2000/'s English nor bns640/),
+    d="$1"                          # DIR/speakout-firmware (beside it, where package_linux.sh looks), DIR/bns2000 and
+                                    # DIR/bns640 (the emulator archive's)
     mkdir -p "$d/fw-ship"
     # the English Braille 'n Speak 2000 stays out of the speech package; the Slovak one ships in it (0.8, Tomi)
-    (cd "$FIRMWARE" && tar -cf - --exclude=./bns2000/BS03ENG.BNS --exclude=./bns2000/bs03eng_fresh.state .) \
+    # ... and the Braille 'n Speak 640 only in the emulator archives (0.8.5)
+    (cd "$FIRMWARE" && tar -cf - --exclude=./bns2000/BS03ENG.BNS --exclude=./bns2000/bs03eng_fresh.state \
+        --exclude=./bns640 .) \
         | (cd "$d/fw-ship" && tar -xf -)
     [ -d "$SPEAKOUT" ] && cp -r "$SPEAKOUT" "$d/speakout-firmware"
     cp -r "$FIRMWARE/bns2000" "$d/bns2000"
+    cp -r "$FIRMWARE/bns640" "$d/bns640"
 }
 
 lay_out() {                         # SRC ARTIFACT: the commit's tree, the CI build over it, the release tools over that
@@ -101,8 +106,8 @@ pi_package() {
             --against=nvda/tools/golden/blazie_es.txt
     fi
     step package sh tools/package_linux.sh "$FW_SHIP" "$V"
-    step no_bns2000 sh -c "if tar -tzf build/ssi263-speech-$V-linux-$M.tar.gz | grep -i -E 'bns2000/|bs03eng|bs2eng'; \
-        then exit 1; fi; echo 'no English Braille n Speak 2000 firmware in the package (the Slovak unit ships)'"
+    step no_bns2000 sh -c "if tar -tzf build/ssi263-speech-$V-linux-$M.tar.gz | grep -i -E 'bns2000/|bs03eng|bs2eng|bns640/|bspeng|bsppla'; \
+        then exit 1; fi; echo 'no English Braille n Speak 2000 nor 640 firmware in the package (the Slovak unit ships)'"
     rm -rf dist
     step wheel python3 python/build_wheel.py --lib-dir build/linux --plat "linux_$M" --out dist
     step wheel_shipped python3 python/test_wheel.py dist/ssi263speech-*.whl "$DATA"
@@ -127,12 +132,13 @@ contents() {                        # archive, then kind (full|emu): what must a
             share/ssi263-speech/BS2SLL.BNS share/ssi263-speech/bs2sll_fresh.state"
         # 0.8: the release table's voices (tools/release_voice_files.py: bl2000/<file>, bl2000/<release id>.state)
         for f in $(python3 "$(dirname "$0")/release_voice_files.py"); do need="$need share/ssi263-speech/$f"; done
-        never='bns2000/|bs03eng|bs2eng'
+        never='bns2000/|bs03eng|bs2eng|bns640/|bspeng|bsppla'
     else
         need="bin/blazie_emu bin/blazie_emu_gtk bin/blazie_files bin/blazie_emu_bt bin/blazie_bt README-blazie-bt.md
             share/ssi263-speech/BL2ENG.BNS share/ssi263-speech/tns/TNSENG.TNS share/ssi263-speech/bns2000/BS03ENG.BNS
             share/ssi263-speech/bns2000/bs03eng_fresh.state share/ssi263-speech/bns2000/BS2SLL.BNS
-            share/ssi263-speech/bns2000/bs2sll_fresh.state"
+            share/ssi263-speech/bns2000/bs2sll_fresh.state share/ssi263-speech/bns640/BSPENG.BNS
+            share/ssi263-speech/bns640/BSPENG_2000.BNS share/ssi263-speech/bns640/BSPPLA.BNS"
         never='speech-dispatcher/|bin/sd_ssi263'
     fi
     for f in $need; do echo "$t" | grep -q -E "^[^/]+/$f\$" || miss="$miss $f"; done
@@ -301,7 +307,7 @@ cfg() {                             # KEY: SSI263_KEY, else KEY = value in paths
 }
 C="$(git -C "$REPO" rev-parse "${2:?commit}^{commit}")" || exit 1
 c="$(echo "$C" | cut -c1-7)"
-V="${3:-0.8.0}"
+V="${3:-0.8.5}"
 CI="$REPO/build/ci/$c"
 P="ci-release/$c"                   # on the Pi, under its home
 
