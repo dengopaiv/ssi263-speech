@@ -111,7 +111,41 @@ func confirms(_ label: String, _ file: String, _ words: [String]) {
 confirms("the Hungarian again: a few seconds, replacing the one here", "blazie/bl2000/BL2HUN.BNS",
          ["takes a few seconds.", "The Braille Lite 2000 (Hungarian) firmware already here will be replaced."])
 confirms("the Japanese again: kept for the unit tab", "blazie/bl2000/BL2JPN.BNS",
-         ["kept for the Braille Lite unit tab", "already here will be replaced."])
+         ["for the Blazie Engineering unit tab alone", "already here will be replaced."])
+
+// A Blazie firmware collection zip (FIRMWARE_COLLECTION, paths.local; never in the repository), judged as the app
+// judges it, every folder of it: every Blazie voice and every unit-tab release the table lists from one import,
+// each once, the units no app runs and the programs left out -- and no unit-tab release said to speak.
+if let c = ProcessInfo.processInfo.environment["SSI263_FIRMWARE_COLLECTION"], !c.isEmpty,
+   FileManager.default.fileExists(atPath: c) {
+    do {
+        let plan = try FirmwareInstaller.inspect([URL(fileURLWithPath: c)])
+        let id = NativeIdentify()
+        let rows = (0..<blv_firmware_count()).filter { blv_firmware_language($0) == BLV_FW_NONE }
+        let unitRows = Set(rows.filter { blv_release_voice_key($0) == nil }.map { FirmwareImport.release + Int($0) })
+        let voiceRows = Set(rows.filter { blv_release_voice_key($0) != nil }.map { FirmwareImport.release + Int($0) })
+        let kinds = plan.found.map { $0.kind }
+        let units = kinds.filter { FirmwareImport.isUnitOnly($0, id) }
+        let missing = FirmwareImport.blazie.subtracting(kinds)
+        let ok = plan.refusal == nil && missing.isEmpty && kinds.count == Set(kinds).count
+            && Set(units) == Set(kinds).intersection(unitRows) && Set(units).isSubset(of: unitRows)
+            && !plan.found.contains { $0.from.hasPrefix("programs/") }
+        print("\(ok ? "ok   " : "FAIL ") the firmware collection: \(kinds.count) found, " +
+              "\(kinds.filter { voiceRows.contains($0) }.count) of \(voiceRows.count) language rows, " +
+              "\(units.count) of \(unitRows.count) unit-tab releases; missing \(missing.sorted()); " +
+              "\(plan.notes.count) notes" + (plan.refusal.map { "; refused: " + $0 } ?? ""))
+        let absent = unitRows.subtracting(units).sorted().compactMap { id.release($0 - FirmwareImport.release)?.file }
+        if !absent.isEmpty { print("        unit-tab releases not in it: \(absent.joined(separator: ", "))") }
+        for n in plan.notes { print("        note: \(n)") }
+        print("        the done words: " + FirmwareImport.doneMessage(plan.found, id).prefix(160) + "...")
+        if !ok { failures += 1 }
+    } catch {
+        print("FAIL  the firmware collection: \(error.localizedDescription)")
+        failures += 1
+    }
+} else {
+    print("skip  the firmware collection: FIRMWARE_COLLECTION (paths.local) is not set")
+}
 
 if let d = disks {
     run("the Mockingboard from the toolkit's disk image", ["Sweet Micro Systems Mockingboard Developers toolkit 1984.dsk"],

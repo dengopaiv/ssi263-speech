@@ -18,8 +18,14 @@ from the library (`blv_release_*`, `ssa_release_voice`), never listed in Swift. 
 own locale for its language (hu-HU; Arabic as ar-001, Norwegian as nb-NO, Portuguese as pt-PT beside Brazil's
 pt-BR), and named in English ("Braille Lite 2000 (Russian)", the table's `vname`). The Setup list shows each
 voice's file (`BL2HUN.BNS — not imported`); the languages wait behind "Show all Braille Lite importable languages (17,
-N imported)", imported or not. One import takes them all from the NVDA add-on too (`_ssi263_blazie/bl2000/`). A release no voice speaks yet (the betas, Japanese) is still
-imported, kept under `units/` for the Braille Lite unit tab. Last, after the release voices so no voice before it
+N imported)", imported or not. One import takes them all from the NVDA add-on too (`_ssi263_blazie/bl2000/`). A release no voice speaks yet (the betas, Japanese, the 640s) is still
+imported, kept under `units/` for the Blazie Engineering unit tab; Setup names those behind a button of their own, "Show
+the Blazie Engineering unit screen's units (13, N imported)" (the library's rows with no language and no voice), and
+an import that brings one alone says it is no voice ("Note: this one cannot be used as a voice; it runs on the unit
+screen", `FirmwareImport.doneMessage`, Android's). A zip is read in every folder, each entry by its content alone (an
+archive of one's own, the emulator's download, the firmware collection, the add-on inside any of them); a zip in it
+is opened too, one level, and a zip in that one is named, never dropped in silence. An entry of the source is read up
+to 32 MB (a zip in it), anything else over 4 MB is skipped. Last, after the release voices so no voice before it
 moves (`ssa_engine.h`'s `SSA_SOUNDINGBOARD`, 27 of 28): GW Micro's Sounding Board, the Speak-Out's voice on the
 card's own DOS drivers (`src/csrc/soundingboard`, on the Accent-mini's pc86), imported from `sb.zip`, from the 0.8.5
 add-on (`_ssi263_speakout/`, beside the Speak-Out's HEX) or as its `SBLOAD.COM` and `SB.COM` chosen together (several
@@ -46,9 +52,9 @@ short pauses, numbers, run ahead, line lift, the idle sound, the sample rate), t
 Left out on purpose: Android's built-in Accent SA and Mockingboards (the app carries no firmware), its update check (the
 App Store's), and 44 kHz (the Audio Unit runs at 22050).
 
-## The Braille Lite unit tab
+## The Blazie Engineering unit tab
 
-The app's third tab runs a Blazie unit on the firmware already imported for the voices: one app, no second firmware
+The app's third tab ("Blazie eng. unit" on the tab, the whole name to VoiceOver) runs a Blazie unit on the firmware already imported for the voices: one app, no second firmware
 picker (PR 18's standalone emulator was declined for that). Its units are the emulator's own catalog (`emc_list`,
 src/apps/blazie/emu_catalog.c, the list every emulator shell reads) over the unit folder: the shipped units under
 their flat names and every release on the table by its content, `units/` included -- never a unit without its
@@ -122,7 +128,7 @@ carries no firmware at all (Android's checks, plus Aicom's files). The icon is d
     sh src/platforms/apple/test/test_installer.sh                  the app's import on the real firmware, as the app runs it,
                                                                    then the unit tab's catalog and two units started
     SSI263_UNIT_BREAK=factory sh src/platforms/apple/test/test_installer.sh             control: must FAIL
-    SSI263_IMPORT_BREAK=1|state|speakout|accent|release|soundingboard|export sh .../run_swift_tests.sh   controls
+    SSI263_IMPORT_BREAK=1|unopened|state|speakout|accent|release|soundingboard|export sh .../run_swift_tests.sh   controls
 
 `test_apple_core.py` links Android's host-side program (`test_android_native.c`) against each runnable slice's
 `libssi263core.a`, the library the apps link, and requires every case's samples and PCM hash to be the desktop
@@ -146,11 +152,13 @@ must fail.
   the table's) speaks each request as every voice does.
 
 `run_swift_tests.sh` compiles the app's import (`FirmwareImport.swift`, `ZipReader.swift`) with
-`FirmwareImportTests.swift`: every case of Android's `FirmwareImportTest.kt` (the zip layouts, the add-on, update
-programs, only the releases on the list, never a state, the Speak-Out's HEX, the words), the Accents' files (the
+`FirmwareImportTests.swift`: every case of Android's `FirmwareImportTest.kt` (any folder of a zip, a zip in it and one
+deeper said, the emulator's download and the firmware collection, the add-on, update programs, only the releases on the list, never a state, the Speak-Out's HEX, the words), the Accents' files (the
 Accent add-on's `accent-sa/` ROMs and driver, loose and renamed), each zip form the reader takes (stored, deflated,
 the sizes in a data descriptor), and zips made by `ditto` (Finder's Compress), Info-ZIP's `zip` and Python's
-`zipfile`.
+`zipfile`. `SSI263_IMPORT_BREAK=1` (a zip's top alone) fails 39 of its cases, `=unopened` the zip in a zip.
+`test_installer.sh` also judges a real Blazie firmware collection zip when `FIRMWARE_COLLECTION` (paths.local) names
+one: every Blazie voice and unit-tab release in it, each once, the programs left out.
 
 On the Mac, `test_android_native.py` runs every block but the Accent SA's, whose reference is the NVDA driver on the
 Windows DLLs: `SSI263_ANDROID_TEST_ONLY=bl,ra,num,so,mini,import`.

@@ -27,7 +27,12 @@ struct ContentView: View {
             NavigationStack { VoiceSettingsView() }
                 .tabItem { Label("Voice settings", systemImage: "slider.horizontal.3") }
             NavigationStack { UnitView() }
-                .tabItem { Label("Braille Lite unit", systemImage: "hand.point.up.braille") }
+                // every Blazie Engineering unit, the 640 and the Braille 'n Speak 2000 too (Tomi, 2026-10-18:
+                // "Blazie eng. unit" to see, the whole name to hear)
+                .tabItem {
+                    Label { Text("Blazie eng. unit").accessibilityLabel("Blazie Engineering unit") }
+                        icon: { Image(systemName: "hand.point.up.braille") }
+                }
         }
     }
 }
@@ -40,6 +45,7 @@ struct SetupView: View {
     @State private var confirmRemove = false
     @State private var showLicenses = false
     @State private var allLanguages = false
+    @State private var allUnits = false
     @AppStorage(SsiShared.Key.voice, store: SsiShared.defaults()) private var previewVoice = "accentsa"
     @State private var text = "Hello there. This is SSI-263 Speech, speaking on Apple. You owe 1,234 dollars."
 
@@ -77,6 +83,20 @@ struct SetupView: View {
                         allLanguages.toggle()
                     }
                 }
+                // the releases no voice speaks, for the unit tab alone, behind their own button the same way (Tomi,
+                // 2026-10-18), so an import of a whole collection shows what came in for it
+                if allUnits {
+                    ForEach(model.units) { u in
+                        Text("\(u.name): \(u.bring) — " + (u.label.map { "imported (\($0))" } ?? "not imported"))
+                    }
+                }
+                if !model.units.isEmpty {
+                    let here = model.units.filter { $0.label != nil }.count
+                    Button(allUnits ? "Hide the Blazie Engineering unit screen's units"
+                           : "Show the Blazie Engineering unit screen's units (\(model.units.count), \(here) imported)") {
+                        allUnits.toggle()
+                    }
+                }
             } header: {
                 Text("Voices").accessibilityAddTraits(.isHeader)
             } footer: {
@@ -111,7 +131,8 @@ struct SetupView: View {
             } footer: {
                 Text("Choose firmware files you own, update programs, disk images, or .zip or .nvda-addon packages " +
                      "containing them, one or several at once. Each file is known by its contents, whatever its " +
-                     "name. This device then prepares each Braille Lite unit once: a few seconds for most, about a " +
+                     "name, and a zip may hold any of them in any of its folders, even in a zip inside it, so an " +
+                     "archive of your own imports in one go. This device then prepares each Braille Lite unit once: a few seconds for most, about a " +
                      "minute for Spanish; the others are checked in a moment. The files stay in this app's own " +
                      "storage and never leave this device.")
             }

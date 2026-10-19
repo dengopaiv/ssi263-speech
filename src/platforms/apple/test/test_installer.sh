@@ -17,4 +17,6 @@ xcrun swiftc -O -import-objc-header "$APPLE/shared/BridgingHeader.h" -I "$APPLE/
     "$OUT/main.swift" "$LIB" -lc++
 # the toolkit's disk image, never in the repository: paths.local's MOCKINGBOARD_DISKS (or SSI263_MOCKINGBOARD_DISKS)
 DISKS="${SSI263_MOCKINGBOARD_DISKS:-$( [ -f "$ROOT/paths.local" ] && sed -n 's/^[[:space:]]*MOCKINGBOARD_DISKS[[:space:]]*=[[:space:]]*//p' "$ROOT/paths.local" | tail -1)}"
-"$OUT/installer_tests" "$ROOT" ${DISKS:+"$DISKS"}
+# a Blazie firmware collection zip, never in the repository either: FIRMWARE_COLLECTION (or SSI263_FIRMWARE_COLLECTION)
+SSI263_FIRMWARE_COLLECTION="${SSI263_FIRMWARE_COLLECTION:-$( [ -f "$ROOT/paths.local" ] && sed -n 's/^[[:space:]]*FIRMWARE_COLLECTION[[:space:]]*=[[:space:]]*//p' "$ROOT/paths.local" | tail -1)}" \
+    "$OUT/installer_tests" "$ROOT" ${DISKS:+"$DISKS"}

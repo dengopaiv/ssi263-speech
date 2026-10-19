@@ -30,7 +30,16 @@ final class AppModel: ObservableObject {
         var id: String { voice.key }
     }
 
+    /// A release no voice speaks, kept for the unit tab alone (the Braille 'n Speak 640, Japanese, the betas).
+    struct UnitStatus: Identifiable {
+        let id: String                      // its row's id: units/<id>.BNS
+        let name: String                    // "Braille 'n Speak 640 (English)"
+        let bring: String                   // the file a person brings: BSPENG.BNS
+        let label: String?                  // what was imported, or nil when it is not
+    }
+
     @Published private(set) var voices: [VoiceStatus] = []
+    @Published private(set) var units: [UnitStatus] = []
     @Published private(set) var importing = false
     @Published private(set) var progress = 0.0
     @Published private(set) var step = ""
@@ -52,9 +61,23 @@ final class AppModel: ObservableObject {
 
     func refresh() {
         voices = SsiShared.voices.map { VoiceStatus(voice: $0, label: SsiShared.installed($0) ? (SsiShared.label($0) ?? "imported") : nil) }
+        // the table's releases no voice speaks (Android's nativeUnitReleases), each with what is here of it
+        let dir = SsiShared.unitFolder
+        units = (0..<blv_firmware_count()).filter { blv_firmware_language($0) == BLV_FW_NONE
+                                                    && blv_release_voice_key($0) == nil }.compactMap { k in
+            guard let id = blv_release_id(k).map({ String(cString: $0) }) else { return nil }
+            let name = blv_release_name(k).map { String(cString: $0) } ?? id
+            let file = dir?.appendingPathComponent("units/\(id).BNS")
+            let here = file.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+            let label = here ? ((try? String(contentsOf: file!.appendingPathExtension("label"), encoding: .utf8))
+                                ?? name) : nil
+            return UnitStatus(id: id, name: name, bring: blv_release_file(k).map { String(cString: $0) } ?? "",
+                              label: label)
+        }
     }
 
-    var anyInstalled: Bool { voices.contains { $0.label != nil } }
+    /// Anything imported: a voice's firmware, or a unit's for the unit tab alone (Remove then has something to do).
+    var anyInstalled: Bool { voices.contains { $0.label != nil } || units.contains { $0.label != nil } }
 
     // ---- the import ------------------------------------------------------------------------------------------------
 
@@ -104,10 +127,11 @@ final class AppModel: ObservableObject {
                 self.job = nil
                 self.importing = false
                 switch result {
-                case .success(let labels):
+                case .success:
                     Registration.firmwareChanged()
                     self.refresh()
-                    var words = "Imported \(Self.and(labels)). The voice speaks now."
+                    // the voices that speak now, and a unit for the unit tab alone said to be no voice
+                    var words = FirmwareImport.doneMessage(plan.found, NativeIdentify())
                     if !plan.notes.isEmpty { words += " " + plan.notes.joined(separator: " ") }
                     if self.voices.contains(where: { $0.voice.key == "accentsa" && $0.label == nil })
                         && plan.found.contains(where: { FirmwareImport.accentRoms.contains($0.kind) }) {
@@ -137,12 +161,6 @@ final class AppModel: ObservableObject {
             finish("Not imported.")
             if let s = SsiShared.stagingFolder { try? FileManager.default.removeItem(at: s) }
         }
-    }
-
-    /// "A", "A and B", "A, B and C".
-    private static func and(_ items: [String]) -> String {
-        items.count < 3 ? items.joined(separator: " and ")
-            : items.dropLast().joined(separator: ", ") + " and " + items.last!
     }
 
     private func update(progress p: Double, step s: String) {

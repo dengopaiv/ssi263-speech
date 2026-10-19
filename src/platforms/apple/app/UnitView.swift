@@ -1,4 +1,4 @@
-// UnitView.swift -- the Braille Lite unit tab: run a Blazie unit on the firmware already imported for the voices
+// UnitView.swift -- the Blazie Engineering unit tab: run a Blazie unit on the firmware already imported for the voices
 // (Setup's), from a Mac's or a Bluetooth keyboard -- the unit, its braille field, its sound's settings.  Built for
 // VoiceOver first: the field is one element holding the display, the steps are announced.  MIT.
 
@@ -113,7 +113,7 @@ struct UnitView: View {
                 }
             }
         }
-        .navigationTitle("Braille Lite unit")
+        .navigationTitle("Blazie Engineering unit")
         .fileImporter(isPresented: $picking, allowedContentTypes: Self.types, allowsMultipleSelection: true) { r in
             if case .success(let urls) = r { model.load(urls) }
         }

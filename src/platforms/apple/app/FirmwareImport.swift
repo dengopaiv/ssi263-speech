@@ -67,6 +67,7 @@ enum FirmwareImport {
     static let stateSize = 786432           // battery-backed RAM + file flash: every state bl_save_state writes
     static let maxSource = 64 << 20         // an add-on is a few megabytes; firmware a few hundred kilobytes
     static let maxEntry = 4 << 20           // an update program is half a megabyte
+    static let maxInner = 32 << 20          // a zip in the source: the add-on (5.5 MB in 0.8.0), anyone's own archive
 
     static let noFirmwareZip = "This zip does not contain Braille Lite, Braille 'n Speak, Speak-Out, Sounding Board, " +
         "Mockingboard or Accent firmware."
@@ -86,11 +87,17 @@ enum FirmwareImport {
         "Toolkit disk, as its image (.dsk, .do or .po), or the mockingboard-tts-1.1.bin made from it; for the early " +
         "Mockingboard, your own copy of Mockingboard disk 1, or the mockingboard-tts-early.bin made from it. For " +
         "the Accents: Aicom's u2.BIN, u3.BIN and u4.BIN for the Accent SA and SPKEMS.DVC for the Accent-mini. A " +
-        ".zip or .nvda-addon package containing them works too."
+        ".zip or .nvda-addon package containing them works too, with them in any of its folders."
+    /// A zip inside a zip in the source: the import opens one level of zips, so its firmware is not looked at.
+    static func unopened(_ what: String) -> String {
+        "\(what): a zip inside a zip in this one, which the import does not open, so it is left out; unzip it once, " +
+            "and import it or the zip around it again."
+    }
     static let onlyTheHex = "Only GW Micro's SPEAKOUT.HEX, as it came, can be imported for the Speak-Out."
 
     /// The host-side tests' controls (SSI263_IMPORT_BREAK; never set in the app): `1` looks at a zip's top only -- no
-    /// folder down, no add-on layout -- so the layout tests must fail; `state` stops knowing a state file;
+    /// folder below it -- so the folder tests must fail; `unopened` drops a zip inside a zip in the source in silence;
+    /// `state` stops knowing a state file;
     /// `speakout` drops what the native side says is the Speak-Out's; `mockingboard` both Mockingboards'; `accent`
     /// drops Aicom's files; `release` the releases with no shipped voice; `soundingboard` the Sounding Board's two
     /// drivers.
@@ -179,6 +186,37 @@ enum FirmwareImport {
         var notes: [String] = []
     }
 
+    /// A release kept for the unit tab alone: one no voice speaks (the Braille 'n Speak 640, Japanese, the betas).
+    static func isUnitOnly(_ kind: Int, _ id: Identify) -> Bool {
+        isRelease(kind) && (id.release(kind - release)?.voice ?? -1) < 0
+    }
+
+    /// What a finished import says: the voices that speak now, and the units kept for the unit tab alone said to be
+    /// no voice (Tomi, 2026-10-18: a Braille 'n Speak 640 imported alone is "not a voice", never "the voice speaks
+    /// now").  Android's doneMessage.
+    static func doneMessage(_ found: [Found], _ id: Identify) -> String {
+        let voices = found.filter { !isUnitOnly($0.kind, id) }.map { $0.label }
+        let units = found.filter { isUnitOnly($0.kind, id) }.map { $0.label }
+        var said: [String] = []
+        if !voices.isEmpty {
+            said.append("Imported \(and(voices)). " + (voices.count == 1 ? "The voice speaks now."
+                                                                          : "The voices speak now."))
+        }
+        if !units.isEmpty {
+            said.append((voices.isEmpty ? "Imported " : "Also imported ") + and(units) + " for the Blazie " +
+                "Engineering unit screen. " + (units.count == 1
+                    ? "Note: this one cannot be used as a voice; it runs on the unit screen."
+                    : "Note: these cannot be used as voices; they run on the unit screen."))
+        }
+        return said.joined(separator: " ")
+    }
+
+    /// "A", "A and B", "A, B and C".
+    static func and(_ items: [String]) -> String {
+        items.count < 3 ? items.joined(separator: " and ")
+            : items.dropLast().joined(separator: ", ") + " and " + items.last!
+    }
+
     /// Everything a source's bytes hold, judged into `staging` (emptied first).
     static func inspect(name: String, data: Data, staging: URL, id: Identify) -> Plan {
         let fm = FileManager.default
@@ -237,7 +275,7 @@ enum FirmwareImport {
         var otherHex: [(String, String)] = []     // where, and the native side's reason
         var withReason: [(String, String)] = []   // ... the Mockingboard's in a copy without it, another disk image
         var states: [String] = []
-        var deep: [String] = []
+        var unopened: [String] = []               // a zip inside a zip inside the source
         private var n = 0
 
         init(staging: URL, id: Identify) {
@@ -275,35 +313,35 @@ enum FirmwareImport {
             return true
         }
 
-        /// The zip's entries at its top, one folder down, and where the NVDA add-ons keep their units' files
-        /// (synthDrivers/_ssi263_<name>/, and the Accent SA's ROMs one folder further, accent-sa/).
+        /// Every entry of the zip, in whatever folders it sits (Tomi, 2026-10-18: anyone's own archive --
+        /// gwmicro/sb.zip, blazie/braille-lite/BL2ENG.BNS -- imports as the add-on and the emulator's download do),
+        /// each judged by its content alone, never by its name or its folder; a zip in it is opened too, one level.
         func zip(name: String, data: Data, at: Int, nested: Bool) throws {
             var zip = ZipReader(data, start: at)
             do {
-                while let (e, bytes) = try zip.next(cap: maxEntry) {
+                // a zip in it may be as big as the add-on (5.5 MB); nothing else that big is firmware
+                while let (e, bytes) = try zip.next(cap: nested ? maxEntry : maxInner) {
                     if e.isDirectory { continue }
                     let path = e.name.replacingOccurrences(of: "\\", with: "/")
                         .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                     let parts = path.split(separator: "/").map(String.init)
                     if parts.isEmpty || parts.contains("__MACOSX") { continue }
-                    // the NVDA add-ons' synthDrivers/_ssi263_<unit>/..., and the unified 0.8 add-on's
-                    // synthDrivers/_ssi263_unified/_ssi263_<unit>/... (the Accent SA's ROMs one folder further)
-                    let addon = (3...5).contains(parts.count) && parts[0].lowercased() == "synthdrivers"
-                        && parts[1].lowercased().hasPrefix("_ssi263_")
-                    let tooDeep = control == "1" ? parts.count > 1 : parts.count > 2 && !addon
-                    if tooDeep {
-                        let last = parts.last!.lowercased()
-                        if [".bns", ".exe", ".hex", ".bin", ".dvc", ".dsk", ".do", ".po"]
-                            .contains(where: { last.hasSuffix($0) }) {
-                            deep.append(path)
-                        }
-                        continue
-                    }
+                    if control == "1" && parts.count > 1 { continue }       // the control: the zip's top alone
                     guard let bytes = bytes else { continue }
                     let from = nested ? "\(name), \(path)" : path
+                    let inner = ZipReader.isZip(bytes, at: 0)
+                    if bytes.count > maxEntry && !inner { continue }
                     if isState(bytes) { states.append(from); continue }
-                    if !judge(from: from, bytes: bytes) && !nested, let s = ZipReader.zipStart(bytes) {
-                        try? self.zip(name: path, data: bytes, at: s, nested: true)
+                    // a zip is opened, not judged whole; an update program is judged, then opened when it holds no
+                    // firmware itself (a zip behind its own code)
+                    if inner || !judge(from: from, bytes: bytes), let s = ZipReader.zipStart(bytes) {
+                        if !nested {
+                            // anything an open throws means the bytes only looked like a zip (the collection's
+                            // unzip.BNS, Blazie's unzip program): what it gave before is kept
+                            try? self.zip(name: path, data: bytes, at: s, nested: true)
+                        } else if control != "unopened" {
+                            unopened.append(from)                           // the control: in silence again
+                        }
                     }
                 }
             } catch {
@@ -363,9 +401,13 @@ enum FirmwareImport {
                     "firmware, and \(one ? "is" : "are") not used: this device prepares the unit's state itself " +
                     "from the firmware.")
             }
+            // a zip inside a zip in the source, beside what was taken: said, never dropped in silence
+            if !found.isEmpty && !unopened.isEmpty {
+                notes.append(FirmwareImport.unopened(unopened.joined(separator: ", ")))
+            }
             if !found.isEmpty { return Plan(found: found, refusal: nil, notes: notes) }
 
-            if !states.isEmpty && unknown.isEmpty && refused.isEmpty && deep.isEmpty && otherHex.isEmpty
+            if !states.isEmpty && unknown.isEmpty && refused.isEmpty && unopened.isEmpty && otherHex.isEmpty
                 && withReason.isEmpty {
                 let what = states.count == 1 ? "a state file (\(states[0]))"
                     : "state files (\(states.joined(separator: ", ")))"
@@ -392,10 +434,7 @@ enum FirmwareImport {
                 refusal += " \(states.joined(separator: ", ")): a state file, not firmware; this device makes the " +
                     "unit's state itself."
             }
-            if let d = deep.first {
-                refusal += " Firmware is looked for only at the top of the zip and one folder down; \(d) is deeper " +
-                    "than that."
-            }
+            if !unopened.isEmpty { refusal += " " + FirmwareImport.unopened(unopened.joined(separator: ", ")) }
             return Plan(found: [], refusal: refusal + " " + whatToChoose)
         }
     }

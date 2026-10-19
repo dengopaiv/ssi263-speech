@@ -130,7 +130,8 @@ enum FirmwareInstaller {
             } else if FirmwareImport.blazie.contains(f.kind) || isReleaseVoice(f.kind) {
                 s += "The unit is then prepared on this device, which takes a few seconds."
             } else if FirmwareImport.isRelease(f.kind) {
-                s += "It is kept for the Braille Lite unit tab, which prepares it on its first start."
+                s += "It is for the Blazie Engineering unit tab alone: no voice speaks it yet, so it is kept for " +
+                    "the unit tab, which prepares it on its first start."
             } else {
                 s += "It is then checked on this device, which takes a moment."
             }

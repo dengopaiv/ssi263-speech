@@ -6,7 +6,7 @@
 // real judgement has its own tests on the real files (test_apple_speech.py, test_android_native.py).
 //
 //     sh src/platforms/apple/test/run_swift_tests.sh                      every case
-//     SSI263_IMPORT_BREAK=1|state|speakout|accent|release sh .../run_swift_tests.sh   the controls: each must FAIL
+//     SSI263_IMPORT_BREAK=1|unopened|state|speakout|accent|release sh .../run_swift_tests.sh   the controls: each must FAIL
 
 import Compression
 import Foundation
@@ -280,11 +280,12 @@ test("aZipWithNoFirmwareSaysSo") {
     check(plan.refusal?.hasPrefix(FirmwareImport.noFirmwareZip) == true, plan.refusal ?? "nil")
 }
 
-test("firmwareTwoFoldersDownIsNotLookedForButNamed") {
-    let plan = inspect("deep.zip", zip([("backup/blt2000/BL2ENG.BNS", bns("E"))]))
-    eq(plan.found.count, 0)
-    check(plan.refusal?.hasPrefix(FirmwareImport.noFirmwareZip) == true, plan.refusal ?? "nil")
-    check(plan.refusal?.contains("backup/blt2000/BL2ENG.BNS is deeper than that") == true, plan.refusal ?? "nil")
+test("firmwareInAnyFolderIsFound") {
+    // judged by its content, never by its folder (Tomi, 2026-10-18: anyone's own archive imports)
+    let plan = inspect("deep.zip", zip([("backup/2001/blt2000/disk1/BL2ENG.BNS", bns("E"))]))
+    eq(plan.refusal, nil)
+    eq(kinds(plan), [E])
+    eq(plan.found.first?.from, "backup/2001/blt2000/disk1/BL2ENG.BNS")
 }
 
 test("namesDoNotMatterContentDoes") {
@@ -469,10 +470,8 @@ test("aDamagedHexBesideFirmwareIsLeftOut") {
         "left out."])
 }
 
-test("aHexTwoFoldersDownIsNamed") {
-    let plan = inspect("deep.zip", zip([("backup/speakout/SPEAKOUT.HEX", hex(true))]))
-    eq(plan.found.count, 0)
-    check(plan.refusal?.contains("backup/speakout/SPEAKOUT.HEX is deeper than that") == true, plan.refusal ?? "nil")
+test("aHexTwoFoldersDownIsFound") {
+    eq(kinds(inspect("deep.zip", zip([("backup/speakout/SPEAKOUT.HEX", hex(true))]))), [SO])
 }
 
 test("aStateBesideTheHexIsNotUsed") {
@@ -501,11 +500,8 @@ test("theMockingboardFileOneFolderDownBesideTheOthers") {
     eq(plan.found.count > 2 ? plan.found[2].from : "", "mockingboard/mockingboard-tts-1.1.bin")
 }
 
-test("theMockingboardFileTwoFoldersDownIsNamed") {
-    let plan = inspect("deep.zip", zip([("backup/mockingboard/mockingboard-tts-1.1.bin", mockingboardFile)]))
-    eq(plan.found.count, 0)
-    check(plan.refusal?.contains("backup/mockingboard/mockingboard-tts-1.1.bin is deeper than that") == true,
-          plan.refusal ?? "nil")
+test("theMockingboardFileTwoFoldersDownIsFound") {
+    eq(kinds(inspect("deep.zip", zip([("backup/mockingboard/mockingboard-tts-1.1.bin", mockingboardFile)]))), [MB])
 }
 
 test("theToolkitDiskGivesTheFile") {
@@ -521,10 +517,8 @@ test("theToolkitDiskInAZip") {
     eq(plan.found.first?.from, "apple/toolkit.dsk")
 }
 
-test("aDiskTwoFoldersDownIsNamed") {
-    let plan = inspect("deep.zip", zip([("backup/apple/toolkit.po", disk(true))]))
-    eq(plan.found.count, 0)
-    check(plan.refusal?.contains("backup/apple/toolkit.po is deeper than that") == true, plan.refusal ?? "nil")
+test("aDiskTwoFoldersDownIsFound") {
+    eq(kinds(inspect("deep.zip", zip([("backup/apple/toolkit.po", disk(true))]))), [MB])
 }
 
 test("anotherDiskIsRefusedAndSaysWhy") {
@@ -712,10 +706,8 @@ test("everyUnitInOneZip") {
     eq(kinds(plan), [E, S, SO] + SA + [FirmwareImport.accentMini])
 }
 
-test("aRomTwoFoldersDownOutsideAnAddOnIsNamed") {
-    let plan = inspect("deep.zip", zip([("backup/accent/u2.BIN", aicom("u2"))]))
-    eq(plan.found.count, 0)
-    check(plan.refusal?.contains("backup/accent/u2.BIN is deeper than that") == true, plan.refusal ?? "nil")
+test("aRomTwoFoldersDownOutsideAnAddOnIsFound") {
+    eq(kinds(inspect("deep.zip", zip([("backup/accent/u2.BIN", aicom("u2"))]))), [FirmwareImport.accentU2])
 }
 
 // ---- zips the real tools make: Finder's Compress (ditto), Info-ZIP's zip, Python's zipfile (NVDA's add-ons) ----
@@ -835,6 +827,129 @@ test("theSoundingBoardIsNamedForTheFilesToBring") {
     check(FirmwareImport.order.contains(SB), "the order has no Sounding Board")
     eq(FirmwareImport.partFiles[SB], ["SBLOAD.COM", "SB.COM"])
     eq(FirmwareImport.files[SB], "SBLOAD.COM")
+}
+
+// ---- any folder of a zip, and a zip in it (Android's 0.8.5 import, 2026-10-18) ------------------------------------
+
+let DE2 = FirmwareImport.german, SK2 = FirmwareImport.slovak
+
+test("theEmulatorDownloadBringsEveryUnitItCarries") {
+    // blazie-emu-0.8.0-windows.zip as it is: the program beside firmware/, each unit's files in it or below it (the
+    // 640 three folders down; the fake's unit-tab-only release, J, plays it)
+    let plan = inspect("blazie-emu-0.8.0-windows.zip", zip([("blazie_emu.exe", bytes("MZ") + Data(count: 900)),
+        ("firmware/BL2ENG.BNS", bns("E")), ("firmware/bl2_2003_warm.state", state()),
+        ("firmware/spanish/BL2SPA.BNS", bns("S")), ("firmware/german/Lite2000.BNS", bns("G")),
+        ("firmware/bl2000/BL2HUN.BNS", bns("H")), ("firmware/bns2000/BS2SLL.BNS", bns("K")),
+        ("firmware/bns640/june2003/BSPENG.BNS", bns("J"))]))
+    eq(plan.refusal, nil)
+    eq(Set(kinds(plan)), Set([E, S, DE2, SK2, HU, JA]))
+    // the same folder one level down (a zip someone made of the download's folder), and deeper still
+    eq(kinds(inspect("emu.zip", zip([("blazie-emu-0.8.0-windows/firmware/spanish/BL2SPA.BNS", bns("S"))]))), [S])
+    eq(kinds(inspect("deep.zip", zip([("firmware/a/b/c/d/BL2SPA.BNS", bns("S"))]))), [S])
+}
+
+test("theFirmwareCollectionBringsEveryUnitAndKnowsItsArchive") {
+    // blazie-firmware-collection-<date>.zip: the emulator's folder under another name, and system/ with every release
+    // of every unit -- the same release twice is one, another release is said, a unit no app runs and a program are
+    // not firmware to take
+    let plan = inspect("blazie-firmware-collection-2026-10-18.zip", zip([("README.txt", bytes("text")),
+        ("emulator-firmware-folder/BL2ENG.BNS", bns("E")), ("emulator-firmware-folder/bl2_2003_warm.state", state()),
+        ("emulator-firmware-folder/spanish/BL2SPA.BNS", bns("S")),
+        ("emulator-firmware-folder/bl2000/BL2HUN.BNS", bns("H")),
+        ("emulator-firmware-folder/bns640/june2003/BSPENG.BNS", bns("J")),
+        ("system/BL2 Braille Lite 2000/BL2ENG_a55455eb.BNS", bns("E")),
+        ("system/BL2 Braille Lite 2000/BL2ENG_a4d13165.BNS", bns("e")),
+        ("system/BL4 Braille Lite 40/BL4ENG-1.BNS", bns("T")),
+        ("system/BSP Braille n Speak 640/BSPENG_ff0738fe.BNS", bns("J")),
+        ("programs/ADDCAL.BNS", Data(repeating: 0x18, count: 4000))]))
+    eq(plan.refusal, nil)
+    eq(Set(kinds(plan)), Set([E, S, HU, JA]))
+    eq(plan.found.count, 4)
+    eq(plan.found.first { $0.kind == E }?.from, "emulator-firmware-folder/BL2ENG.BNS")
+    check(plan.notes.contains { $0.hasPrefix("system/BL2 Braille Lite 2000/BL2ENG_a4d13165.BNS is another English " +
+                                             "release") }, "\(plan.notes)")
+    check(!plan.notes.contains { $0.contains("a55455eb") }, "\(plan.notes)")
+}
+
+test("anArchiveOfOnesOwnFoldersBringsEverySynth") {
+    // Tomi, 2026-10-18: "top-level folders for each synth name: one gwmicro/sb.zip, gwmicro/speakout.hex and so on"
+    // -- any folders, any names, zips in it opened; the add-on in it too, bigger than any firmware
+    var g = SystemRandomNumberGenerator()
+    let noise = Data((0..<(5 << 20)).map { _ in UInt8.random(in: 0...255, using: &g) })
+    let plan = inspect("my-synths.zip", zip([
+        ("synths/gwmicro/sb.zip", zip([("SBLOAD.COM", sbLoad), ("SB.COM", sbCom), ("README.DOC", bytes("x"))])),
+        ("synths/gwmicro/speakout.hex", hex(true)),
+        ("synths/blazie/braille lite 2000/english/BL2ENG.BNS", bns("E")),
+        ("synths/sweet micro/disks/toolkit.dsk", disk(true)),
+        ("synths/aicom/roms/u3.BIN", aicom("u3")),
+        ("add-ons/ssi263-speech-0.8.5.nvda-addon", zip([
+            ("synthDrivers/_ssi263_unified/_ssi263_blazie/bl2000/BL2HUN.BNS", bns("H")), ("noise.bin", noise)],
+            style: .stored)),
+        ("photos/cat.jpg", noise + noise.prefix(1 << 20))], style: .stored))
+    eq(plan.refusal, nil)
+    eq(Set(kinds(plan)), Set([E, SO, MB, SB, FirmwareImport.accentU3, HU]))
+    eq(plan.found.first { $0.kind == SB }?.from, "synths/gwmicro/sb.zip, SBLOAD.COM and synths/gwmicro/sb.zip, SB.COM")
+    eq(plan.found.first { $0.kind == HU }?.from, "add-ons/ssi263-speech-0.8.5.nvda-addon, synthDrivers/" +
+        "_ssi263_unified/_ssi263_blazie/bl2000/BL2HUN.BNS")
+    eq(plan.notes, [])
+}
+
+test("aUnitImportedAloneIsSaidToBeNoVoice") {
+    // Tomi, 2026-10-18: a Braille 'n Speak 640 alone is "not a voice", never "the voice speaks now"
+    eq(FirmwareImport.doneMessage(inspect("BSPENG.BNS", bns("J")).found, Fake()), "Imported Braille Lite Japanese " +
+        "for the Blazie Engineering unit screen. Note: this one cannot be used as a voice; it runs on the unit screen.")
+    // beside a voice: the voice speaks, the unit is said apart
+    let both = FirmwareImport.doneMessage(inspect("both.zip", zip([("BL2ENG.BNS", bns("E")),
+                                                                  ("BSPENG.BNS", bns("J"))])).found, Fake())
+    check(both.hasPrefix("Imported English June 2003. The voice speaks now. Also imported Braille Lite Japanese " +
+                         "for the Blazie Engineering unit screen. Note: this one cannot"), both)
+    eq(FirmwareImport.doneMessage(inspect("BL2ENG.BNS", bns("E")).found, Fake()),
+       "Imported English June 2003. The voice speaks now.")
+    // a release voice speaks: it is no unit-tab-only release
+    eq(FirmwareImport.doneMessage(inspect("two.zip", zip([("BL2ENG.BNS", bns("E")),
+                                                          ("BL2HUN.BNS", bns("H"))])).found, Fake()),
+       "Imported English June 2003 and Braille Lite Hungarian. The voices speak now.")
+}
+
+test("aProgramThatOnlyLooksLikeAZipIsNotFirmware") {
+    // the collection's programs/unzip.BNS (found on Tomi's Android phone, 2026-10-18): Blazie's unzip program carries
+    // a zip signature with a name that is no text; on Android opening it threw past the import
+    let header = Data([0x50, 0x4B, 3, 4, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0,
+                       0, 0xC3, 0x28, 0xFF])
+    let utf8 = Data([0x50, 0x4B, 3, 4, 20, 0, 0, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0,
+                     0, 0xC3, 0x28, 0xFF])      // ... and with the UTF-8 flag, deflated, its data no deflate stream
+    for h in [header, utf8] {
+        let unzip = Data(repeating: 0x18, count: 5000) + h + Data(count: 200)
+        let plan = inspect("collection.zip", zip([("emulator-firmware-folder/BL2ENG.BNS", bns("E")),
+                                                  ("programs/unzip.BNS", unzip)]))
+        eq(plan.refusal, nil)
+        eq(kinds(plan), [E])
+        // ... and alone: no firmware, said in words
+        let alone = inspect("unzip.zip", zip([("unzip.BNS", unzip)]))
+        check(alone.refusal?.hasPrefix(FirmwareImport.noFirmwareZip) == true, alone.refusal ?? "nil")
+        // ... and as the source itself, and as a source that is such a header alone
+        check(inspect("unzip.BNS", unzip).refusal?.hasPrefix(FirmwareImport.noFirmwareFile) == true, "unzip.BNS")
+        check(inspect("odd.zip", h + Data(count: 200)).refusal != nil, "odd.zip")
+    }
+}
+
+test("aZipInAZipInTheSourceIsSaid") {
+    // the import opens one level of zips; a deeper one is named, never dropped in silence (its control: unopened)
+    let plan = inspect("outer.zip", zip([("BL2ENG.BNS", bns("E")),
+        ("backup.zip", zip([("old/inner.zip", zip([("BL2SPA.BNS", bns("S"))]))]))]))
+    eq(kinds(plan), [E])
+    check(plan.notes.contains { $0.hasPrefix("backup.zip, old/inner.zip: a zip inside a zip") }, "\(plan.notes)")
+    // ... and alone, in the refusal
+    let alone = inspect("outer.zip", zip([("backup.zip", zip([("inner.zip", zip([("BL2SPA.BNS", bns("S"))]))]))]))
+    check(alone.refusal?.contains("backup.zip, inner.zip: a zip inside a zip") == true, alone.refusal ?? "nil")
+}
+
+test("anEntryOverFourMegabytesThatIsNoZipIsSkipped") {
+    // nothing that big is firmware: skipped without a word, however its bytes look
+    let big = bns("S") + Data(count: 5 << 20)
+    let plan = inspect("big.zip", zip([("BL2ENG.BNS", bns("E")), ("big/BL2SPA.BNS", big)], style: .stored))
+    eq(kinds(plan), [E])
+    eq(plan.notes, [])
 }
 
 // ---- Export to WAV (WavExport.swift): Android's WavExportTest.kt ---------------------------------------------------
