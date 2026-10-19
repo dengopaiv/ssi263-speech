@@ -695,6 +695,22 @@ class FirmwareImportTest {
         assertTrue(plan.notes.toString(), plan.notes.isEmpty())
     }
 
+    @Test fun aProgramThatOnlyLooksLikeAZipIsNotFirmware() {
+        // the collection's programs/unzip.BNS (found on Tomi's phone, 2026-10-18): Blazie's unzip program carries a zip
+        // signature with a name that is no text; opening it threw past the import, and the whole zip "could not be
+        // read", its message the program's bytes
+        val header = byteArrayOf(0x50, 0x4B, 3, 4, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            3, 0, 0, 0) + byteArrayOf(0xC3.toByte(), 0x28, 0xFF.toByte())
+        val unzip = ByteArray(5000) { 0x18 } + header + ByteArray(200)
+        val plan = inspect("collection.zip", zip("emulator-firmware-folder/BL2ENG.BNS" to bns('E'),
+            "programs/unzip.BNS" to unzip))
+        assertNull(plan.refusal)
+        assertEquals(listOf(FirmwareImport.ENGLISH), languages(plan))
+        // ... and alone: no firmware, said in words
+        val alone = inspect("unzip.zip", zip("unzip.BNS" to unzip))
+        assertTrue(alone.refusal!!, alone.refusal!!.startsWith(FirmwareImport.NO_FIRMWARE_ZIP))
+    }
+
     @Test fun aZipInAZipInTheSourceIsSaid() {
         // the import opens one level of zips; a deeper one is named, never dropped in silence (its control: unopened)
         val plan = inspect("outer.zip", zip("BL2ENG.BNS" to bns('E'),

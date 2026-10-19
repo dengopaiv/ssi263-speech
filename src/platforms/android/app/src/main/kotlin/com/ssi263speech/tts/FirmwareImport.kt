@@ -283,6 +283,11 @@ object FirmwareImport {
                 }
             } catch (e: IOException) {
                 if (!nested) throw e
+            } catch (e: RuntimeException) {
+                // an entry's name that is no text (IllegalArgumentException): within a file, bytes that only looked
+                // like a zip (the collection's unzip.BNS, Blazie's unzip program); the source itself, a damaged zip --
+                // said in words, never with its bytes as the reason
+                if (!nested) throw IOException("it is a damaged zip: a file name in it cannot be read")
             }
         }
 
